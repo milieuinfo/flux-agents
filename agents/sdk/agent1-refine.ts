@@ -8,6 +8,7 @@
  * Usage:
  *   tsx agents/sdk/agent1-refine.ts <sprintId>
  *   tsx agents/sdk/agent1-refine.ts --jql "sprint = 42 AND project = FLUX"
+ *   tsx agents/sdk/agent1-refine.ts <label> --tickets FLUX-123,FLUX-124
  *
  * Idempotent: hergebruikt bestaande markdowns als de Jira content niet
  * is veranderd sinds de vorige run. Bij wijzigingen wordt een
@@ -27,6 +28,7 @@ config();
 interface CliArgs {
   sprintId?: string;
   jql?: string;
+  tickets?: string[];
   dryRun: boolean;
 }
 
@@ -38,6 +40,11 @@ function parseArgs(): CliArgs {
     const a = argv[i];
     if (a === '--jql') {
       args.jql = argv[++i];
+    } else if (a === '--tickets') {
+      args.tickets = argv[++i]
+        .split(',')
+        .map((k) => k.trim())
+        .filter(Boolean);
     } else if (a === '--dry-run') {
       args.dryRun = true;
     } else if (!a.startsWith('--')) {
@@ -45,10 +52,23 @@ function parseArgs(): CliArgs {
     }
   }
 
-  if (!args.sprintId && !args.jql) {
-    console.error('Usage: refine <sprintId> | --jql "<jql query>"');
+  if (args.jql && args.tickets) {
+    console.error('Use either --jql or --tickets, not both.');
     process.exit(1);
   }
+
+  if (!args.sprintId && !args.jql && !args.tickets) {
+    console.error(
+      'Usage: refine <sprintId> | --jql "<jql query>" | [<label>] --tickets KEY-1,KEY-2',
+    );
+    process.exit(1);
+  }
+
+  if (args.tickets && args.tickets.length === 0) {
+    console.error('--tickets requires at least one ticket key');
+    process.exit(1);
+  }
+
   return args;
 }
 
@@ -101,6 +121,19 @@ function jiraMcpConfig() {
 }
 
 /**
+ * Build a JQL query from the CLI args, or return null if the sprint-ID path is used.
+ * `--tickets` becomes `key in (...)`; `--jql` is passed through verbatim.
+ */
+function buildJql(args: CliArgs): string | null {
+  if (args.jql) return args.jql;
+  if (args.tickets && args.tickets.length > 0) {
+    const keys = args.tickets.map((k) => `"${k}"`).join(', ');
+    return `key in (${keys})`;
+  }
+  return null;
+}
+
+/**
  * Ask the agent to list ticket keys for the sprint.
  * We do this as a separate, cheap call so we can do per-ticket
  * idempotency checks BEFORE spending tokens on full refinement.
@@ -111,8 +144,9 @@ async function listSprintTickets(args: CliArgs): Promise<Array<{
   status: string;
   updated: string;
 }>> {
-  const prompt = args.jql
-    ? `Use the Jira MCP to search with this JQL: ${args.jql}. Return ONLY a JSON array of objects with fields: key, summary, status, updated (ISO timestamp). No prose.`
+  const jql = buildJql(args);
+  const prompt = jql
+    ? `Use the Jira MCP to search with this JQL: ${jql}. Return ONLY a JSON array of objects with fields: key, summary, status, updated (ISO timestamp). No prose.`
     : `Use the Jira MCP to find all tickets in sprint "${args.sprintId}" for project ${process.env.JIRA_PROJECT_KEY ?? 'FLUX'}. Return ONLY a JSON array of objects with fields: key, summary, status, updated (ISO timestamp). No prose.`;
 
   log.info('Listing sprint tickets...');
@@ -215,7 +249,8 @@ function extractJson(text: string): unknown {
 async function main() {
   const args = parseArgs();
   const stateDir = resolve(process.env.STATE_DIR ?? './state');
-  const sprintId = args.sprintId ?? `jql-${Date.now()}`;
+  const fallbackLabel = args.tickets ? `tickets-${Date.now()}` : `jql-${Date.now()}`;
+  const sprintId = args.sprintId ?? fallbackLabel;
 
   log.info(`Agent 1 (refine) starting — sprint: ${sprintId}, dryRun: ${args.dryRun}`);
 

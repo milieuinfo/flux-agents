@@ -124,6 +124,8 @@ Agent 4 gebruikt `gh pr create`. Check `gh auth status`.
 npm run refine -- SPRINT-42
 # of met JQL
 npm run refine -- --jql "sprint = openSprints() AND project = FLUX"
+# of met een expliciete lijst van tickets (label is de folder-naam onder state/sprints/)
+npm run refine -- hotfixes-april --tickets FLUX-123,FLUX-124,FLUX-125
 ```
 
 Output: `state/sprints/SPRINT-42/FLUX-*.md` (één per ticket).
