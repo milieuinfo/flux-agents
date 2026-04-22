@@ -1,0 +1,294 @@
+#!/usr/bin/env tsx
+/**
+ * Agent 1: Refine
+ *
+ * Leest alle tickets van een sprint via Jira MCP en produceert een markdown-
+ * bestand per ticket met een refinement analyse.
+ *
+ * Usage:
+ *   tsx agents/sdk/agent1-refine.ts <sprintId>
+ *   tsx agents/sdk/agent1-refine.ts --jql "sprint = 42 AND project = FLUX"
+ *
+ * Idempotent: hergebruikt bestaande markdowns als de Jira content niet
+ * is veranderd sinds de vorige run. Bij wijzigingen wordt een
+ * "## Update YYYY-MM-DD" sectie toegevoegd zodat eerdere feedback bewaard blijft.
+ */
+
+import { config } from 'dotenv';
+import { query, type SDKMessage } from '@anthropic-ai/claude-agent-sdk';
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { log } from './shared/logger.js';
+import { SprintState, hashTicketContent, type SprintMeta } from './shared/state.js';
+
+config();
+
+interface CliArgs {
+  sprintId?: string;
+  jql?: string;
+  dryRun: boolean;
+}
+
+function parseArgs(): CliArgs {
+  const argv = process.argv.slice(2);
+  const args: CliArgs = { dryRun: process.env.DRY_RUN === '1' };
+
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === '--jql') {
+      args.jql = argv[++i];
+    } else if (a === '--dry-run') {
+      args.dryRun = true;
+    } else if (!a.startsWith('--')) {
+      args.sprintId = a;
+    }
+  }
+
+  if (!args.sprintId && !args.jql) {
+    console.error('Usage: refine <sprintId> | --jql "<jql query>"');
+    process.exit(1);
+  }
+  return args;
+}
+
+function requireEnv(name: string): string {
+  const v = process.env[name];
+  if (!v) {
+    console.error(`Missing required env var: ${name}`);
+    process.exit(1);
+  }
+  return v;
+}
+
+/**
+ * Load the system prompt from disk.
+ * Kept in a separate file so you can iterate on the prompt without touching code.
+ */
+async function loadPrompt(): Promise<string> {
+  const here = fileURLToPath(new URL('.', import.meta.url));
+  return readFile(resolve(here, 'shared/prompts/agent1-refine.md'), 'utf-8');
+}
+
+/**
+ * Build the MCP server config for the Jira Data Center.
+ * This reuses the same `sooperset/mcp-atlassian` server you already run
+ * for IntelliJ, just started fresh per agent run.
+ */
+function jiraMcpConfig() {
+  const jiraUrl = requireEnv('JIRA_URL');
+  const jiraToken = requireEnv('JIRA_PERSONAL_TOKEN');
+  const sslVerify = process.env.JIRA_SSL_VERIFY ?? 'true';
+
+  return {
+    'mcp-atlassian': {
+      type: 'stdio' as const,
+      command: 'docker',
+      args: [
+        'run', '--rm', '-i',
+        '-e', 'JIRA_URL',
+        '-e', 'JIRA_PERSONAL_TOKEN',
+        '-e', 'JIRA_SSL_VERIFY',
+        'ghcr.io/sooperset/mcp-atlassian:latest',
+      ],
+      env: {
+        JIRA_URL: jiraUrl,
+        JIRA_PERSONAL_TOKEN: jiraToken,
+        JIRA_SSL_VERIFY: sslVerify,
+      },
+    },
+  };
+}
+
+/**
+ * Ask the agent to list ticket keys for the sprint.
+ * We do this as a separate, cheap call so we can do per-ticket
+ * idempotency checks BEFORE spending tokens on full refinement.
+ */
+async function listSprintTickets(args: CliArgs): Promise<Array<{
+  key: string;
+  summary: string;
+  status: string;
+  updated: string;
+}>> {
+  const prompt = args.jql
+    ? `Use the Jira MCP to search with this JQL: ${args.jql}. Return ONLY a JSON array of objects with fields: key, summary, status, updated (ISO timestamp). No prose.`
+    : `Use the Jira MCP to find all tickets in sprint "${args.sprintId}" for project ${process.env.JIRA_PROJECT_KEY ?? 'FLUX'}. Return ONLY a JSON array of objects with fields: key, summary, status, updated (ISO timestamp). No prose.`;
+
+  log.info('Listing sprint tickets...');
+  const response = await runQuery(prompt, { maxTurns: 5 });
+  const json = extractJson(response);
+  if (!Array.isArray(json)) {
+    throw new Error(`Expected array of tickets, got: ${response.slice(0, 200)}`);
+  }
+  return json as Array<{ key: string; summary: string; status: string; updated: string }>;
+}
+
+/**
+ * Fetch full ticket content and have the agent produce the refinement markdown.
+ */
+async function refineTicket(
+  key: string,
+  existingMarkdown: string | null,
+  systemPrompt: string,
+): Promise<string> {
+  const updateInstruction = existingMarkdown
+    ? `\n\nEr bestaat al een vorige analyse van dit ticket (zie hieronder). ` +
+      `Gebruik die als context en produceer een volledig nieuwe, actuele analyse. ` +
+      `Voeg onderaan een sectie "## Update ${new Date().toISOString().slice(0, 10)}" ` +
+      `toe met een bullet list van wat er veranderd is t.o.v. de vorige versie.\n\n` +
+      `--- VORIGE ANALYSE ---\n${existingMarkdown}\n--- EINDE VORIGE ANALYSE ---`
+    : '';
+
+  const prompt =
+    `Haal ticket ${key} op via de Jira MCP (inclusief description, ` +
+    `acceptance criteria custom field indien aanwezig, status, labels, links). ` +
+    `Produceer dan de refinement markdown volgens het format in je system prompt.${updateInstruction}`;
+
+  const response = await runQuery(prompt, {
+    systemPrompt,
+    maxTurns: 8,
+  });
+
+  // Strip markdown fences if the model wrapped its output
+  return response.replace(/^```(?:markdown|md)?\n/, '').replace(/\n```\s*$/, '').trim();
+}
+
+/**
+ * Run a query against the SDK and collect the full text response.
+ */
+async function runQuery(
+  prompt: string,
+  opts: { systemPrompt?: string; maxTurns?: number } = {},
+): Promise<string> {
+  const model = process.env.AGENT1_MODEL ?? 'claude-opus-4-7';
+  const messages: string[] = [];
+
+  const q = query({
+    prompt,
+    options: {
+      model,
+      maxTurns: opts.maxTurns ?? 10,
+      systemPrompt: opts.systemPrompt
+        ? { type: 'preset', preset: 'claude_code', append: opts.systemPrompt }
+        : undefined,
+      mcpServers: jiraMcpConfig(),
+      // Allow the MCP tools but disable file/bash tools — agent 1 only reads Jira.
+      allowedTools: ['mcp__mcp-atlassian'],
+    },
+  });
+
+  for await (const msg of q as AsyncGenerator<SDKMessage>) {
+    if (msg.type === 'assistant') {
+      for (const block of msg.message.content) {
+        if (block.type === 'text') messages.push(block.text);
+      }
+    } else if (msg.type === 'result') {
+      if (msg.subtype !== 'success') {
+        throw new Error(`Query failed: ${msg.subtype}`);
+      }
+    }
+  }
+  return messages.join('\n').trim();
+}
+
+/**
+ * Extract the first JSON value from a text response.
+ * The model sometimes wraps JSON in fences or adds a trailing line.
+ */
+function extractJson(text: string): unknown {
+  const fenced = text.match(/```(?:json)?\n([\s\S]*?)\n```/);
+  const raw = fenced ? fenced[1] : text;
+  // Find the first { or [ and last matching bracket
+  const start = raw.search(/[\[{]/);
+  if (start === -1) throw new Error(`No JSON found in response: ${text.slice(0, 200)}`);
+  const candidate = raw.slice(start);
+  try {
+    return JSON.parse(candidate);
+  } catch {
+    // Try trimming trailing noise
+    const end = Math.max(candidate.lastIndexOf(']'), candidate.lastIndexOf('}'));
+    return JSON.parse(candidate.slice(0, end + 1));
+  }
+}
+
+async function main() {
+  const args = parseArgs();
+  const stateDir = resolve(process.env.STATE_DIR ?? './state');
+  const sprintId = args.sprintId ?? `jql-${Date.now()}`;
+
+  log.info(`Agent 1 (refine) starting — sprint: ${sprintId}, dryRun: ${args.dryRun}`);
+
+  const systemPrompt = await loadPrompt();
+  const state = new SprintState(stateDir, sprintId);
+  await state.ensureDir();
+
+  const existingMeta = await state.readMeta();
+  const tickets = await listSprintTickets(args);
+  log.info(`Found ${tickets.length} tickets`);
+
+  const newMeta: SprintMeta = {
+    sprintId,
+    sprintName: existingMeta?.sprintName ?? sprintId,
+    lastRunAt: new Date().toISOString(),
+    tickets: {},
+  };
+
+  let refined = 0;
+  let skipped = 0;
+
+  for (const t of tickets) {
+    // Quick hash based on list-level fields. A deeper re-check (description,
+    // AC) happens implicitly because the agent fetches those on refinement.
+    const quickHash = hashTicketContent({
+      summary: t.summary,
+      description: '',
+      status: t.status,
+      updated: t.updated,
+    });
+
+    const prevMeta = existingMeta?.tickets[t.key];
+    const markdownExists = await state.ticketExists(t.key);
+
+    if (prevMeta && markdownExists && prevMeta.jiraUpdated === t.updated) {
+      log.info(`  ${t.key}: unchanged, skipping`);
+      newMeta.tickets[t.key] = prevMeta;
+      skipped++;
+      continue;
+    }
+
+    log.info(`  ${t.key}: refining (${prevMeta ? 'update' : 'new'})`);
+    if (args.dryRun) {
+      skipped++;
+      continue;
+    }
+
+    const existing = markdownExists ? await state.readTicketMarkdown(t.key) : null;
+    try {
+      const md = await refineTicket(t.key, existing, systemPrompt);
+      await state.writeTicketMarkdown(t.key, md);
+      newMeta.tickets[t.key] = {
+        key: t.key,
+        contentHash: quickHash,
+        lastRefinedAt: new Date().toISOString(),
+        jiraUpdated: t.updated,
+      };
+      refined++;
+    } catch (err) {
+      log.error(`  ${t.key}: FAILED`, err);
+      // Keep previous meta if we had one, so we can retry later
+      if (prevMeta) newMeta.tickets[t.key] = prevMeta;
+    }
+  }
+
+  if (!args.dryRun) {
+    await state.writeMeta(newMeta);
+  }
+  log.info(`Done. Refined: ${refined}, skipped: ${skipped}, failed: ${tickets.length - refined - skipped}`);
+  log.info(`Output: ${state.sprintDir}`);
+}
+
+main().catch((err) => {
+  log.error('Fatal:', err);
+  process.exit(1);
+});
