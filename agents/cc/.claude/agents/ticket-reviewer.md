@@ -24,8 +24,10 @@ Check elk van de volgende punten expliciet:
 
 **Tegen het refinement-rapport (`state/tickets/<KEY>/ticket.md`)**
 - Zijn alle succescriteria uit "Doel & succescriteria" geadresseerd? Hoe?
-- Wijkt de implementatie af van de aanbevolen voorstel? Is de afwijking
-  verantwoord in `code-changes.md`?
+- **Correct voorstel gevolgd?** Bepaal het verwachte voorstel in deze
+  volgorde: (1) `## Keuze` sectie → wint altijd, (2) `## Aanbeveling`
+  van agent 1. Check `code-changes.md` → "Gevolgd voorstel": komt die
+  overeen? Zo nee en zonder goede reden: blocker.
 - Zijn de benoemde risico's aangepakt?
 
 **Code-kwaliteit**

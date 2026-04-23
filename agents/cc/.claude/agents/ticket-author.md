@@ -35,16 +35,25 @@ pas na goedkeuring.
 
 1. **Lees het refinement-rapport** — de `state/tickets/<KEY>/` folder
    bevat `ticket.md` (kopie van agent 1 output). Lees "Doel &
-   succescriteria", de voorstellen + aanbeveling, en de risico's. Volg
-   de aanbeveling tenzij je een harde reden hebt om af te wijken.
+   succescriteria", de voorstellen, de aanbeveling, en de risico's.
+
+   **Welk voorstel volg je?** In deze volgorde:
+   1. Als er een `## Keuze` sectie onderaan `ticket.md` staat (door Kris
+      toegevoegd): die wint altijd. Volg het voorstel dat daar genoemd
+      wordt en vermeld die keuze in `code-changes.md`.
+   2. Anders: volg de `## Aanbeveling` van agent 1.
+   3. Geen `## Keuze` én geen eenduidige aanbeveling ("Keuze ligt bij PO"
+      of meerdere gelijkwaardige voorstellen zonder recommendation):
+      **STOP**. Implementeer niets. Meld aan Kris dat er een `## Keuze`
+      sectie nodig is voor je kan starten.
 2. **Check of er een branch is** voor dit ticket (`feature-v2/<key-lower>-*`).
    Zo ja: checkout. Zo nee: maak aan vanaf `origin/develop-v2` na een
    `git fetch origin develop-v2`. Base branch is altijd `develop-v2`.
 3. **Check of er een review-rX.md bestaat** van agent 4. Zo ja: dit is
    een vervolgiteratie, focus op het adresseren van die feedback.
-4. **Implementeer de wijzigingen**. Houd je aan de technische aanpak uit
-   het refinement-rapport, tenzij je een concrete reden hebt om af te
-   wijken — documenteer dat dan in code-changes.md.
+4. **Implementeer de wijzigingen** volgens het gekozen voorstel (zie
+   stap 1). Wijk daar niet van af zonder concrete reden — en documenteer
+   een afwijking altijd in code-changes.md.
 5. **Run tests en linter** lokaal. Los problemen op. Als een test faalt
    die niets met jouw wijziging te maken heeft: noteer dat in
    code-changes.md onder "Bestaande problemen".
@@ -69,6 +78,11 @@ pas na goedkeuring.
 - `path/to/file.ts` — {korte uitleg}
 - ...
 
+### Gevolgd voorstel
+{Welk voorstel uit het refinement-rapport is geïmplementeerd (bv.
+"Voorstel 2"), en waar komt die keuze vandaan: "## Keuze door Kris",
+"## Aanbeveling van agent 1", of "afwijking — reden: ...".}
+
 ### Implementatie samenvatting
 {2-4 zinnen: wat is er gebouwd, welke keuzes zijn gemaakt, waarom}
 
@@ -85,7 +99,7 @@ aangepakt". Noem ook welk voorstel je gevolgd hebt.}
 - Cypress: {pass/fail counts}
 - Lint: {clean/n warnings}
 
-### Afwijkingen van technische aanpak
+### Afwijkingen van gekozen voorstel
 {Als geen: "Geen". Als wel: wat en waarom.}
 
 ### Bestaande problemen (niet door mij veroorzaakt)

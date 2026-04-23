@@ -194,13 +194,37 @@ async function refineTicket(
 
   const response = await runQuery(prompt, {
     systemPrompt,
-    maxTurns: 12,
+    // Code exploration (Glob → Read → Grep → Read…) eet snel beurten op.
+    // Override via AGENT1_MAX_TURNS als een ticket telkens tegen de limiet loopt.
+    maxTurns: Number(process.env.AGENT1_MAX_TURNS ?? 30),
     cwd: worktreeDir,
     allowedTools: ['mcp__mcp-atlassian', 'Read', 'Glob', 'Grep'],
   });
 
-  // Strip markdown fences if the model wrapped its output
-  return response.replace(/^```(?:markdown|md)?\n/, '').replace(/\n```\s*$/, '').trim();
+  return extractMarkdown(response);
+}
+
+/**
+ * Extract the intended markdown from a model response that may have a
+ * preamble and/or be wrapped in a code fence.
+ *
+ * Handled shapes:
+ *  - `# FLUX-…`                               (clean — pass through)
+ *  - ```markdown\n# FLUX-…\n```                (fence-wrapped — unwrap)
+ *  - "Hier is de refinement.\n\n```markdown…"  (preamble + fence — unwrap)
+ *  - "Hier is de refinement.\n\n# FLUX-…"      (preamble + plain — trim to #)
+ *
+ * The prompt instructs the model to start with `#` and skip preambles,
+ * but defensive extraction keeps bad output from poisoning state files.
+ */
+function extractMarkdown(text: string): string {
+  const fenced = text.match(/```(?:markdown|md)?\s*\n([\s\S]*?)\n```/);
+  if (fenced) return fenced[1].trim();
+
+  const firstHeading = text.search(/^#\s/m);
+  if (firstHeading > 0) return text.slice(firstHeading).trim();
+
+  return text.trim();
 }
 
 /**
@@ -216,7 +240,6 @@ async function runQuery(
   } = {},
 ): Promise<string> {
   const model = process.env.AGENT1_MODEL ?? 'claude-opus-4-7';
-  const messages: string[] = [];
 
   const q = query({
     prompt,
@@ -232,18 +255,25 @@ async function runQuery(
     },
   });
 
+  // We only want the final synthesis, not the intermediate narration
+  // ("Ticket opgehaald. Nu de code zoeken...") that precedes each tool call.
+  // So we overwrite on each new assistant message that contains text —
+  // after the final tool call, the last assistant message is the answer.
+  let lastAssistantText = '';
   for await (const msg of q as AsyncGenerator<SDKMessage>) {
     if (msg.type === 'assistant') {
+      const thisTurn: string[] = [];
       for (const block of msg.message.content) {
-        if (block.type === 'text') messages.push(block.text);
+        if (block.type === 'text') thisTurn.push(block.text);
       }
+      if (thisTurn.length > 0) lastAssistantText = thisTurn.join('\n');
     } else if (msg.type === 'result') {
       if (msg.subtype !== 'success') {
         throw new Error(`Query failed: ${msg.subtype}`);
       }
     }
   }
-  return messages.join('\n').trim();
+  return lastAssistantText.trim();
 }
 
 /**

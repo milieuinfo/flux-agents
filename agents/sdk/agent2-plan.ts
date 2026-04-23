@@ -55,9 +55,22 @@ async function loadSprintMarkdowns(sprintDir: string): Promise<string> {
   return parts.join('\n');
 }
 
+/**
+ * Extract the intended markdown from a model response that may have a
+ * preamble and/or be wrapped in a code fence. See agent1 for details.
+ */
+function extractMarkdown(text: string): string {
+  const fenced = text.match(/```(?:markdown|md)?\s*\n([\s\S]*?)\n```/);
+  if (fenced) return fenced[1].trim();
+
+  const firstHeading = text.search(/^#\s/m);
+  if (firstHeading > 0) return text.slice(firstHeading).trim();
+
+  return text.trim();
+}
+
 async function runQuery(prompt: string, systemPrompt: string): Promise<string> {
   const model = process.env.AGENT2_MODEL ?? 'claude-opus-4-7';
-  const messages: string[] = [];
 
   const q = query({
     prompt,
@@ -73,16 +86,20 @@ async function runQuery(prompt: string, systemPrompt: string): Promise<string> {
     },
   });
 
+  // Only the last assistant message — earlier turns might be narration.
+  let lastAssistantText = '';
   for await (const msg of q as AsyncGenerator<SDKMessage>) {
     if (msg.type === 'assistant') {
+      const thisTurn: string[] = [];
       for (const block of msg.message.content) {
-        if (block.type === 'text') messages.push(block.text);
+        if (block.type === 'text') thisTurn.push(block.text);
       }
+      if (thisTurn.length > 0) lastAssistantText = thisTurn.join('\n');
     } else if (msg.type === 'result' && msg.subtype !== 'success') {
       throw new Error(`Query failed: ${msg.subtype}`);
     }
   }
-  return messages.join('\n').trim();
+  return lastAssistantText.trim();
 }
 
 async function main() {
@@ -103,7 +120,7 @@ async function main() {
     `geen toolgebruik. Het opslaan naar disk gebeurt buiten jouw scope.\n${bundle}`;
 
   const output = await runQuery(prompt, systemPrompt);
-  const cleaned = output.replace(/^```(?:markdown|md)?\n/, '').replace(/\n```\s*$/, '').trim();
+  const cleaned = extractMarkdown(output);
 
   const orderPath = join(sprintDir, '_order.md');
   await writeFile(orderPath, cleaned, 'utf-8');
