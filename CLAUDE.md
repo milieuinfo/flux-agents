@@ -22,8 +22,13 @@ tool voor Kris om sprints efficiënter op te nemen.
 |---|------|---------|-------|-----|
 | 1 | refine | Claude Agent SDK (Node) | Opus | Analyseert Jira-tickets, schrijft refinement-markdown per ticket |
 | 2 | plan | Claude Agent SDK (Node) | Opus | Leest alle markdowns van een sprint, produceert volgorde + dependency graph |
-| 3 | ticket-author | Claude Code subagent | Sonnet | Implementeert ticket op feature-branch, lokale commits |
-| 4 | ticket-reviewer | Claude Code subagent | Opus | Reviewt branch, bij approval: squash + push + `gh pr create` |
+| 3 | develop | Claude Agent SDK (Node) | Sonnet | Per-ticket git worktree, implementeert op feature-branch, lokale commits |
+| 4 | review | Claude Agent SDK (Node) | Opus | Reviewt op dezelfde worktree, bij approval: squash + push + `gh pr create` |
+
+Agents 3 en 4 hebben ook een **Claude Code subagent variant** in
+`agents/cc/.claude/agents/` (ticket-author.md, ticket-reviewer.md)
+voor interactieve debugging. De SDK-scripts laden diezelfde markdowns
+(frontmatter gestript) als system prompt — één bron van waarheid.
 
 **Waarom deze modelverdeling:** Opus waar de analyse en oordeel zit
 (refine, plan, review), Sonnet waar executie belangrijker is dan diepte
@@ -46,14 +51,15 @@ Jira sprint
     │
     ▼  (Kris kiest ticket)
     │
-    ▼  /develop FLUX-123 SPRINT-42   (in Claude Code, flux-web-components repo)
+    ▼  npm run develop -- FLUX-123 [sprint]
 ┌─────────────┐
-│ agent 3     │◀──┐ lokale branch + commits
-└─────────────┘   │ géén push, géén PR
+│ agent 3     │◀──┐ per-ticket worktree + feature-v2/... branch
+└─────────────┘   │ lokale commits, géén push, géén PR
     │             │
-    ▼  /review FLUX-123
+    ▼  npm run review -- FLUX-123
 ┌─────────────┐   │
-│ agent 4     │───┘ CHANGES_REQUESTED → /address FLUX-123 → loop terug
+│ agent 4     │───┘ CHANGES_REQUESTED → opnieuw npm run develop --
+│             │       (automatisch in address-modus via _status.json)
 │             │     APPROVED → squash + push + PR
 │             │     ESCALATED → ronde 3 bereikt, Kris stapt in
 └─────────────┘
@@ -131,15 +137,25 @@ krijgt die gebundeld in het prompt en produceert `_order.md`.
 
 **Waarom:** kleinste attack surface, snelste run.
 
-### 7. Symlink aanpak voor Claude Code commands
+### 7. Per-ticket worktree, SDK-first voor agents 3/4
 
-De `.claude/` folder staat in `flux-agents/agents/cc/.claude/`.
-Een script (`scripts/link-commands.sh`) legt een symlink van
-`flux-web-components/.claude` daarnaar toe.
+Agents 3 en 4 draaien als SDK-scripts (net als 1 en 2) en werken op
+een per-ticket worktree onder
+`state/worktrees/flux-web-components-<KEY>/`, afgesplitst van
+`origin/develop-v2`. Shared `.git` met de hoofdclone via
+`git worktree add`, dus geen dubbele history en geen botsing met
+Kris' eigen werkstaat in de hoofdclone.
 
-**Waarom:** Kris bewerkt commands op één plek (in deze repo,
-versie-gecontroleerd), maar Claude Code vindt ze in de project-repo
-waar hij werkt.
+**Waarom:** (a) Uniforme architectuur — alle vier agents zijn Node
+scripts, aanroepbaar met `npm run ...`, klaar voor autonome orchestratie
+op een server. (b) Per-ticket worktree maakt parallel werk op meerdere
+tickets mogelijk (elk zijn eigen branch + working tree). (c) De
+`.claude/`-symlink-setup is niet meer nodig voor de normale flow;
+blijft alleen bestaan voor interactieve debugging.
+
+De Claude Code subagent-variant in `agents/cc/.claude/agents/` blijft
+bestaan. De SDK-scripts herbruiken die markdowns als system prompt
+(frontmatter gestript via `loadSubagentPrompt`) — één bron van waarheid.
 
 ### 8. MCP Atlassian via Docker per run
 
@@ -293,8 +309,13 @@ Veel waarschijnlijke foutmodes:
 - **Agent 2 krijgt te weinig context** → als een sprint >20 tickets
   heeft, kan de prompt te groot worden. Overweeg truncation of
   chunking (nog niet geïmplementeerd)
-- **`/develop` vindt de ticket markdown niet** → sprint-ID moet exact
-  matchen met de folder naam in `state/sprints/`. Agent 1 gebruikt de
-  sprint-ID zoals opgegeven op de CLI
-- **Claude Code vindt `.claude/` niet** → check dat de symlink werkt:
-  `ls -la flux-web-components/.claude`
+- **`npm run develop` vindt de ticket markdown niet** → sprint-ID moet
+  exact matchen met de folder naam in `state/sprints/`, of je laat de
+  sprint weg en dan spoort agent 3 hem zelf op (werkt alleen als het
+  ticket in exact één sprint-folder voorkomt)
+- **Per-ticket worktree botst** → bestaat al van een eerdere poging?
+  Kijk onder `state/worktrees/flux-web-components-<KEY>/`, ruim op met
+  `git -C <flux-web-components> worktree remove <path>` wanneer je
+  echt opnieuw wil beginnen
+- **(CC-variant) Claude Code vindt `.claude/` niet** → alleen relevant
+  voor interactieve debugging; check `ls -la flux-web-components/.claude`

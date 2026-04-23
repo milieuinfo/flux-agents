@@ -16,13 +16,14 @@
  */
 
 import { config } from 'dotenv';
-import { query, type SDKMessage } from '@anthropic-ai/claude-agent-sdk';
+import { query } from '@anthropic-ai/claude-agent-sdk';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { log } from './shared/logger.js';
 import { SprintState, hashTicketContent, type SprintMeta } from './shared/state.js';
 import { developV2WorktreePath, prepareWorktree } from './shared/repo.js';
+import { extractMarkdown, streamLastAssistantText } from './shared/query.js';
 
 config();
 
@@ -205,29 +206,6 @@ async function refineTicket(
 }
 
 /**
- * Extract the intended markdown from a model response that may have a
- * preamble and/or be wrapped in a code fence.
- *
- * Handled shapes:
- *  - `# FLUX-…`                               (clean — pass through)
- *  - ```markdown\n# FLUX-…\n```                (fence-wrapped — unwrap)
- *  - "Hier is de refinement.\n\n```markdown…"  (preamble + fence — unwrap)
- *  - "Hier is de refinement.\n\n# FLUX-…"      (preamble + plain — trim to #)
- *
- * The prompt instructs the model to start with `#` and skip preambles,
- * but defensive extraction keeps bad output from poisoning state files.
- */
-function extractMarkdown(text: string): string {
-  const fenced = text.match(/```(?:markdown|md)?\s*\n([\s\S]*?)\n```/);
-  if (fenced) return fenced[1].trim();
-
-  const firstHeading = text.search(/^#\s/m);
-  if (firstHeading > 0) return text.slice(firstHeading).trim();
-
-  return text.trim();
-}
-
-/**
  * Run a query against the SDK and collect the full text response.
  */
 async function runQuery(
@@ -255,25 +233,7 @@ async function runQuery(
     },
   });
 
-  // We only want the final synthesis, not the intermediate narration
-  // ("Ticket opgehaald. Nu de code zoeken...") that precedes each tool call.
-  // So we overwrite on each new assistant message that contains text —
-  // after the final tool call, the last assistant message is the answer.
-  let lastAssistantText = '';
-  for await (const msg of q as AsyncGenerator<SDKMessage>) {
-    if (msg.type === 'assistant') {
-      const thisTurn: string[] = [];
-      for (const block of msg.message.content) {
-        if (block.type === 'text') thisTurn.push(block.text);
-      }
-      if (thisTurn.length > 0) lastAssistantText = thisTurn.join('\n');
-    } else if (msg.type === 'result') {
-      if (msg.subtype !== 'success') {
-        throw new Error(`Query failed: ${msg.subtype}`);
-      }
-    }
-  }
-  return lastAssistantText.trim();
+  return streamLastAssistantText(q);
 }
 
 /**

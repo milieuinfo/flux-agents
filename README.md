@@ -24,14 +24,14 @@ Jira sprint
     ▼
     ┆  (jij kiest welk ticket je wil aanpakken)
     ▼
-┌─────────────┐   agent 3: Claude Code subagent (Sonnet)
-│ author      │◀──┐ implementeert, lokale commits,
-│             │   │ géén push, géén PR
+┌─────────────┐   agent 3: SDK (Node) — Sonnet
+│ develop     │◀──┐ per-ticket git worktree, implementeert,
+│             │   │ lokale commits, géén push, géén PR
 └─────────────┘   │
-    │             │ ronde 2+
-    ▼             │
-┌─────────────┐   │   agent 4: Claude Code subagent (Opus)
-│ reviewer    │───┘   review tegen ticket + VO conventies
+    │             │ ronde 2+ (automatische address-modus
+    ▼             │  op basis van _status.json)
+┌─────────────┐   │   agent 4: SDK (Node) — Opus
+│ review      │───┘   review op dezelfde worktree
 │             │       bij APPROVED: squash + push + gh pr create
 └─────────────┘
     │
@@ -44,8 +44,9 @@ Jira sprint
 
 - Agent 3 schrijft `code-changes.md` en commit lokaal
 - Agent 4 reviewt en schrijft `review-r<N>.md`. Status in `_status.json`.
-- Bij `CHANGES_REQUESTED`: jij triggert `/address`, agent 3 maakt een
-  nieuwe commit die de review-feedback adresseert, `_status.json.round++`
+- Bij `CHANGES_REQUESTED`: jij triggert opnieuw `npm run develop`,
+  agent 3 detecteert via `_status.json` dat het ronde N+1 is, leest
+  de vorige review, en maakt een nieuwe commit die de feedback adresseert
 - Bij `APPROVED`: agent 4 squasht alle ronde-commits tot één conventional
   commit, pusht, opent PR via `gh pr create`
 - Bij ronde 3 zonder approval: status wordt `ESCALATED`, geen PR, jij
@@ -101,20 +102,19 @@ je terminal, de SDK gebruikt die sessie.
 **Optie B:** Zet `ANTHROPIC_API_KEY` in `.env`. Dit verbruikt pay-per-use
 credits, niet je MAX plan.
 
-### 5. Claude Code commands linken naar flux-web-components
+### 5. `gh` CLI geauthenticeerd
+
+Agent 4 gebruikt `gh pr create`. Check `gh auth status`.
+
+### 6. (optioneel) Claude Code commands linken naar flux-web-components
+
+Alleen nodig als je agent 3/4 interactief via de Claude Code CLI wil
+kunnen draaien (bv. voor debugging). Voor de normale SDK-flow hoef je
+dit niet te doen.
 
 ```bash
 npm run link-commands -- /path/to/flux-web-components
 ```
-
-Dit legt een symlink van `flux-web-components/.claude` naar
-`flux-agents/agents/cc/.claude`. Zo bewerk je commands en subagents op
-één plek. Voeg `.claude` toe aan de `.gitignore` van flux-web-components
-zodat het niet per ongeluk gecommit wordt.
-
-### 6. `gh` CLI geauthenticeerd
-
-Agent 4 gebruikt `gh pr create`. Check `gh auth status`.
 
 ## Gebruik — complete flow
 
@@ -145,45 +145,53 @@ dependency graph en aanbevelingen.
 
 ### Stap 3: kies een ticket en start ontwikkeling
 
-In je flux-web-components repo:
+Blijf gewoon in `flux-agents`:
 
 ```bash
-cd /path/to/flux-web-components
-claude  # start Claude Code
-
-> /develop FLUX-123 SPRINT-42
+npm run develop -- FLUX-123 SPRINT-42
+# of zonder sprintId — de sprint wordt automatisch opgespoord:
+npm run develop -- FLUX-123
 ```
 
-Dit maakt een feature-branch, kopieert het refinement-rapport naar
-`state/tickets/FLUX-123/ticket.md`, en delegeert naar de
-`ticket-author` subagent.
+Wat dit doet:
+- Kopieert het refinement-rapport naar `state/tickets/FLUX-123/ticket.md`
+  (als dat er nog niet staat — eventuele `## Keuze` annotaties blijven
+  bewaard).
+- Maakt een per-ticket git worktree aan onder
+  `state/worktrees/flux-web-components-FLUX-123/` vanaf `origin/develop-v2`.
+- Maakt een feature-branch `feature-v2/flux-123-<slug>`.
+- Roept de `ticket-author` subagent aan (Sonnet) om te implementeren.
+- Schrijft `state/tickets/FLUX-123/code-changes.md`.
+- Géén push, géén PR.
 
 ### Stap 4: review
 
-```
-> /review FLUX-123
-```
-
-Delegeert naar `ticket-reviewer`. Drie mogelijke uitkomsten:
-
-- **APPROVED** — commits worden gesquasht, push naar origin, PR geopend
-- **CHANGES_REQUESTED** — lees `review-r<N>.md`, dan `/address FLUX-123`
-- **ESCALATED** — max 3 rondes bereikt, jij moet manueel ingrijpen
-
-### Stap 5: bij CHANGES_REQUESTED
-
-```
-> /address FLUX-123
+```bash
+npm run review -- FLUX-123
 ```
 
-Agent 3 leest de review-feedback, maakt een nieuwe commit die de
-blockers adresseert, updatet `code-changes.md`. Daarna opnieuw
-`/review FLUX-123`.
+Roept `ticket-reviewer` aan (Opus) op dezelfde worktree. Drie uitkomsten:
 
-### Stap 6: merge
+- **APPROVED** — commits worden gesquasht tegen `origin/develop-v2`,
+  feature-branch gepusht, PR geopend via `gh pr create --base develop-v2`.
+- **CHANGES_REQUESTED** — lees `state/tickets/FLUX-123/review-r<N>.md`,
+  dan opnieuw `npm run develop -- FLUX-123`. Dat detecteert automatisch
+  dat het ronde N+1 is en schakelt naar address-modus.
+- **ESCALATED** — max 3 rondes bereikt; geen PR, jij beslist manueel.
+
+### Stap 5: merge
 
 Als agent 4 APPROVED heeft gemaakt en de PR geopend: **jij reviewt
 de PR op GitHub en merget zelf**. Geen automatisering in deze stap.
+
+### Interactief alternatief (debugging)
+
+De oorspronkelijke Claude Code subagents staan nog in
+`agents/cc/.claude/` en kunnen handmatig aangeroepen worden via
+`/develop` / `/review` / `/address` in een Claude Code sessie in
+`flux-web-components`. Handig als je stap-voor-stap wil meekijken of
+de prompts wil tunen. De SDK-flow is de autonome variant die op
+een server kan draaien.
 
 ## Test-strategie voor de eerste keer
 
@@ -193,8 +201,9 @@ de PR op GitHub en merget zelf**. Geen automatisering in deze stap.
    `agents/sdk/shared/prompts/agent1-refine.md`
 4. Run agent 1 opnieuw op dezelfde sprint → moet alle tickets overslaan
 5. `npm run plan -- <sprint>` — checks de volgorde
-6. Kies het simpelste ticket. Probeer `/develop`, `/review`, eventueel
-   `/address`. Begin met iets klein om de flow te leren.
+6. Kies het simpelste ticket. Probeer `npm run develop -- <KEY>` en
+   daarna `npm run review -- <KEY>`. Begin met iets klein om de flow
+   te leren.
 
 ## Modellen en kosten
 
@@ -207,8 +216,9 @@ Default setup:
 | 3 author | Sonnet | Uitvoering, snel en goedkoper |
 | 4 reviewer | Opus | Kritische analyse, waar de kwaliteit zit |
 
-Override via env vars (`AGENT1_MODEL`, `AGENT2_MODEL`) of in de
-frontmatter van de subagents (`agents/cc/.claude/agents/*.md`).
+Override via env vars: `AGENT1_MODEL`, `AGENT2_MODEL`, `AGENT3_MODEL`,
+`AGENT4_MODEL`. Voor de interactieve CC-variant kan je ook de
+frontmatter van `agents/cc/.claude/agents/*.md` aanpassen.
 
 ## Wat de agents NOOIT doen
 

@@ -97,3 +97,70 @@ function git(cwd: string, args: string[]): Promise<void> {
 export function developV2WorktreePath(stateDir: string): string {
   return resolve(stateDir, 'worktrees', 'flux-web-components-develop-v2');
 }
+
+/**
+ * Resolve the per-ticket worktree path. Each ticket gets its own worktree
+ * so agents 3/4 (author/reviewer) can work in parallel without clobbering
+ * each other's branches and working states.
+ */
+export function ticketWorktreePath(stateDir: string, ticketKey: string): string {
+  return resolve(stateDir, 'worktrees', `flux-web-components-${ticketKey}`);
+}
+
+/**
+ * Ensure a per-ticket worktree exists on the given feature branch.
+ *
+ * Semantics:
+ *  - If the worktree doesn't exist: create it, branch off `origin/develop-v2`.
+ *    Uses `git worktree add -b <branch>` so the branch is created fresh
+ *    (fails if it already exists elsewhere, which would be a bug).
+ *  - If the worktree exists: leave it alone. Caller is responsible for
+ *    any state (branch already checked out, commits made, etc.).
+ *
+ * Returns `true` if a new worktree was created, `false` if it existed.
+ */
+export async function ensureTicketWorktree(opts: {
+  mainRepoDir: string;
+  worktreePath: string;
+  branch: string;
+}): Promise<boolean> {
+  const { mainRepoDir, worktreePath, branch } = opts;
+
+  if (await pathExists(worktreePath)) return false;
+
+  log.info(`Fetching develop-v2 in ${mainRepoDir}`);
+  await git(mainRepoDir, ['fetch', 'origin', 'develop-v2']);
+
+  log.info(`Creating worktree at ${worktreePath} on branch ${branch} (from origin/develop-v2)`);
+  await git(mainRepoDir, [
+    'worktree',
+    'add',
+    '-b',
+    branch,
+    worktreePath,
+    'origin/develop-v2',
+  ]);
+  return true;
+}
+
+/**
+ * Derive a kebab-case slug (max 40 chars) from a ticket title.
+ * Used for feature branch names: `feature-v2/<key-lower>-<slug>`.
+ */
+export function slugifyTitle(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40)
+    .replace(/-+$/, '');
+}
+
+/**
+ * Build the feature branch name from a ticket key and title.
+ */
+export function ticketBranchName(ticketKey: string, title: string): string {
+  const slug = slugifyTitle(title);
+  const key = ticketKey.toLowerCase();
+  return slug ? `feature-v2/${key}-${slug}` : `feature-v2/${key}`;
+}

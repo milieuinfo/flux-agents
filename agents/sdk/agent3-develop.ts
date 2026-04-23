@@ -1,0 +1,193 @@
+#!/usr/bin/env tsx
+/**
+ * Agent 3: Develop (SDK)
+ *
+ * Implements (or iterates on) a single ticket in a per-ticket git worktree.
+ * - Round 1: creates the worktree + feature branch from origin/develop-v2.
+ * - Round 2+: reuses the existing worktree/branch, addresses the previous
+ *   review feedback.
+ *
+ * Usage:
+ *   tsx agents/sdk/agent3-develop.ts <TICKET-KEY> [sprintId]
+ *   npm run develop -- FLUX-123 backlog-20260422
+ *
+ * If sprintId is omitted, the sprint folder containing `<KEY>.md` is
+ * discovered automatically (errors if zero or multiple matches).
+ *
+ * The agent runs with permissionMode=bypassPermissions for autonomous
+ * operation — its guardrails are in the subagent prompt (no push, no PR,
+ * no external GitHub interaction).
+ */
+
+import { config } from 'dotenv';
+import { query } from '@anthropic-ai/claude-agent-sdk';
+import { resolve } from 'node:path';
+import { log } from './shared/logger.js';
+import {
+  ensureTicketWorktree,
+  ticketBranchName,
+  ticketWorktreePath,
+} from './shared/repo.js';
+import { loadSubagentPrompt } from './shared/prompts.js';
+import { streamLastAssistantText } from './shared/query.js';
+import {
+  TicketState,
+  extractTitle,
+  locateRefinement,
+  seedTicketMd,
+} from './shared/ticket.js';
+
+config();
+
+interface CliArgs {
+  key: string;
+  sprint?: string;
+}
+
+function parseArgs(): CliArgs {
+  const argv = process.argv.slice(2);
+  const key = argv[0];
+  if (!key) {
+    console.error('Usage: develop <TICKET-KEY> [sprintId]');
+    process.exit(1);
+  }
+  return { key, sprint: argv[1] };
+}
+
+function requireEnv(name: string): string {
+  const v = process.env[name];
+  if (!v) {
+    console.error(`Missing required env var: ${name}`);
+    process.exit(1);
+  }
+  return v;
+}
+
+async function main() {
+  const { key, sprint } = parseArgs();
+  const stateDir = resolve(process.env.STATE_DIR ?? './state');
+  const mainRepoDir = requireEnv('FLUX_WEB_COMPONENTS_DIR');
+
+  log.info(`Agent 3 (develop) starting — ticket: ${key}`);
+
+  const refinement = await locateRefinement(stateDir, key, sprint);
+  log.info(`Refinement: ${refinement.path} (sprint ${refinement.sprint})`);
+
+  const ticket = new TicketState(stateDir, key);
+  await ticket.ensureDir();
+  await seedTicketMd(ticket, refinement.path);
+
+  const ticketMd = await ticket.readTicketMd();
+  const title = extractTitle(ticketMd);
+  const branch = ticketBranchName(key, title);
+
+  // Derive round + mode from prior status.
+  const prev = await ticket.readStatus();
+  let round: number;
+  let mode: 'initial' | 'address';
+  if (!prev) {
+    round = 1;
+    mode = 'initial';
+  } else if (prev.status === 'changes_requested') {
+    round = prev.round + 1;
+    mode = 'address';
+  } else if (prev.status === 'in_progress') {
+    log.warn(
+      `Ticket ${key} is already in_progress (ronde ${prev.round}). Herstart op dezelfde branch.`,
+    );
+    round = prev.round;
+    mode = prev.round === 1 ? 'initial' : 'address';
+  } else {
+    throw new Error(
+      `Ticket ${key} heeft status=${prev.status}. Geen werk hier. ` +
+        `(Gebruik review of start een ander ticket.)`,
+    );
+  }
+
+  if (round > 3) {
+    throw new Error(
+      `Max rondes bereikt voor ${key} (ronde ${round}). Escaleer manueel.`,
+    );
+  }
+
+  const worktree = ticketWorktreePath(stateDir, key);
+  const created = await ensureTicketWorktree({
+    mainRepoDir,
+    worktreePath: worktree,
+    branch,
+  });
+  log.info(created ? `Worktree aangemaakt: ${worktree}` : `Worktree hergebruikt: ${worktree}`);
+
+  const now = new Date().toISOString();
+  await ticket.writeStatus({
+    key,
+    sprint: refinement.sprint,
+    round,
+    status: 'in_progress',
+    baseBranch: 'develop-v2',
+    branch,
+    startedAt: prev?.startedAt ?? now,
+    updatedAt: now,
+    prUrl: prev?.prUrl,
+  });
+
+  const systemPrompt = await loadSubagentPrompt('ticket-author');
+  const userPrompt = buildPrompt(key, round, mode, ticket);
+
+  const q = query({
+    prompt: userPrompt,
+    options: {
+      model: process.env.AGENT3_MODEL ?? 'claude-sonnet-4-6',
+      maxTurns: Number(process.env.AGENT3_MAX_TURNS ?? 60),
+      cwd: worktree,
+      // Agent writes code-changes.md in state/tickets/<KEY>/, outside cwd.
+      additionalDirectories: [stateDir],
+      systemPrompt: { type: 'preset', preset: 'claude_code', append: systemPrompt },
+      allowedTools: ['Read', 'Write', 'Edit', 'Glob', 'Grep', 'Bash'],
+      permissionMode: 'bypassPermissions',
+      allowDangerouslySkipPermissions: true,
+    },
+  });
+
+  const summary = await streamLastAssistantText(q);
+  log.info(`Author samenvatting:\n${truncate(summary, 800)}`);
+  log.info(`Klaar. Verifieer ${ticket.codeChangesPath}, dan: npm run review -- ${key}`);
+}
+
+function buildPrompt(
+  key: string,
+  round: number,
+  mode: 'initial' | 'address',
+  ticket: TicketState,
+): string {
+  const base =
+    `Implementeer ticket ${key} (ronde ${round}). Alle context vind je in:\n` +
+    `- ${ticket.ticketMdPath} — refinement-rapport (lees vooral "Doel & ` +
+    `succescriteria", de voorstellen, de "## Aanbeveling" en evt. een ` +
+    `"## Keuze"-sectie toegevoegd door de gebruiker).\n` +
+    `- ${ticket.statusPath} — status (branch en baseBranch staan hierin).\n\n` +
+    `Je cwd is de feature-branch worktree van flux-web-components. Volg ` +
+    `de werkwijze in je system prompt. Schrijf/update ` +
+    `${ticket.codeChangesPath} volgens het voorgeschreven format — dat ` +
+    `bestand staat buiten je cwd; gebruik een absoluut pad.`;
+
+  if (mode === 'address') {
+    const prevReview = ticket.reviewPath(round - 1);
+    return (
+      `${base}\n\n` +
+      `Dit is een VERVOLGITERATIE (ronde ${round}). Lees eerst ${prevReview} ` +
+      `en focus op het adresseren van de blockers die daar staan. Maak een ` +
+      `nieuwe commit voor deze ronde (niet amenden).`
+    );
+  }
+  return `${base}\n\nDit is ronde 1 — initiële implementatie.`;
+}
+
+function truncate(s: string, n: number): string {
+  return s.length > n ? `${s.slice(0, n)}…` : s;
+}
+
+main().catch((err) => {
+  log.error('Fatal:', err);
+  process.exit(1);
+});
