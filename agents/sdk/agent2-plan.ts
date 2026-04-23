@@ -64,7 +64,10 @@ async function runQuery(prompt: string, systemPrompt: string): Promise<string> {
     options: {
       model,
       maxTurns: 3,
-      systemPrompt: { type: 'preset', preset: 'claude_code', append: systemPrompt },
+      // Use our prompt as the full system prompt (no `claude_code` preset):
+      // the preset makes the model think it's a tool-using agent and triggers
+      // "permission to write" style responses even with allowedTools: [].
+      systemPrompt,
       // Agent 2 needs no tools — all input is inlined in the prompt
       allowedTools: [],
     },
@@ -95,7 +98,9 @@ async function main() {
 
   const prompt =
     `Hier zijn alle refinement-markdowns voor sprint ${sprintId}. Produceer ` +
-    `_order.md volgens je system prompt.\n${bundle}`;
+    `de _order.md inhoud volgens je system prompt. Antwoord uitsluitend met ` +
+    `de markdown-inhoud zelf — geen preambule, geen vraag om toestemming, ` +
+    `geen toolgebruik. Het opslaan naar disk gebeurt buiten jouw scope.\n${bundle}`;
 
   const output = await runQuery(prompt, systemPrompt);
   const cleaned = output.replace(/^```(?:markdown|md)?\n/, '').replace(/\n```\s*$/, '').trim();

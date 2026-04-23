@@ -76,13 +76,16 @@ Check elk van de volgende punten expliciet:
    - Als CHANGES_REQUESTED: `{round: N, status: "changes_requested"}`
    - Als ronde >= 3 en nog geen approval: `{round: N, status: "escalated"}`
 6. **BIJ APPROVED (en alleen dan)**:
-   a. Squash de N commits naar één conventional commit:
-      `git reset --soft <base>` dan `git commit -m "feat(<scope>): <desc> (<KEY>)"`
+   a. Squash de N commits naar één conventional commit. Base is
+      `develop-v2` (zie `_status.json.baseBranch`, zou `develop-v2`
+      moeten zijn):
+      `git reset --soft origin/develop-v2` dan
+      `git commit -m "feat(<scope>): <desc> (<KEY>)"`.
       Gebruik een synthese van alle commit messages als body.
    b. `git push -u origin <branch>`
-   c. `gh pr create` met titel `<KEY>: <titel uit refinement>` en body
-      die bevat: acceptatiecriteria-checklist, samenvatting, link naar
-      Jira ticket (`{JIRA_URL}/browse/<KEY>`).
+   c. `gh pr create --base develop-v2` met titel `<KEY>: <titel uit
+      refinement>` en body die bevat: acceptatiecriteria-checklist,
+      samenvatting, link naar Jira ticket (`{JIRA_URL}/browse/<KEY>`).
    d. Noteer de PR-URL in `review-r<N>.md` onderaan.
 
 ## Format: review-r<N>.md

@@ -36,9 +36,9 @@ pas na goedkeuring.
 1. **Lees het refinement-rapport** — de `state/tickets/<KEY>/` folder
    bevat `ticket.md` (kopie van agent 1 output). Lees acceptatiecriteria,
    technische aanpak, risico's.
-2. **Check of er een branch is** voor dit ticket (`feature/<key-lower>-*`).
-   Zo ja: checkout. Zo nee: maak aan vanaf de juiste base (meestal `main`
-   of `develop` — check CLAUDE.md of git log).
+2. **Check of er een branch is** voor dit ticket (`feature-v2/<key-lower>-*`).
+   Zo ja: checkout. Zo nee: maak aan vanaf `origin/develop-v2` na een
+   `git fetch origin develop-v2`. Base branch is altijd `develop-v2`.
 3. **Check of er een review-rX.md bestaat** van agent 4. Zo ja: dit is
    een vervolgiteratie, focus op het adresseren van die feedback.
 4. **Implementeer de wijzigingen**. Houd je aan de technische aanpak uit
@@ -58,7 +58,7 @@ pas na goedkeuring.
 ```
 # <TICKET-KEY>: code changes
 
-**Branch:** feature/<key-lower>-<slug>
+**Branch:** feature-v2/<key-lower>-<slug>
 **Laatste commit:** <sha> — <bericht>
 **Ronde:** <N>
 

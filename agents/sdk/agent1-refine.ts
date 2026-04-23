@@ -22,6 +22,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { log } from './shared/logger.js';
 import { SprintState, hashTicketContent, type SprintMeta } from './shared/state.js';
+import { developV2WorktreePath, prepareWorktree } from './shared/repo.js';
 
 config();
 
@@ -137,6 +138,9 @@ function buildJql(args: CliArgs): string | null {
  * Ask the agent to list ticket keys for the sprint.
  * We do this as a separate, cheap call so we can do per-ticket
  * idempotency checks BEFORE spending tokens on full refinement.
+ *
+ * This call does NOT need code access — it's a pure Jira lookup —
+ * so we leave `cwd` undefined and limit tools to the Jira MCP.
  */
 async function listSprintTickets(args: CliArgs): Promise<Array<{
   key: string;
@@ -150,7 +154,10 @@ async function listSprintTickets(args: CliArgs): Promise<Array<{
     : `Use the Jira MCP to find all tickets in sprint "${args.sprintId}" for project ${process.env.JIRA_PROJECT_KEY ?? 'FLUX'}. Return ONLY a JSON array of objects with fields: key, summary, status, updated (ISO timestamp). No prose.`;
 
   log.info('Listing sprint tickets...');
-  const response = await runQuery(prompt, { maxTurns: 5 });
+  const response = await runQuery(prompt, {
+    maxTurns: 5,
+    allowedTools: ['mcp__mcp-atlassian'],
+  });
   const json = extractJson(response);
   if (!Array.isArray(json)) {
     throw new Error(`Expected array of tickets, got: ${response.slice(0, 200)}`);
@@ -160,11 +167,14 @@ async function listSprintTickets(args: CliArgs): Promise<Array<{
 
 /**
  * Fetch full ticket content and have the agent produce the refinement markdown.
+ * The agent runs with `cwd` = read-only develop-v2 worktree so it can
+ * consult the flux-web-components source when relevant (see prompt).
  */
 async function refineTicket(
   key: string,
   existingMarkdown: string | null,
   systemPrompt: string,
+  worktreeDir: string,
 ): Promise<string> {
   const updateInstruction = existingMarkdown
     ? `\n\nEr bestaat al een vorige analyse van dit ticket (zie hieronder). ` +
@@ -177,11 +187,16 @@ async function refineTicket(
   const prompt =
     `Haal ticket ${key} op via de Jira MCP (inclusief description, ` +
     `acceptance criteria custom field indien aanwezig, status, labels, links). ` +
+    `Je werkdirectory is de develop-v2 worktree van flux-web-components — ` +
+    `gebruik Read/Glob/Grep om de relevante component-code te consulteren ` +
+    `volgens de instructies in je system prompt. ` +
     `Produceer dan de refinement markdown volgens het format in je system prompt.${updateInstruction}`;
 
   const response = await runQuery(prompt, {
     systemPrompt,
-    maxTurns: 8,
+    maxTurns: 12,
+    cwd: worktreeDir,
+    allowedTools: ['mcp__mcp-atlassian', 'Read', 'Glob', 'Grep'],
   });
 
   // Strip markdown fences if the model wrapped its output
@@ -193,7 +208,12 @@ async function refineTicket(
  */
 async function runQuery(
   prompt: string,
-  opts: { systemPrompt?: string; maxTurns?: number } = {},
+  opts: {
+    systemPrompt?: string;
+    maxTurns?: number;
+    cwd?: string;
+    allowedTools?: string[];
+  } = {},
 ): Promise<string> {
   const model = process.env.AGENT1_MODEL ?? 'claude-opus-4-7';
   const messages: string[] = [];
@@ -207,8 +227,8 @@ async function runQuery(
         ? { type: 'preset', preset: 'claude_code', append: opts.systemPrompt }
         : undefined,
       mcpServers: jiraMcpConfig(),
-      // Allow the MCP tools but disable file/bash tools — agent 1 only reads Jira.
-      allowedTools: ['mcp__mcp-atlassian'],
+      cwd: opts.cwd,
+      allowedTools: opts.allowedTools ?? ['mcp__mcp-atlassian'],
     },
   });
 
@@ -253,6 +273,14 @@ async function main() {
   const sprintId = args.sprintId ?? fallbackLabel;
 
   log.info(`Agent 1 (refine) starting — sprint: ${sprintId}, dryRun: ${args.dryRun}`);
+
+  const mainRepoDir = requireEnv('FLUX_WEB_COMPONENTS_DIR');
+  const worktreeDir = developV2WorktreePath(stateDir);
+  if (!args.dryRun) {
+    await prepareWorktree({ mainRepoDir, worktreePath: worktreeDir, ref: 'develop-v2' });
+  } else {
+    log.info(`Dry-run: skipping worktree prep (would target ${worktreeDir})`);
+  }
 
   const systemPrompt = await loadPrompt();
   const state = new SprintState(stateDir, sprintId);
@@ -300,7 +328,7 @@ async function main() {
 
     const existing = markdownExists ? await state.readTicketMarkdown(t.key) : null;
     try {
-      const md = await refineTicket(t.key, existing, systemPrompt);
+      const md = await refineTicket(t.key, existing, systemPrompt, worktreeDir);
       await state.writeTicketMarkdown(t.key, md);
       newMeta.tickets[t.key] = {
         key: t.key,

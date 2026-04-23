@@ -25,10 +25,13 @@ Stop met een duidelijke foutmelding.
 ## Stap 3 — Git branch
 
 - Controleer dat de working tree clean is (`git status`). Als niet: STOP.
-- Bepaal de base branch: gebruik de huidige branch (meestal `main` of
-  `develop`). Noteer in `_status.json.baseBranch`.
-- Leid een slug af uit de ticket titel (eerste 40 chars, kebab-case).
-- Maak aan: `git checkout -b feature/<key-lower>-<slug>`
+- Fetch de latest `develop-v2`: `git fetch origin develop-v2`.
+- Base branch is altijd `develop-v2`. Noteer `"baseBranch": "develop-v2"`
+  in `_status.json`.
+- Leid een slug af uit de ticket titel (eerste 40 chars, kebab-case,
+  lowercase, non-alphanumeric → `-`).
+- Maak aan: `git checkout -b feature-v2/<key-lower>-<slug> origin/develop-v2`
+  (bv. `feature-v2/flux-123-fix-focus-trap`).
 
 ## Stap 4 — Delegeer naar ticket-author
 
