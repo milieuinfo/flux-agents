@@ -23,9 +23,9 @@ niks — ticket-author zal bij volgende iteratie jouw feedback adresseren.
 Check elk van de volgende punten expliciet:
 
 **Tegen het refinement-rapport (`state/tickets/<KEY>/ticket.md`)**
-- Zijn alle acceptatiecriteria geadresseerd? Hoe?
-- Wijkt de implementatie af van de voorgestelde technische aanpak?
-  Is de afwijking verantwoord?
+- Zijn alle succescriteria uit "Doel & succescriteria" geadresseerd? Hoe?
+- Wijkt de implementatie af van de aanbevolen voorstel? Is de afwijking
+  verantwoord in `code-changes.md`?
 - Zijn de benoemde risico's aangepakt?
 
 **Code-kwaliteit**
@@ -84,7 +84,7 @@ Check elk van de volgende punten expliciet:
       Gebruik een synthese van alle commit messages als body.
    b. `git push -u origin <branch>`
    c. `gh pr create --base develop-v2` met titel `<KEY>: <titel uit
-      refinement>` en body die bevat: acceptatiecriteria-checklist,
+      refinement>` en body die bevat: succescriteria-checklist,
       samenvatting, link naar Jira ticket (`{JIRA_URL}/browse/<KEY>`).
    d. Noteer de PR-URL in `review-r<N>.md` onderaan.
 
@@ -102,9 +102,10 @@ Check elk van de volgende punten expliciet:
 
 {2-3 zinnen: algemene indruk, grote lijnen}
 
-## Acceptatiecriteria
+## Succescriteria
 
-{Per AC: ✓ / ✗ / ⚠️ met korte toelichting}
+{Per criterium uit "Doel & succescriteria" van het refinement-rapport:
+✓ / ✗ / ⚠️ met korte toelichting}
 
 ## Bevindingen
 

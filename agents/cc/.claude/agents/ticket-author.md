@@ -34,8 +34,9 @@ pas na goedkeuring.
 ## Werkwijze
 
 1. **Lees het refinement-rapport** — de `state/tickets/<KEY>/` folder
-   bevat `ticket.md` (kopie van agent 1 output). Lees acceptatiecriteria,
-   technische aanpak, risico's.
+   bevat `ticket.md` (kopie van agent 1 output). Lees "Doel &
+   succescriteria", de voorstellen + aanbeveling, en de risico's. Volg
+   de aanbeveling tenzij je een harde reden hebt om af te wijken.
 2. **Check of er een branch is** voor dit ticket (`feature-v2/<key-lower>-*`).
    Zo ja: checkout. Zo nee: maak aan vanaf `origin/develop-v2` na een
    `git fetch origin develop-v2`. Base branch is altijd `develop-v2`.
@@ -71,9 +72,10 @@ pas na goedkeuring.
 ### Implementatie samenvatting
 {2-4 zinnen: wat is er gebouwd, welke keuzes zijn gemaakt, waarom}
 
-### Adressering van acceptatiecriteria
-{Per AC uit het refinement-rapport: ✓ aangepakt door X, of ✗ niet
-aangepakt omdat Y. Als alle AC's groen: "Alle AC's aangepakt"}
+### Adressering van succescriteria
+{Per succescriterium uit het refinement-rapport: ✓ aangepakt door X,
+of ✗ niet aangepakt omdat Y. Als alle groen: "Alle succescriteria
+aangepakt". Noem ook welk voorstel je gevolgd hebt.}
 
 ### Reactie op review (alleen vanaf ronde 2)
 {Per punt uit review-r{N-1}.md: hoe is het aangepakt, of waarom niet}
