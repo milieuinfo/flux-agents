@@ -78,17 +78,33 @@ Check elk van de volgende punten expliciet:
    - Als CHANGES_REQUESTED: `{round: N, status: "changes_requested"}`
    - Als ronde >= 3 en nog geen approval: `{round: N, status: "escalated"}`
 6. **BIJ APPROVED (en alleen dan)**:
-   a. Squash de N commits naar één conventional commit. Base is
-      `develop-v2` (zie `_status.json.baseBranch`, zou `develop-v2`
-      moeten zijn):
-      `git reset --soft origin/develop-v2` dan
-      `git commit -m "feat(<scope>): <desc> (<KEY>)"`.
-      Gebruik een synthese van alle commit messages als body.
+   a. Squash de N commits naar één commit. Base staat in
+      `_status.json.baseBranch` (default `develop-v2`):
+      `git reset --soft origin/<baseBranch>` dan
+      `git commit -m "<first-line>" -m "<body>"`.
+
+      **First line (strikt):** `<type>: <KEY> - <vl-component> - <korte omschrijving>`
+      - `<type>` is `feat` of `fix` (bij een bugfix: `fix`).
+      - `<KEY>` is de ticket-key (bv. `FLUX-123`).
+      - `<vl-component>` is de component-naam (bv. `vl-input-field`).
+        Als het ticket niet over één specifieke component gaat (build,
+        docs, cross-cutting refactor): laat dit segment én de tweede
+        dash weg → `feat: FLUX-123 - korte omschrijving`.
+      - `<korte omschrijving>` is functioneel geformuleerd, niet
+        technisch (bv. "fix focus trap leak bij keyboard-only
+        sluiten"), max ~60 tekens.
+
+      **Body:** synthese van de ronde-commit messages — wat is er
+      gedaan, welke keuzes, welke niet-triviale trade-offs.
+
    b. `git push -u origin <branch>`
-   c. `gh pr create --base develop-v2` met titel `<KEY>: <titel uit
-      refinement>` en body die bevat: succescriteria-checklist,
-      samenvatting, link naar Jira ticket (`{JIRA_URL}/browse/<KEY>`).
-   d. Noteer de PR-URL in `review-r<N>.md` onderaan.
+   c. `gh pr create --draft --base <baseBranch>` — de PR wordt **als
+      Draft** aangemaakt, nooit als ready-for-review (dat bepaalt Kris
+      zelf). Titel = de `<first-line>` uit stap a (letterlijk dezelfde
+      string). Body bevat: succescriteria-checklist, samenvatting,
+      link naar Jira ticket (`{JIRA_URL}/browse/<KEY>`).
+   d. Noteer de PR-URL in `review-r<N>.md` onderaan en in
+      `_status.json.prUrl`.
 
 ## Format: review-r<N>.md
 

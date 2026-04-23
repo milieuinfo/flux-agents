@@ -57,9 +57,17 @@ pas na goedkeuring.
 5. **Run tests en linter** lokaal. Los problemen op. Als een test faalt
    die niets met jouw wijziging te maken heeft: noteer dat in
    code-changes.md onder "Bestaande problemen".
-6. **Commit** met een conventional commit message:
-   `feat(<scope>): <beschrijving> (<TICKET-KEY>)`
-   Bij vervolgiteraties: `fix(<scope>): address review ronde <N> (<KEY>)`
+6. **Commit** met dezelfde first-line-conventie die de reviewer uiteindelijk
+   hergebruikt voor de squash-commit:
+   `<type>: <KEY> - <vl-component> - <korte omschrijving>`
+   - `<type>` is `feat` (nieuwe functionaliteit) of `fix` (bugfix).
+   - `<vl-component>` segment weglaten als het ticket niet over één
+     specifieke component gaat.
+   Bij vervolgiteraties (ronde 2+): houd dezelfde first-line vorm aan,
+   maar voeg " (ronde N - addresses review feedback)" toe aan de body.
+   Deze ronde-commits worden bij APPROVED gesquasht door de reviewer,
+   dus de exacte formulering hoeft niet perfect te zijn — consistentie
+   in stijl maakt de git-geschiedenis wel leesbaarder tijdens de iteratie.
 7. **Schrijf/update `state/tickets/<KEY>/code-changes.md`** volgens
    onderstaande structuur.
 

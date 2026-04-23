@@ -39,8 +39,10 @@ Roep de `ticket-author` subagent aan:
 > Focus op de 🔴 Blockers uit de review. 🟡 Aanbevelingen mag je meenemen
 > als het goedkoop is, maar niet als het scope uitbreidt.
 >
-> Maak een nieuwe commit (niet amend) met message
-> `fix(<scope>): address review ronde {round} ($1)`.
+> Maak een nieuwe commit (niet amend). Gebruik dezelfde first-line-vorm
+> als ronde 1: `<type>: $1 - <vl-component> - <korte omschrijving>`
+> (zie `.claude/agents/ticket-author.md`), met in de body
+> "(ronde {round} - addresses review feedback)".
 > Voeg een nieuwe "## Ronde {round}" sectie toe aan code-changes.md.
 > Overschrijf de vorige rondes NIET.
 
