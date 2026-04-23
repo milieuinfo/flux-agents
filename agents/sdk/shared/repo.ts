@@ -1,10 +1,51 @@
-import { access } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { access, mkdir } from 'node:fs/promises';
+import { dirname, join, resolve } from 'node:path';
 import { spawn } from 'node:child_process';
 import { log } from './logger.js';
 
+/**
+ * Default path for the managed flux-web-components clone. The agents own
+ * this clone — users should not edit it directly. Separated from the
+ * user's own working clone so a refine/develop run never touches their
+ * branches or staging state.
+ */
+export function managedRepoPath(stateDir: string): string {
+  return resolve(stateDir, 'repo', 'flux-web-components');
+}
+
+/**
+ * Ensure the managed clone exists and points at the configured remote.
+ *
+ * First run: `git clone <repoUrl> <cloneDir>`.
+ * Later runs: verify the origin URL matches what the user configured.
+ * Mismatch → throw, so we never accidentally fetch from a stale/renamed
+ * remote.
+ */
+export async function ensureRepoClone(opts: {
+  repoUrl: string;
+  cloneDir: string;
+}): Promise<boolean> {
+  const { repoUrl, cloneDir } = opts;
+
+  if (await pathExists(cloneDir)) {
+    const origin = (await gitCapture(cloneDir, ['remote', 'get-url', 'origin'])).trim();
+    if (origin !== repoUrl) {
+      throw new Error(
+        `Clone at ${cloneDir} has origin "${origin}" but FLUX_REPO_URL is ` +
+          `"${repoUrl}". Fix the mismatch or remove the clone directory.`,
+      );
+    }
+    return false;
+  }
+
+  log.info(`Cloning ${repoUrl} into ${cloneDir}`);
+  await mkdir(dirname(cloneDir), { recursive: true });
+  await git(dirname(cloneDir), ['clone', repoUrl, cloneDir]);
+  return true;
+}
+
 export interface WorktreeOptions {
-  /** Absolute path to the main flux-web-components clone (has .git). */
+  /** Absolute path to the managed flux-web-components clone. */
   mainRepoDir: string;
   /** Absolute path where the worktree should live. */
   worktreePath: string;
@@ -13,19 +54,11 @@ export interface WorktreeOptions {
 }
 
 /**
- * Prepare a read-only worktree of `ref` at `worktreePath` using the main
+ * Prepare a read-only worktree of `ref` at `worktreePath` using the managed
  * clone at `mainRepoDir` as the source of the shared `.git`.
  *
- * Why worktree (vs a second clone or vs switching the main repo's branch):
- * - shares .git with the main clone → no duplicate history, `git fetch` in
- *   the main clone propagates for free
- * - leaves the main clone's working state untouched (Kris may be mid-dev)
- * - multiple worktrees can coexist → agent 3 can later take per-ticket
- *   worktrees on feature branches for parallel work
- *
  * The worktree uses a detached HEAD tracking `origin/<ref>`. That avoids
- * branch-name conflicts with the main clone (which may already have a
- * local `develop-v2`) and makes it obvious this is a throwaway checkout.
+ * branch-name conflicts and makes it obvious this is a throwaway checkout.
  */
 export async function prepareWorktree(opts: WorktreeOptions): Promise<void> {
   const { mainRepoDir, worktreePath, ref } = opts;
@@ -59,9 +92,7 @@ async function assertIsGitRepo(dir: string): Promise<void> {
   try {
     await access(join(dir, '.git'));
   } catch {
-    throw new Error(
-      `FLUX_WEB_COMPONENTS_DIR=${dir} is not a git repository (no .git found).`,
-    );
+    throw new Error(`${dir} is not a git repository (no .git found).`);
   }
 }
 
@@ -90,12 +121,30 @@ function git(cwd: string, args: string[]): Promise<void> {
   });
 }
 
+function gitCapture(cwd: string, args: string[]): Promise<string> {
+  return new Promise((resolvePromise, rejectPromise) => {
+    const child = spawn('git', args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
+    let stdout = '';
+    let stderr = '';
+    child.stdout?.on('data', (chunk) => (stdout += chunk.toString()));
+    child.stderr?.on('data', (chunk) => (stderr += chunk.toString()));
+    child.on('error', rejectPromise);
+    child.on('close', (code) => {
+      if (code === 0) resolvePromise(stdout);
+      else
+        rejectPromise(
+          new Error(`git ${args.join(' ')} failed (exit ${code}): ${stderr.trim()}`),
+        );
+    });
+  });
+}
+
 /**
- * Resolve the worktree path for the develop-v2 refinement checkout.
+ * Resolve the worktree path for the base-branch refinement checkout.
  * Lives under the state dir so it's naturally gitignored with the rest.
  */
-export function developV2WorktreePath(stateDir: string): string {
-  return resolve(stateDir, 'worktrees', 'flux-web-components-develop-v2');
+export function baseBranchWorktreePath(stateDir: string, baseBranch: string): string {
+  return resolve(stateDir, 'worktrees', `flux-web-components-${baseBranch}`);
 }
 
 /**
@@ -111,7 +160,7 @@ export function ticketWorktreePath(stateDir: string, ticketKey: string): string 
  * Ensure a per-ticket worktree exists on the given feature branch.
  *
  * Semantics:
- *  - If the worktree doesn't exist: create it, branch off `origin/develop-v2`.
+ *  - If the worktree doesn't exist: create it, branch off `origin/<baseBranch>`.
  *    Uses `git worktree add -b <branch>` so the branch is created fresh
  *    (fails if it already exists elsewhere, which would be a bug).
  *  - If the worktree exists: leave it alone. Caller is responsible for
@@ -123,22 +172,25 @@ export async function ensureTicketWorktree(opts: {
   mainRepoDir: string;
   worktreePath: string;
   branch: string;
+  baseBranch: string;
 }): Promise<boolean> {
-  const { mainRepoDir, worktreePath, branch } = opts;
+  const { mainRepoDir, worktreePath, branch, baseBranch } = opts;
 
   if (await pathExists(worktreePath)) return false;
 
-  log.info(`Fetching develop-v2 in ${mainRepoDir}`);
-  await git(mainRepoDir, ['fetch', 'origin', 'develop-v2']);
+  log.info(`Fetching ${baseBranch} in ${mainRepoDir}`);
+  await git(mainRepoDir, ['fetch', 'origin', baseBranch]);
 
-  log.info(`Creating worktree at ${worktreePath} on branch ${branch} (from origin/develop-v2)`);
+  log.info(
+    `Creating worktree at ${worktreePath} on branch ${branch} (from origin/${baseBranch})`,
+  );
   await git(mainRepoDir, [
     'worktree',
     'add',
     '-b',
     branch,
     worktreePath,
-    'origin/develop-v2',
+    `origin/${baseBranch}`,
   ]);
   return true;
 }

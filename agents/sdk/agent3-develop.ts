@@ -24,7 +24,9 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 import { resolve } from 'node:path';
 import { log } from './shared/logger.js';
 import {
+  ensureRepoClone,
   ensureTicketWorktree,
+  managedRepoPath,
   ticketBranchName,
   ticketWorktreePath,
 } from './shared/repo.js';
@@ -66,9 +68,13 @@ function requireEnv(name: string): string {
 async function main() {
   const { key, sprint } = parseArgs();
   const stateDir = resolve(process.env.STATE_DIR ?? './state');
-  const mainRepoDir = requireEnv('FLUX_WEB_COMPONENTS_DIR');
+  const repoUrl = requireEnv('FLUX_REPO_URL');
+  const baseBranch = process.env.FLUX_BASE_BRANCH ?? 'develop-v2';
+  const mainRepoDir = resolve(process.env.FLUX_REPO_DIR ?? managedRepoPath(stateDir));
 
   log.info(`Agent 3 (develop) starting — ticket: ${key}`);
+
+  await ensureRepoClone({ repoUrl, cloneDir: mainRepoDir });
 
   const refinement = await locateRefinement(stateDir, key, sprint);
   log.info(`Refinement: ${refinement.path} (sprint ${refinement.sprint})`);
@@ -115,6 +121,7 @@ async function main() {
     mainRepoDir,
     worktreePath: worktree,
     branch,
+    baseBranch,
   });
   log.info(created ? `Worktree aangemaakt: ${worktree}` : `Worktree hergebruikt: ${worktree}`);
 
@@ -124,7 +131,7 @@ async function main() {
     sprint: refinement.sprint,
     round,
     status: 'in_progress',
-    baseBranch: 'develop-v2',
+    baseBranch,
     branch,
     startedAt: prev?.startedAt ?? now,
     updatedAt: now,

@@ -70,7 +70,7 @@ async function main() {
   }
 
   const systemPrompt = await loadSubagentPrompt('ticket-reviewer');
-  const userPrompt = buildPrompt(key, status.round, ticket);
+  const userPrompt = buildPrompt(key, status.round, status.baseBranch, ticket);
 
   const q = query({
     prompt: userPrompt,
@@ -116,7 +116,12 @@ async function main() {
   }
 }
 
-function buildPrompt(key: string, round: number, ticket: TicketState): string {
+function buildPrompt(
+  key: string,
+  round: number,
+  baseBranch: string,
+  ticket: TicketState,
+): string {
   return (
     `Review ronde ${round} van ticket ${key}. Context:\n` +
     `- ${ticket.ticketMdPath} — refinement-rapport\n` +
@@ -125,10 +130,10 @@ function buildPrompt(key: string, round: number, ticket: TicketState): string {
     (round > 1
       ? `- ${ticket.reviewPath(round - 1)} — vorige review\n`
       : '') +
-    `\nJe cwd is de feature-branch worktree. Base branch is develop-v2 ` +
+    `\nJe cwd is de feature-branch worktree. Base branch is ${baseBranch} ` +
     `(zie _status.json). Schrijf ${ticket.reviewPath(round)} en werk ` +
     `${ticket.statusPath} bij volgens je system prompt. Bij APPROVED: ` +
-    `squash + push + gh pr create --base develop-v2.`
+    `squash + push + gh pr create --base ${baseBranch}.`
   );
 }
 

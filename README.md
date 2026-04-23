@@ -83,8 +83,16 @@ npm install
 
 ```bash
 cp .env.example .env
-# Genereer een Personal Access Token in Jira (profile → PAT) en vul in.
 ```
+
+Vul minstens in:
+- `JIRA_PERSONAL_TOKEN` (profile → PAT in Jira)
+- `FLUX_REPO_URL` (git@github.com:milieuinfo/flux-web-components.git)
+- `FLUX_BASE_BRANCH` (default `develop-v2`)
+
+Bij de eerste run klont de pipeline de repo automatisch onder
+`state/repo/flux-web-components/` (gitignored). Volledig los van je
+eigen werkcopie — de agents raken die nooit aan.
 
 ### 3. MCP Atlassian Docker image
 
@@ -158,7 +166,8 @@ Wat dit doet:
   (als dat er nog niet staat — eventuele `## Keuze` annotaties blijven
   bewaard).
 - Maakt een per-ticket git worktree aan onder
-  `state/worktrees/flux-web-components-FLUX-123/` vanaf `origin/develop-v2`.
+  `state/worktrees/flux-web-components-FLUX-123/` vanaf
+  `origin/<FLUX_BASE_BRANCH>` (default `develop-v2`).
 - Maakt een feature-branch `feature-v2/flux-123-<slug>`.
 - Roept de `ticket-author` subagent aan (Sonnet) om te implementeren.
 - Schrijft `state/tickets/FLUX-123/code-changes.md`.

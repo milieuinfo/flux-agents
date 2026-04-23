@@ -22,7 +22,12 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { log } from './shared/logger.js';
 import { SprintState, hashTicketContent, type SprintMeta } from './shared/state.js';
-import { developV2WorktreePath, prepareWorktree } from './shared/repo.js';
+import {
+  baseBranchWorktreePath,
+  ensureRepoClone,
+  managedRepoPath,
+  prepareWorktree,
+} from './shared/repo.js';
 import { extractMarkdown, streamLastAssistantText } from './shared/query.js';
 
 config();
@@ -264,12 +269,16 @@ async function main() {
 
   log.info(`Agent 1 (refine) starting — sprint: ${sprintId}, dryRun: ${args.dryRun}`);
 
-  const mainRepoDir = requireEnv('FLUX_WEB_COMPONENTS_DIR');
-  const worktreeDir = developV2WorktreePath(stateDir);
+  const repoUrl = requireEnv('FLUX_REPO_URL');
+  const baseBranch = process.env.FLUX_BASE_BRANCH ?? 'develop-v2';
+  const mainRepoDir = resolve(process.env.FLUX_REPO_DIR ?? managedRepoPath(stateDir));
+  const worktreeDir = baseBranchWorktreePath(stateDir, baseBranch);
+
   if (!args.dryRun) {
-    await prepareWorktree({ mainRepoDir, worktreePath: worktreeDir, ref: 'develop-v2' });
+    await ensureRepoClone({ repoUrl, cloneDir: mainRepoDir });
+    await prepareWorktree({ mainRepoDir, worktreePath: worktreeDir, ref: baseBranch });
   } else {
-    log.info(`Dry-run: skipping worktree prep (would target ${worktreeDir})`);
+    log.info(`Dry-run: skipping clone + worktree prep (would target ${worktreeDir})`);
   }
 
   const systemPrompt = await loadPrompt();

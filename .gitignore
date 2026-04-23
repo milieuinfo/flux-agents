@@ -3,5 +3,6 @@ dist/
 .env
 state/logs/
 state/worktrees/
+state/repo/
 *.log
 .DS_Store

@@ -137,21 +137,25 @@ krijgt die gebundeld in het prompt en produceert `_order.md`.
 
 **Waarom:** kleinste attack surface, snelste run.
 
-### 7. Per-ticket worktree, SDK-first voor agents 3/4
+### 7. Managed clone + per-ticket worktree (SDK-first voor agents 3/4)
 
-Agents 3 en 4 draaien als SDK-scripts (net als 1 en 2) en werken op
-een per-ticket worktree onder
-`state/worktrees/flux-web-components-<KEY>/`, afgesplitst van
-`origin/develop-v2`. Shared `.git` met de hoofdclone via
-`git worktree add`, dus geen dubbele history en geen botsing met
-Kris' eigen werkstaat in de hoofdclone.
+De pipeline beheert zijn eigen clone van flux-web-components onder
+`state/repo/flux-web-components/` (gitignored), opgezet bij de eerste
+run op basis van `FLUX_REPO_URL` uit `.env`. Agents 1, 3 en 4 spawnen
+hier worktrees uit:
+- Agent 1: één gedeelde worktree op `origin/<FLUX_BASE_BRANCH>`
+  (`state/worktrees/flux-web-components-<baseBranch>/`), detached
+  HEAD, alleen voor code-lezen.
+- Agents 3/4: per-ticket worktree op een feature-branch
+  (`state/worktrees/flux-web-components-<KEY>/`), afgesplitst van
+  `origin/<FLUX_BASE_BRANCH>`.
 
-**Waarom:** (a) Uniforme architectuur — alle vier agents zijn Node
-scripts, aanroepbaar met `npm run ...`, klaar voor autonome orchestratie
-op een server. (b) Per-ticket worktree maakt parallel werk op meerdere
-tickets mogelijk (elk zijn eigen branch + working tree). (c) De
-`.claude/`-symlink-setup is niet meer nodig voor de normale flow;
-blijft alleen bestaan voor interactieve debugging.
+**Waarom deze managed-clone-aanpak:** (a) Server-ready — fresh install
+heeft alleen `.env` nodig, de clone komt automatisch. (b) Volledige
+scheiding van Kris' eigen werkclone in IntelliJ. (c) Per-ticket
+worktree maakt parallel werk op meerdere tickets gratis (elk zijn eigen
+branch + working tree). (d) Base-branch als env var → schakelen naar
+`develop-v3` is een config-wijziging.
 
 De Claude Code subagent-variant in `agents/cc/.claude/agents/` blijft
 bestaan. De SDK-scripts herbruiken die markdowns als system prompt
@@ -212,6 +216,11 @@ eerste echte runs verfijnd worden met team-specifieke regels.
 flux-agents/                      ← deze repo
 ├── state/
 │   ├── logs/                     ← gitignored
+│   ├── repo/                     ← gitignored (managed clone, bij eerste run aangemaakt)
+│   │   └── flux-web-components/  ← volledig los van Kris' eigen werkclone
+│   ├── worktrees/                ← gitignored (per-ticket + base-branch worktrees)
+│   │   ├── flux-web-components-develop-v2/     ← agent 1 leest hieruit
+│   │   └── flux-web-components-FLUX-<KEY>/     ← agents 3/4 werken hier
 │   ├── sprints/<SPRINT>/         ← gecommit (markdowns zijn kennis)
 │   │   ├── _meta.json            ← agent 1 hashes
 │   │   ├── _order.md             ← agent 2 output
@@ -220,10 +229,7 @@ flux-agents/                      ← deze repo
 │       ├── ticket.md             ← kopie van refinement
 │       ├── code-changes.md       ← agent 3 per ronde
 │       ├── review-r<N>.md        ← agent 4 per ronde
-│       └── _status.json          ← round, status, baseBranch
-
-flux-web-components/              ← aparte repo (target van symlink)
-└── .claude → flux-agents/agents/cc/.claude
+│       └── _status.json          ← round, status, baseBranch, branch, prUrl
 ```
 
 **N.B.:** `state/sprints/` en `state/tickets/` worden WEL gecommit —
@@ -315,7 +321,7 @@ Veel waarschijnlijke foutmodes:
   ticket in exact één sprint-folder voorkomt)
 - **Per-ticket worktree botst** → bestaat al van een eerdere poging?
   Kijk onder `state/worktrees/flux-web-components-<KEY>/`, ruim op met
-  `git -C <flux-web-components> worktree remove <path>` wanneer je
-  echt opnieuw wil beginnen
+  `git -C state/repo/flux-web-components worktree remove <path>` wanneer
+  je echt opnieuw wil beginnen
 - **(CC-variant) Claude Code vindt `.claude/` niet** → alleen relevant
   voor interactieve debugging; check `ls -la flux-web-components/.claude`
