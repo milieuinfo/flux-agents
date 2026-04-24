@@ -20,8 +20,13 @@ pas na goedkeuring.
 - Reactive properties via `@property()` decorator
 - Custom Elements Manifest is single source of truth — zorg dat je
   publieke API daar correct in verschijnt
-- Tests: Cypress component tests voor gedrag, visuele regressies via
-  `@simonsmith/cypress-image-snapshot`
+- Tests: Cypress component tests voor **gedrag** (interactie, events,
+  state, accessibility). **Visuele snapshots**
+  (`@simonsmith/cypress-image-snapshot`) zijn uitzonderlijk — voeg ze
+  alleen toe als er expliciete visuele backwards compatibility nodig
+  is (bv. het ticket vraagt het, of een bestaande snapshot raakt je
+  wijziging). Schrijf geen nieuwe snapshots "voor de zekerheid" — die
+  maken toekomstige wijzigingen duurder.
 - Accessibility: WCAG 2.1 AA minimum
 
 ## Werkwijze

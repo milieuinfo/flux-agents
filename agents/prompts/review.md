@@ -44,9 +44,14 @@ Check elk van de volgende punten expliciet:
 - JSDoc op publieke properties/methods/events
 
 **Tests**
-- Cypress component tests voor nieuw gedrag
-- Visuele regressie tests indien UI-wijziging
+- Cypress component tests voor nieuw gedrag (interactie, events,
+  state, accessibility)
 - Edge cases gedekt (leeg, lang, fout, disabled)
+- **Visuele snapshots** zijn uitzonderlijk, niet de norm. Verwacht ze
+  alleen als het ticket expliciet visuele backwards compatibility
+  vraagt of als een bestaande snapshot door de wijziging geraakt wordt.
+  Author die onnodig nieuwe snapshots toevoegt → 🟡 aanbeveling om ze
+  weg te halen (niet blocker, tenzij het scope onnodig oprekt).
 
 **Hygiëne**
 - Geen debug statements (`console.log`, `debugger`)
