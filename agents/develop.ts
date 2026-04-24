@@ -22,6 +22,7 @@
 import { config } from 'dotenv';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { log } from './shared/logger.js';
 import {
   ensureRepoClone,
@@ -43,32 +44,22 @@ import {
 
 config();
 
-interface CliArgs {
+export interface DevelopArgs {
   key: string;
   sprint?: string;
 }
 
-function parseArgs(): CliArgs {
-  const argv = process.argv.slice(2);
-  const key = argv[0];
-  if (!key) {
-    console.error('Usage: develop <TICKET-KEY> [sprintId]');
-    process.exit(1);
-  }
-  return { key, sprint: argv[1] };
-}
-
 function requireEnv(name: string): string {
   const v = process.env[name];
-  if (!v) {
-    console.error(`Missing required env var: ${name}`);
-    process.exit(1);
-  }
+  if (!v) throw new Error(`Missing required env var: ${name}`);
   return v;
 }
 
-async function main() {
-  const { key, sprint } = parseArgs();
+/**
+ * Run the develop agent for a single ticket. Exported so the ship
+ * orchestrator can invoke it directly without spawning a subprocess.
+ */
+export async function runDevelop({ key, sprint }: DevelopArgs): Promise<void> {
   const stateDir = resolve(process.env.STATE_DIR ?? './state');
   const repoUrl = requireEnv('FLUX_REPO_URL');
   const baseBranch = process.env.FLUX_BASE_BRANCH ?? 'develop-v2';
@@ -199,7 +190,21 @@ function truncate(s: string, n: number): string {
   return s.length > n ? `${s.slice(0, n)}…` : s;
 }
 
-main().catch((err) => {
-  log.error('Fatal:', err);
-  process.exit(1);
-});
+function parseArgs(): DevelopArgs {
+  const argv = process.argv.slice(2);
+  const key = argv[0];
+  if (!key) {
+    console.error('Usage: develop <TICKET-KEY> [sprintId]');
+    process.exit(1);
+  }
+  return { key, sprint: argv[1] };
+}
+
+// Only run as CLI when invoked directly (not when imported by ship.ts).
+const isMain = process.argv[1] === fileURLToPath(import.meta.url);
+if (isMain) {
+  runDevelop(parseArgs()).catch((err) => {
+    log.error('Fatal:', err);
+    process.exit(1);
+  });
+}

@@ -9,6 +9,7 @@
     "plan": "tsx agents/plan.ts",
     "develop": "tsx agents/develop.ts",
     "review": "tsx agents/review.ts",
+    "ship": "tsx agents/ship.ts",
     "refine:dry": "DRY_RUN=1 tsx agents/refine.ts",
     "sync-cc-agents": "./scripts/sync-cc-agents.sh",
     "link-commands": "./scripts/link-commands.sh"

@@ -188,6 +188,21 @@ Roept `ticket-reviewer` aan (Opus) op dezelfde worktree. Drie uitkomsten:
   dat het ronde N+1 is en schakelt naar address-modus.
 - **ESCALATED** — max 3 rondes bereikt; geen PR, jij beslist manueel.
 
+### Alternatief: ship (één commando, hele lus)
+
+Als je het ticket gewoon wil laten afhandelen zonder tussenin mee te
+kijken:
+
+```bash
+npm run ship -- FLUX-123 backlog-20260422
+```
+
+Dit draait de `develop → review` lus automatisch, tot maximaal 3 rondes.
+Stopt bij APPROVED (PR geopend), ESCALATED (mens nodig), of na ronde 3
+als er nog wijzigingen gevraagd worden. Handmatig `develop` + `review`
+na elkaar draaien blijft werken en is aangewezen wanneer je per stap
+wil verifiëren.
+
 ### Stap 5: merge
 
 Als agent 4 APPROVED heeft gemaakt en de PR geopend: **jij reviewt

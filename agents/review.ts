@@ -20,6 +20,7 @@ import { config } from 'dotenv';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { access } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { log } from './shared/logger.js';
 import { ticketWorktreePath } from './shared/repo.js';
 import { loadPrompt } from './shared/prompts.js';
@@ -28,17 +29,15 @@ import { TicketState } from './shared/ticket.js';
 
 config();
 
-function parseArgs(): { key: string } {
-  const key = process.argv.slice(2)[0];
-  if (!key) {
-    console.error('Usage: review <TICKET-KEY>');
-    process.exit(1);
-  }
-  return { key };
+export interface ReviewArgs {
+  key: string;
 }
 
-async function main() {
-  const { key } = parseArgs();
+/**
+ * Run the review agent for a single ticket. Exported so the ship
+ * orchestrator can call it directly.
+ */
+export async function runReview({ key }: ReviewArgs): Promise<void> {
   const stateDir = resolve(process.env.STATE_DIR ?? './state');
 
   log.info(`Agent 4 (review) starting — ticket: ${key}`);
@@ -140,7 +139,20 @@ function truncate(s: string, n: number): string {
   return s.length > n ? `${s.slice(0, n)}…` : s;
 }
 
-main().catch((err) => {
-  log.error('Fatal:', err);
-  process.exit(1);
-});
+function parseArgs(): ReviewArgs {
+  const key = process.argv.slice(2)[0];
+  if (!key) {
+    console.error('Usage: review <TICKET-KEY>');
+    process.exit(1);
+  }
+  return { key };
+}
+
+// Only run as CLI when invoked directly (not when imported by ship.ts).
+const isMain = process.argv[1] === fileURLToPath(import.meta.url);
+if (isMain) {
+  runReview(parseArgs()).catch((err) => {
+    log.error('Fatal:', err);
+    process.exit(1);
+  });
+}
