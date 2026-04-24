@@ -16,7 +16,7 @@ Als niet: STOP. Vertel Kris welke stap ontbreekt.
 
 ## Stap 2 — Valideer branch
 
-- `git branch --show-current` moet `feature/<key-lower>-*` zijn voor deze key
+- `git branch --show-current` moet `feature-v2/<KEY>-*` zijn voor deze key
 - Werktree moet clean zijn (commits zijn gedaan)
 
 Als er uncommitted changes zijn: STOP.

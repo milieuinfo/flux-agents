@@ -64,6 +64,15 @@ Produceer EXACT deze markdown-structuur. Gebruik Nederlandse tekst.
 ## Samenvatting
 {2-4 zinnen: wat wordt er gevraagd, waarom, voor wie}
 
+## Branch slug
+{2-5 keywords die de KERN van het ticket vatten, in kebab-case.
+Mag uit titel, beschrijving, comments, of je eigen analyse komen —
+kies wat de essentie het duidelijkst communiceert aan iemand die de
+branch naam leest (bv. `select-rich-change-event`,
+`focus-trap-keyboard-leak`, `build-pipeline-ci-failure`). Gebruik
+geen `vl-` prefix, geen stopwoorden, geen ticket-key. Alleen
+alfanumerieke tekens en `-`. Eén regel, niks anders.}
+
 ## Readiness score
 {READY | NEEDS-INFO | BLOCKED}
 

@@ -27,6 +27,7 @@ import {
   ensureRepoClone,
   ensureTicketWorktree,
   managedRepoPath,
+  slugifyTitle,
   ticketBranchName,
   ticketWorktreePath,
 } from './shared/repo.js';
@@ -34,6 +35,7 @@ import { loadSubagentPrompt } from './shared/prompts.js';
 import { streamLastAssistantText } from './shared/query.js';
 import {
   TicketState,
+  extractBranchSlug,
   extractTitle,
   locateRefinement,
   seedTicketMd,
@@ -85,7 +87,10 @@ async function main() {
 
   const ticketMd = await ticket.readTicketMd();
   const title = extractTitle(ticketMd);
-  const branch = ticketBranchName(key, title);
+  // Prefer the agent-1-chosen slug from "## Branch slug"; fall back to
+  // mechanical slugification when that section is missing (older refinements).
+  const slug = extractBranchSlug(ticketMd) ?? slugifyTitle(title);
+  const branch = ticketBranchName(key, slug);
 
   // Derive round + mode from prior status.
   const prev = await ticket.readStatus();

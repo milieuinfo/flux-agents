@@ -46,7 +46,7 @@ pas na goedkeuring.
       of meerdere gelijkwaardige voorstellen zonder recommendation):
       **STOP**. Implementeer niets. Meld aan Kris dat er een `## Keuze`
       sectie nodig is voor je kan starten.
-2. **Check of er een branch is** voor dit ticket (`feature-v2/<key-lower>-*`).
+2. **Check of er een branch is** voor dit ticket (`feature-v2/<KEY>-*`).
    Zo ja: checkout. Zo nee: maak aan vanaf `origin/develop-v2` na een
    `git fetch origin develop-v2`. Base branch is altijd `develop-v2`.
 3. **Check of er een review-rX.md bestaat** van agent 4. Zo ja: dit is
@@ -76,7 +76,7 @@ pas na goedkeuring.
 ```
 # <TICKET-KEY>: code changes
 
-**Branch:** feature-v2/<key-lower>-<slug>
+**Branch:** feature-v2/<KEY>-<slug>
 **Laatste commit:** <sha> — <bericht>
 **Ronde:** <N>
 

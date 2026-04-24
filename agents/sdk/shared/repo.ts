@@ -196,23 +196,76 @@ export async function ensureTicketWorktree(opts: {
 }
 
 /**
- * Derive a kebab-case slug (max 40 chars) from a ticket title.
- * Used for feature branch names: `feature-v2/<key-lower>-<slug>`.
+ * Small stopword list (NL + EN) — only the very common fillers we don't
+ * want in branch slugs. Intentionally minimal to avoid dropping domain
+ * terms that happen to look like filler.
  */
-export function slugifyTitle(title: string): string {
-  return title
+const SLUG_STOPWORDS = new Set([
+  // NL
+  'de', 'het', 'een', 'en', 'of', 'in', 'op', 'aan', 'bij', 'voor', 'naar',
+  'met', 'van', 'te', 'uit', 'om', 'door', 'over', 'niet', 'geen', 'ook',
+  'nog', 'als', 'dan', 'dus', 'wel', 'die', 'dat', 'deze', 'zo', 'wat',
+  'wie', 'waar', 'hoe',
+  // EN
+  'the', 'a', 'an', 'and', 'or', 'but', 'of', 'to', 'in', 'on', 'for',
+  'with', 'at', 'by', 'from', 'not', 'no', 'is', 'are', 'was', 'were',
+  'be', 'this', 'that', 'these', 'those', 'it', 'its',
+  // prefix markers we always want to strip
+  'vl',
+]);
+
+/**
+ * Derive a kebab-case keyword-slug (2-5 words, capped at ~50 chars) from a
+ * ticket title. Used for feature branch names like
+ * `feature-v2/FLUX-616-select-rich-textarea-input`.
+ *
+ * Heuristics:
+ *  - split on non-alphanumerics (component prefixes like `vl-input-field`
+ *    become `vl input field`)
+ *  - drop common NL/EN fillers (see SLUG_STOPWORDS) and the `vl` prefix
+ *  - drop tokens < 3 chars unless numeric (keeps e.g. `v2` or `401`)
+ *  - globally dedup (keeps first occurrence, preserves reading order)
+ *  - take the first `maxWords` remaining tokens
+ *  - cap the final string at ~50 chars (cuts at a word boundary)
+ *
+ * Not perfect — can't pick semantic keywords that aren't in the title
+ * ("change-event" isn't derivable from "niet aangeroepen"). For richer
+ * slugs we'd need agent-1 to suggest one during refinement.
+ */
+export function slugifyTitle(title: string, maxWords = 4): string {
+  const tokens = title
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 40)
-    .replace(/-+$/, '');
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean)
+    .filter((t) => !SLUG_STOPWORDS.has(t))
+    .filter((t) => t.length >= 3 || /^\d+$/.test(t));
+
+  const deduped: string[] = [];
+  const seen = new Set<string>();
+  for (const t of tokens) {
+    if (seen.has(t)) continue;
+    seen.add(t);
+    deduped.push(t);
+    if (deduped.length >= maxWords) break;
+  }
+
+  let slug = deduped.join('-');
+  if (slug.length > 50) {
+    // Trim back to the last word boundary under 50 chars.
+    slug = slug.slice(0, 50).replace(/-[^-]*$/, '');
+  }
+  return slug;
 }
 
 /**
- * Build the feature branch name from a ticket key and title.
+ * Build the feature branch name from a ticket key and a slug. Callers
+ * should prefer a slug chosen by agent 1 (from `## Branch slug` in the
+ * refinement markdown) and fall back to `slugifyTitle` on the title when
+ * that section is absent.
+ *
+ * FLUX stays uppercase in the branch name.
  */
-export function ticketBranchName(ticketKey: string, title: string): string {
-  const slug = slugifyTitle(title);
-  const key = ticketKey.toLowerCase();
+export function ticketBranchName(ticketKey: string, slug: string): string {
+  const key = ticketKey.toUpperCase();
   return slug ? `feature-v2/${key}-${slug}` : `feature-v2/${key}`;
 }

@@ -30,8 +30,10 @@ Stop met een duidelijke foutmelding.
   in `_status.json`.
 - Leid een slug af uit de ticket titel (eerste 40 chars, kebab-case,
   lowercase, non-alphanumeric → `-`).
-- Maak aan: `git checkout -b feature-v2/<key-lower>-<slug> origin/develop-v2`
-  (bv. `feature-v2/flux-123-fix-focus-trap`).
+- Maak aan: `git checkout -b feature-v2/<KEY>-<slug> origin/develop-v2`
+  (bv. `feature-v2/FLUX-123-fix-focus-trap-leak`). De key blijft in
+  hoofdletters; de slug zijn 2-5 keywords uit de titel (stopwoorden
+  verwijderd, `vl-` prefix gestript).
 
 ## Stap 4 — Delegeer naar ticket-author
 

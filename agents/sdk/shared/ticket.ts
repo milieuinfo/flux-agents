@@ -150,6 +150,24 @@ export function extractTitle(ticketMd: string): string {
   return match ? match[1] : firstLine.replace(/^#\s*/, '').trim();
 }
 
+/**
+ * Extract the agent-1-chosen branch slug from the `## Branch slug` section
+ * of ticket.md, if present. Returns null if the section is missing or the
+ * content isn't a valid kebab-case slug.
+ *
+ * Valid slug format: lowercase alphanumerics + dashes, no leading/trailing
+ * dashes, reasonable length. We deliberately don't re-slugify — if the
+ * model wrote something invalid, fall back to the mechanical slugifier.
+ */
+export function extractBranchSlug(ticketMd: string): string | null {
+  const match = ticketMd.match(/^##\s+Branch\s+slug\s*\n+([^\n]+)/im);
+  if (!match) return null;
+  const raw = match[1].trim().replace(/^`|`$/g, '');
+  if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(raw)) return null;
+  if (raw.length < 2 || raw.length > 60) return null;
+  return raw;
+}
+
 async function assertExists(path: string, message: string): Promise<void> {
   try {
     await access(path);
