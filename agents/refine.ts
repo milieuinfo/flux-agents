@@ -6,9 +6,14 @@
  * bestand per ticket met een refinement analyse.
  *
  * Usage:
- *   npm run refine -- <sprintId>
- *   npm run refine -- --jql "sprint = 42 AND project = FLUX"
- *   npm run refine -- <label> --tickets FLUX-123,FLUX-124
+ *   npm run refine -- <sprintName> [folderName]
+ *   npm run refine -- --jql "sprint = 42 AND project = FLUX" [folderName]
+ *   npm run refine -- [folderName] --tickets FLUX-123,FLUX-124
+ *
+ * `sprintName` wordt letterlijk aan Jira doorgegeven (quote als er spaties
+ * in zitten: "release sprint - v2.13.0 - AI"). `folderName` bepaalt de
+ * map onder state/sprints/; als die niet opgegeven is valt hij terug op
+ * sprintName.
  *
  * Idempotent: hergebruikt bestaande markdowns als de Jira content niet
  * is veranderd sinds de vorige run. Bij wijzigingen wordt een
@@ -28,12 +33,18 @@ import {
   managedRepoPath,
   prepareWorktree,
 } from './shared/repo.js';
-import { extractMarkdown, streamLastAssistantText } from './shared/query.js';
+import {
+  extractMarkdown,
+  extractTicketRefinement,
+  streamAllAssistantText,
+  streamLastAssistantText,
+} from './shared/query.js';
 
 config();
 
 interface CliArgs {
-  sprintId?: string;
+  sprintName?: string;
+  folderName?: string;
   jql?: string;
   tickets?: string[];
   dryRun: boolean;
@@ -42,6 +53,7 @@ interface CliArgs {
 function parseArgs(): CliArgs {
   const argv = process.argv.slice(2);
   const args: CliArgs = { dryRun: process.env.DRY_RUN === '1' };
+  const positionals: string[] = [];
 
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -55,7 +67,7 @@ function parseArgs(): CliArgs {
     } else if (a === '--dry-run') {
       args.dryRun = true;
     } else if (!a.startsWith('--')) {
-      args.sprintId = a;
+      positionals.push(a);
     }
   }
 
@@ -64,9 +76,28 @@ function parseArgs(): CliArgs {
     process.exit(1);
   }
 
-  if (!args.sprintId && !args.jql && !args.tickets) {
+  if (positionals.length > 2) {
     console.error(
-      'Usage: refine <sprintId> | --jql "<jql query>" | [<label>] --tickets KEY-1,KEY-2',
+      `Got ${positionals.length} positional args: ${positionals.map((p) => `"${p}"`).join(', ')}. ` +
+        `Expected at most 2 (sprintName and optional folderName). ` +
+        `Quote multi-word sprint names: refine "release sprint - v2.13.0 - AI" v2.13.0-AI`,
+    );
+    process.exit(1);
+  }
+
+  // In --jql/--tickets mode the first positional (if any) is the folder label.
+  // In sprint mode the first positional is the Jira sprint name, the optional
+  // second positional is the folder name.
+  if (args.jql || args.tickets) {
+    args.folderName = positionals[0];
+  } else {
+    args.sprintName = positionals[0];
+    args.folderName = positionals[1] ?? positionals[0];
+  }
+
+  if (!args.sprintName && !args.jql && !args.tickets) {
+    console.error(
+      'Usage: refine <sprintName> [folderName] | --jql "<jql query>" [folderName] | [folderName] --tickets KEY-1,KEY-2',
     );
     process.exit(1);
   }
@@ -148,7 +179,7 @@ async function listSprintTickets(args: CliArgs): Promise<Array<{
   const jql = buildJql(args);
   const prompt = jql
     ? `Use the Jira MCP to search with this JQL: ${jql}. Return ONLY a JSON array of objects with fields: key, summary, status, updated (ISO timestamp). No prose.`
-    : `Use the Jira MCP to find all tickets in sprint "${args.sprintId}" for project ${process.env.JIRA_PROJECT_KEY ?? 'FLUX'}. Return ONLY a JSON array of objects with fields: key, summary, status, updated (ISO timestamp). No prose.`;
+    : `Use the Jira MCP to find all tickets in sprint "${args.sprintName}" for project ${process.env.JIRA_PROJECT_KEY ?? 'FLUX'}. Return ONLY a JSON array of objects with fields: key, summary, status, updated (ISO timestamp). No prose.`;
 
   log.info('Listing sprint tickets...');
   const response = await runQuery(prompt, {
@@ -196,9 +227,44 @@ async function refineTicket(
     maxTurns: Number(process.env.AGENT1_MAX_TURNS ?? 30),
     cwd: worktreeDir,
     allowedTools: ['mcp__mcp-atlassian', 'Read', 'Glob', 'Grep'],
+    collectAllTurns: true,
   });
 
-  return extractMarkdown(response);
+  // First try to anchor on the ticket-key heading anywhere in the transcript:
+  // the model may have produced the document in an earlier turn and then
+  // narrated follow-ups that would otherwise drown it out.
+  const anchored = extractTicketRefinement(response, key);
+  const md = anchored ?? extractMarkdown(response);
+  assertRefinementShape(key, md);
+  return md;
+}
+
+/**
+ * Minimal sanity-check voor de refinement-output. Het model gaf in een
+ * enkele run enkel een losse code-snippet terug; die belandde dan als
+ * "refinement" op disk. Liever hier falen dan troep committen.
+ *
+ * Must-haves: een h1 op regel 1 die de ticket-key bevat, en een minimum
+ * aan inhoud. Geen strikte format-controle — system prompt bepaalt de rest.
+ */
+function assertRefinementShape(key: string, md: string): void {
+  const firstLine = md.split('\n', 1)[0] ?? '';
+  const hasH1WithKey = /^#\s/.test(firstLine) && firstLine.includes(key);
+  if (!hasH1WithKey) {
+    throw new Error(
+      `Refinement voor ${key} begint niet met "# ${key}…" — vermoedelijk ` +
+        `een afgekapte of foutieve LLM-output. Eerste regel: ${truncate(firstLine, 120)}`,
+    );
+  }
+  if (md.length < 400) {
+    throw new Error(
+      `Refinement voor ${key} is verdacht kort (${md.length} chars) — vermoedelijk incompleet.`,
+    );
+  }
+}
+
+function truncate(s: string, n: number): string {
+  return s.length > n ? `${s.slice(0, n)}…` : s;
 }
 
 /**
@@ -211,6 +277,7 @@ async function runQuery(
     maxTurns?: number;
     cwd?: string;
     allowedTools?: string[];
+    collectAllTurns?: boolean;
   } = {},
 ): Promise<string> {
   const model = process.env.AGENT1_MODEL ?? 'claude-opus-4-7';
@@ -229,7 +296,7 @@ async function runQuery(
     },
   });
 
-  return streamLastAssistantText(q);
+  return opts.collectAllTurns ? streamAllAssistantText(q) : streamLastAssistantText(q);
 }
 
 /**
@@ -256,9 +323,12 @@ async function main() {
   const args = parseArgs();
   const stateDir = resolve(process.env.STATE_DIR ?? './state');
   const fallbackLabel = args.tickets ? `tickets-${Date.now()}` : `jql-${Date.now()}`;
-  const sprintId = args.sprintId ?? fallbackLabel;
+  const folderName = args.folderName ?? fallbackLabel;
+  const sprintName = args.sprintName ?? args.jql ?? fallbackLabel;
 
-  log.info(`Agent 1 (refine) starting — sprint: ${sprintId}, dryRun: ${args.dryRun}`);
+  log.info(
+    `Agent 1 (refine) starting — sprint: "${sprintName}", folder: ${folderName}, dryRun: ${args.dryRun}`,
+  );
 
   const repoUrl = requireEnv('FLUX_REPO_URL');
   const baseBranch = process.env.FLUX_BASE_BRANCH ?? 'develop-v2';
@@ -273,7 +343,7 @@ async function main() {
   }
 
   const systemPrompt = await loadPrompt('refine');
-  const state = new SprintState(stateDir, sprintId);
+  const state = new SprintState(stateDir, folderName);
   await state.ensureDir();
 
   const existingMeta = await state.readMeta();
@@ -281,8 +351,8 @@ async function main() {
   log.info(`Found ${tickets.length} tickets`);
 
   const newMeta: SprintMeta = {
-    sprintId,
-    sprintName: existingMeta?.sprintName ?? sprintId,
+    sprintId: folderName,
+    sprintName,
     lastRunAt: new Date().toISOString(),
     tickets: {},
   };

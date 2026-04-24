@@ -19,7 +19,11 @@ import { readFile, readdir, writeFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { log } from './shared/logger.js';
 import { loadPrompt } from './shared/prompts.js';
-import { extractMarkdown, streamLastAssistantText } from './shared/query.js';
+import {
+  extractAnchoredDocument,
+  extractMarkdown,
+  streamAllAssistantText,
+} from './shared/query.js';
 
 config();
 
@@ -68,7 +72,9 @@ async function runQuery(prompt: string, systemPrompt: string): Promise<string> {
     },
   });
 
-  return streamLastAssistantText(q);
+  // Keep all turns: the model may dump a scratchpad fence first and the
+  // actual plan second, or put the plan in an early turn and narrate after.
+  return streamAllAssistantText(q);
 }
 
 async function main() {
@@ -89,12 +95,42 @@ async function main() {
     `geen toolgebruik. Het opslaan naar disk gebeurt buiten jouw scope.\n${bundle}`;
 
   const output = await runQuery(prompt, systemPrompt);
-  const cleaned = extractMarkdown(output);
+  // Anchor on the expected h1 so we don't accidentally pick up a scratchpad
+  // fence that happens to appear before the real plan document.
+  const anchored = extractAnchoredDocument(output, (line) =>
+    line.includes('Sprint planning'),
+  );
+  const cleaned = anchored ?? extractMarkdown(output);
+  assertPlanShape(cleaned);
 
   const orderPath = join(sprintDir, '_order.md');
   await writeFile(orderPath, cleaned, 'utf-8');
 
   log.info(`Wrote ${orderPath}`);
+}
+
+/**
+ * Minimal sanity-check voor de plan-output. Als het document niet begint
+ * met "# Sprint planning" of de kernsecties mist, schrijven we het niet
+ * weg — liever falen dan een onvolledig _order.md.
+ */
+function assertPlanShape(md: string): void {
+  const firstLine = md.split('\n', 1)[0] ?? '';
+  if (!/^#\s+Sprint planning/i.test(firstLine)) {
+    throw new Error(
+      `Plan begint niet met "# Sprint planning…" — vermoedelijk een afgekapte ` +
+        `of foutieve LLM-output. Eerste regel: ${truncate(firstLine, 120)}`,
+    );
+  }
+  const required = ['## Uitvoeringsvolgorde', '## Dependency graph'];
+  const missing = required.filter((h) => !md.includes(h));
+  if (missing.length > 0) {
+    throw new Error(`Plan mist verplichte secties: ${missing.join(', ')}`);
+  }
+}
+
+function truncate(s: string, n: number): string {
+  return s.length > n ? `${s.slice(0, n)}…` : s;
 }
 
 main().catch((err) => {

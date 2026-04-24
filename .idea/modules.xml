@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/flux-agents.iml" filepath="$PROJECT_DIR$/.idea/flux-agents.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../flux-agents-state/flux-agents-state.iml" filepath="$PROJECT_DIR$/../flux-agents-state/flux-agents-state.iml" />
     </modules>
   </component>
 </project>
