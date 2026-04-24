@@ -7,7 +7,7 @@
  * aanbevelingen.
  *
  * Usage:
- *   tsx agents/sdk/agent2-plan.ts <sprintId>
+ *   npm run plan -- <sprintId>
  *
  * Idempotent: overschrijft _order.md altijd. Deze agent heeft geen Jira
  * of file tools nodig — puur analyse over al lokaal aanwezige markdowns.
@@ -17,8 +17,8 @@ import { config } from 'dotenv';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { readFile, readdir, writeFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { log } from './shared/logger.js';
+import { loadPrompt } from './shared/prompts.js';
 import { extractMarkdown, streamLastAssistantText } from './shared/query.js';
 
 config();
@@ -31,11 +31,6 @@ function parseArgs(): { sprintId: string } {
     process.exit(1);
   }
   return { sprintId };
-}
-
-async function loadPrompt(): Promise<string> {
-  const here = fileURLToPath(new URL('.', import.meta.url));
-  return readFile(resolve(here, 'shared/prompts/agent2-plan.md'), 'utf-8');
 }
 
 async function loadSprintMarkdowns(sprintDir: string): Promise<string> {
@@ -83,7 +78,7 @@ async function main() {
 
   log.info(`Agent 2 (plan) starting — sprint: ${sprintId}`);
 
-  const systemPrompt = await loadPrompt();
+  const systemPrompt = await loadPrompt('plan');
   const bundle = await loadSprintMarkdowns(sprintDir);
   log.info(`Loaded ${bundle.split('===== ').length - 1} ticket markdowns`);
 

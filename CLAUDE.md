@@ -26,7 +26,7 @@ tool voor Kris om sprints efficiënter op te nemen.
 | 4 | review | Claude Agent SDK (Node) | Opus | Reviewt op dezelfde worktree, bij approval: squash + push + `gh pr create` |
 
 Agents 3 en 4 hebben ook een **Claude Code subagent variant** in
-`agents/cc/.claude/agents/` (ticket-author.md, ticket-reviewer.md)
+`agents/claude-code/.claude/agents/` (ticket-author.md, ticket-reviewer.md)
 voor interactieve debugging. De SDK-scripts laden diezelfde markdowns
 (frontmatter gestript) als system prompt — één bron van waarheid.
 
@@ -157,9 +157,11 @@ worktree maakt parallel werk op meerdere tickets gratis (elk zijn eigen
 branch + working tree). (d) Base-branch als env var → schakelen naar
 `develop-v3` is een config-wijziging.
 
-De Claude Code subagent-variant in `agents/cc/.claude/agents/` blijft
-bestaan. De SDK-scripts herbruiken die markdowns als system prompt
-(frontmatter gestript via `loadSubagentPrompt`) — één bron van waarheid.
+De Claude Code subagent-variant in `agents/claude-code/.claude/agents/`
+blijft bestaan als **mirror**: YAML frontmatter + een kopie van de
+canonical prompt uit `agents/prompts/`. De SDK-scripts laden direct uit
+`agents/prompts/<role>.md`. Bij een prompt-wijziging: canonical bewerken,
+dan `npm run sync-cc-agents` om de CC-mirror bij te werken.
 
 ### 8. MCP Atlassian via Docker per run
 
@@ -189,7 +191,7 @@ Data Center ondersteunt.
 
 ## Projectspecifieke conventies (flux-web-components)
 
-Deze staan uitgebreider in `agents/cc/.claude/agents/ticket-author.md`
+Deze staan uitgebreider in `agents/claude-code/.claude/agents/ticket-author.md`
 en `ticket-reviewer.md`. Samengevat:
 
 - **Lit framework**, TypeScript strict mode
@@ -214,6 +216,18 @@ eerste echte runs verfijnd worden met team-specifieke regels.
 
 ```
 flux-agents/                      ← deze repo
+├── agents/
+│   ├── refine.ts / plan.ts / develop.ts / review.ts    ← entrypoints (SDK)
+│   ├── prompts/                  ← canonical system prompts per rol
+│   │   └── refine.md / plan.md / develop.md / review.md
+│   ├── shared/                   ← gedeelde helpers (query, repo, state, ticket, prompts, logger)
+│   └── claude-code/              ← interactieve CC-variant (optioneel)
+│       └── .claude/
+│           ├── agents/           ← mirrors van agents/prompts/ met YAML frontmatter
+│           └── commands/         ← /develop, /review, /address slash commands
+├── scripts/
+│   ├── sync-cc-agents.sh         ← sync canonical → CC mirrors
+│   └── link-commands.sh          ← symlink flux-web-components/.claude
 ├── state/
 │   ├── logs/                     ← gitignored
 │   ├── repo/                     ← gitignored (managed clone, bij eerste run aangemaakt)

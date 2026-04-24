@@ -196,7 +196,7 @@ de PR op GitHub en merget zelf**. Geen automatisering in deze stap.
 ### Interactief alternatief (debugging)
 
 De oorspronkelijke Claude Code subagents staan nog in
-`agents/cc/.claude/` en kunnen handmatig aangeroepen worden via
+`agents/claude-code/.claude/` en kunnen handmatig aangeroepen worden via
 `/develop` / `/review` / `/address` in een Claude Code sessie in
 `flux-web-components`. Handig als je stap-voor-stap wil meekijken of
 de prompts wil tunen. De SDK-flow is de autonome variant die op
@@ -207,7 +207,7 @@ een server kan draaien.
 1. `npm run refine:dry -- <oude-sprint>` — verifieer MCP auth
 2. `npm run refine -- <oude-sprint>` op een kleine sprint (2-3 tickets)
 3. Lees de markdowns. Zijn ze bruikbaar? Stuur de prompt bij in
-   `agents/sdk/shared/prompts/agent1-refine.md`
+   `agents/prompts/refine.md`
 4. Run agent 1 opnieuw op dezelfde sprint → moet alle tickets overslaan
 5. `npm run plan -- <sprint>` — checks de volgorde
 6. Kies het simpelste ticket. Probeer `npm run develop -- <KEY>` en
@@ -227,7 +227,9 @@ Default setup:
 
 Override via env vars: `AGENT1_MODEL`, `AGENT2_MODEL`, `AGENT3_MODEL`,
 `AGENT4_MODEL`. Voor de interactieve CC-variant kan je ook de
-frontmatter van `agents/cc/.claude/agents/*.md` aanpassen.
+frontmatter van `agents/claude-code/.claude/agents/*.md` aanpassen (of
+de canonical prompt onder `agents/prompts/` en vervolgens
+`npm run sync-cc-agents`).
 
 ## Wat de agents NOOIT doen
 

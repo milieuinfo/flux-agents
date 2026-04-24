@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 #
 # Legt een symlink van flux-web-components/.claude naar deze repo's
-# agents/cc/.claude folder. Zo staan alle agent-definities op één plek
-# (in flux-agents), maar zijn de commands beschikbaar als /develop,
-# /review, /address in je project.
+# agents/claude-code/.claude folder. Zo staan alle agent-definities op
+# één plek (in flux-agents), maar zijn de commands beschikbaar als
+# /develop, /review, /address in je project.
 #
 # Usage:
 #   ./scripts/link-commands.sh /path/to/flux-web-components
@@ -18,7 +18,7 @@ fi
 TARGET_REPO="$1"
 AGENTS_FLUX_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SOURCE=".claude"
-SOURCE_ABS="$AGENTS_FLUX_ROOT/agents/cc/$SOURCE"
+SOURCE_ABS="$AGENTS_FLUX_ROOT/agents/claude-code/$SOURCE"
 DEST="$TARGET_REPO/.claude"
 
 if [[ ! -d "$TARGET_REPO" ]]; then

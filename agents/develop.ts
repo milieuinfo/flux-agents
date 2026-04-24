@@ -8,7 +8,7 @@
  *   review feedback.
  *
  * Usage:
- *   tsx agents/sdk/agent3-develop.ts <TICKET-KEY> [sprintId]
+ *   npm run develop -- <TICKET-KEY> [sprintId]
  *   npm run develop -- FLUX-123 backlog-20260422
  *
  * If sprintId is omitted, the sprint folder containing `<KEY>.md` is
@@ -31,7 +31,7 @@ import {
   ticketBranchName,
   ticketWorktreePath,
 } from './shared/repo.js';
-import { loadSubagentPrompt } from './shared/prompts.js';
+import { loadPrompt } from './shared/prompts.js';
 import { streamLastAssistantText } from './shared/query.js';
 import {
   TicketState,
@@ -143,7 +143,7 @@ async function main() {
     prUrl: prev?.prUrl,
   });
 
-  const systemPrompt = await loadSubagentPrompt('ticket-author');
+  const systemPrompt = await loadPrompt('develop');
   const userPrompt = buildPrompt(key, round, mode, ticket);
 
   const q = query({

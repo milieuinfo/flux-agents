@@ -13,8 +13,7 @@
  *  - ESCALATED: only possible at round 3 with unresolved blockers.
  *
  * Usage:
- *   tsx agents/sdk/agent4-review.ts <TICKET-KEY>
- *   npm run review -- FLUX-123
+ *   npm run review -- <TICKET-KEY>
  */
 
 import { config } from 'dotenv';
@@ -23,7 +22,7 @@ import { access } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { log } from './shared/logger.js';
 import { ticketWorktreePath } from './shared/repo.js';
-import { loadSubagentPrompt } from './shared/prompts.js';
+import { loadPrompt } from './shared/prompts.js';
 import { streamLastAssistantText } from './shared/query.js';
 import { TicketState } from './shared/ticket.js';
 
@@ -69,7 +68,7 @@ async function main() {
     );
   }
 
-  const systemPrompt = await loadSubagentPrompt('ticket-reviewer');
+  const systemPrompt = await loadPrompt('review');
   const userPrompt = buildPrompt(key, status.round, status.baseBranch, ticket);
 
   const q = query({

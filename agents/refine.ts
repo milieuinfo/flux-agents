@@ -6,9 +6,9 @@
  * bestand per ticket met een refinement analyse.
  *
  * Usage:
- *   tsx agents/sdk/agent1-refine.ts <sprintId>
- *   tsx agents/sdk/agent1-refine.ts --jql "sprint = 42 AND project = FLUX"
- *   tsx agents/sdk/agent1-refine.ts <label> --tickets FLUX-123,FLUX-124
+ *   npm run refine -- <sprintId>
+ *   npm run refine -- --jql "sprint = 42 AND project = FLUX"
+ *   npm run refine -- <label> --tickets FLUX-123,FLUX-124
  *
  * Idempotent: hergebruikt bestaande markdowns als de Jira content niet
  * is veranderd sinds de vorige run. Bij wijzigingen wordt een
@@ -19,8 +19,8 @@ import { config } from 'dotenv';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { log } from './shared/logger.js';
+import { loadPrompt } from './shared/prompts.js';
 import { SprintState, hashTicketContent, type SprintMeta } from './shared/state.js';
 import {
   baseBranchWorktreePath,
@@ -86,15 +86,6 @@ function requireEnv(name: string): string {
     process.exit(1);
   }
   return v;
-}
-
-/**
- * Load the system prompt from disk.
- * Kept in a separate file so you can iterate on the prompt without touching code.
- */
-async function loadPrompt(): Promise<string> {
-  const here = fileURLToPath(new URL('.', import.meta.url));
-  return readFile(resolve(here, 'shared/prompts/agent1-refine.md'), 'utf-8');
 }
 
 /**
@@ -281,7 +272,7 @@ async function main() {
     log.info(`Dry-run: skipping clone + worktree prep (would target ${worktreeDir})`);
   }
 
-  const systemPrompt = await loadPrompt();
+  const systemPrompt = await loadPrompt('refine');
   const state = new SprintState(stateDir, sprintId);
   await state.ensureDir();
 

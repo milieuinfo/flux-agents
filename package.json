@@ -5,11 +5,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "refine": "tsx agents/sdk/agent1-refine.ts",
-    "plan": "tsx agents/sdk/agent2-plan.ts",
-    "develop": "tsx agents/sdk/agent3-develop.ts",
-    "review": "tsx agents/sdk/agent4-review.ts",
-    "refine:dry": "DRY_RUN=1 tsx agents/sdk/agent1-refine.ts",
+    "refine": "tsx agents/refine.ts",
+    "plan": "tsx agents/plan.ts",
+    "develop": "tsx agents/develop.ts",
+    "review": "tsx agents/review.ts",
+    "refine:dry": "DRY_RUN=1 tsx agents/refine.ts",
+    "sync-cc-agents": "./scripts/sync-cc-agents.sh",
     "link-commands": "./scripts/link-commands.sh"
   },
   "dependencies": {
