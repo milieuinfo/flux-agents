@@ -79,9 +79,29 @@ state/
 npm install
 ```
 
-### 2. Environment config
+### 2. State repo (flux-agents-state) opzetten
+
+Deze repo bevat alleen tooling. De **refinement-rapporten, plannen,
+code-changes en reviews** wonen in een aparte `flux-agents-state` repo
+— die is dynamisch (dagelijkse commits) en mag dus niet in de
+tool-history vervuilen. Verwacht naast flux-agents:
 
 ```bash
+cd ..                                    # naar ~/Ontwikkeling/OMG
+gh repo create flux-agents-state --private --clone   # of via web UI
+cd flux-agents-state
+cat > .gitignore <<'EOF'
+logs/
+worktrees/
+repo/
+EOF
+git add .gitignore && git commit -m "chore: initial gitignore"
+```
+
+### 3. Environment config
+
+```bash
+cd ../flux-agents
 cp .env.example .env
 ```
 
@@ -89,18 +109,20 @@ Vul minstens in:
 - `JIRA_PERSONAL_TOKEN` (profile → PAT in Jira)
 - `FLUX_REPO_URL` (git@github.com:milieuinfo/flux-web-components.git)
 - `FLUX_BASE_BRANCH` (default `develop-v2`)
+- `STATE_DIR` — default `../flux-agents-state` als je de conventie volgt
 
-Bij de eerste run klont de pipeline de repo automatisch onder
-`state/repo/flux-web-components/` (gitignored). Volledig los van je
-eigen werkcopie — de agents raken die nooit aan.
+Bij de eerste run klont de pipeline flux-web-components automatisch
+onder `$STATE_DIR/repo/flux-web-components/` (gitignored in de
+state-repo). Volledig los van je eigen werkcopie — de agents raken die
+nooit aan.
 
-### 3. MCP Atlassian Docker image
+### 4. MCP Atlassian Docker image
 
 ```bash
 docker pull ghcr.io/sooperset/mcp-atlassian:latest
 ```
 
-### 4. Claude Code authenticatie
+### 5. Claude Code authenticatie
 
 Twee opties:
 
@@ -110,11 +132,11 @@ je terminal, de SDK gebruikt die sessie.
 **Optie B:** Zet `ANTHROPIC_API_KEY` in `.env`. Dit verbruikt pay-per-use
 credits, niet je MAX plan.
 
-### 5. `gh` CLI geauthenticeerd
+### 6. `gh` CLI geauthenticeerd
 
 Agent 4 gebruikt `gh pr create`. Check `gh auth status`.
 
-### 6. (optioneel) Claude Code commands linken naar flux-web-components
+### 7. (optioneel) Claude Code commands linken naar flux-web-components
 
 Alleen nodig als je agent 3/4 interactief via de Claude Code CLI wil
 kunnen draaien (bv. voor debugging). Voor de normale SDK-flow hoef je

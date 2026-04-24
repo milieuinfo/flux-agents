@@ -214,10 +214,15 @@ eerste echte runs verfijnd worden met team-specifieke regels.
 
 ## State layout (wat staat waar)
 
+**Twee repos:** `flux-agents` (tooling, zelden commits) en
+`flux-agents-state` (refinement-output + per-ticket state, frequent
+commits). `STATE_DIR` uit `.env` wijst naar de tweede; default
+`../flux-agents-state`.
+
 ```
-flux-agents/                      ← deze repo
+flux-agents/                      ← deze repo (tooling, code, prompts)
 ├── agents/
-│   ├── refine.ts / plan.ts / develop.ts / review.ts    ← entrypoints (SDK)
+│   ├── refine.ts / plan.ts / develop.ts / review.ts / ship.ts   ← entrypoints
 │   ├── prompts/                  ← canonical system prompts per rol
 │   │   └── refine.md / plan.md / develop.md / review.md
 │   ├── shared/                   ← gedeelde helpers (query, repo, state, ticket, prompts, logger)
@@ -225,32 +230,32 @@ flux-agents/                      ← deze repo
 │       └── .claude/
 │           ├── agents/           ← mirrors van agents/prompts/ met YAML frontmatter
 │           └── commands/         ← /develop, /review, /address slash commands
-├── scripts/
-│   ├── sync-cc-agents.sh         ← sync canonical → CC mirrors
-│   └── link-commands.sh          ← symlink flux-web-components/.claude
-├── state/
-│   ├── logs/                     ← gitignored
-│   ├── repo/                     ← gitignored (managed clone, bij eerste run aangemaakt)
-│   │   └── flux-web-components/  ← volledig los van Kris' eigen werkclone
-│   ├── worktrees/                ← gitignored (per-ticket + base-branch worktrees)
-│   │   ├── flux-web-components-develop-v2/     ← agent 1 leest hieruit
-│   │   └── flux-web-components-FLUX-<KEY>/     ← agents 3/4 werken hier
-│   ├── sprints/<SPRINT>/         ← gecommit (markdowns zijn kennis)
-│   │   ├── _meta.json            ← agent 1 hashes
-│   │   ├── _order.md             ← agent 2 output
-│   │   └── FLUX-*.md             ← agent 1 output per ticket
-│   └── tickets/<KEY>/            ← gecommit
-│       ├── ticket.md             ← kopie van refinement
-│       ├── code-changes.md       ← agent 3 per ronde
-│       ├── review-r<N>.md        ← agent 4 per ronde
-│       └── _status.json          ← round, status, baseBranch, branch, prUrl
+└── scripts/
+    ├── sync-cc-agents.sh         ← sync canonical → CC mirrors
+    └── link-commands.sh          ← symlink flux-web-components/.claude
+
+flux-agents-state/                ← aparte repo (STATE_DIR)
+├── logs/                         ← gitignored
+├── repo/                         ← gitignored (managed clone, bij eerste run aangemaakt)
+│   └── flux-web-components/      ← volledig los van Kris' eigen werkclone
+├── worktrees/                    ← gitignored (per-ticket + base-branch worktrees)
+│   ├── flux-web-components-develop-v2/     ← agent 1 leest hieruit
+│   └── flux-web-components-FLUX-<KEY>/     ← agents 3/4 werken hier
+├── sprints/<SPRINT>/             ← gecommit (refinement-output)
+│   ├── _meta.json                ← agent 1 hashes
+│   ├── _order.md                 ← agent 2 output
+│   └── FLUX-*.md                 ← agent 1 output per ticket
+└── tickets/<KEY>/                ← gecommit (per-ticket werk)
+    ├── ticket.md                 ← kopie van refinement
+    ├── code-changes.md           ← agent 3 per ronde
+    ├── review-r<N>.md            ← agent 4 per ronde
+    └── _status.json              ← round, status, baseBranch, branch, prUrl
 ```
 
-**N.B.:** `state/sprints/` en `state/tickets/` worden WEL gecommit —
-bewuste keuze zodat Kris zijn refinement-geschiedenis versiegecontroleerd
-heeft. Alleen `state/logs/` is gitignored. Als dit later onwenselijk
-blijkt (privacy, repo size), verplaats dan via `STATE_DIR` env var
-naar een externe locatie.
+**Waarom gesplitst:** tooling en work-product hebben verschillende
+commit-cadans (zeldzaam vs dagelijks), verschillende retention (tool:
+permanent; state: mag gesnoeid worden), en potentieel verschillende
+visibility (tool mag publiek, state bevat interne ticket-details).
 
 ## Technische stack
 
