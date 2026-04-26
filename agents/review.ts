@@ -74,7 +74,7 @@ export async function runReview({ key }: ReviewArgs): Promise<void> {
     prompt: userPrompt,
     options: {
       model: process.env.AGENT4_MODEL ?? 'claude-opus-4-7',
-      maxTurns: Number(process.env.AGENT4_MAX_TURNS ?? 50),
+      maxTurns: Number(process.env.AGENT4_MAX_TURNS ?? 100),
       cwd: worktree,
       // Reviewer writes review-r<N>.md and _status.json in state/tickets/<KEY>/.
       additionalDirectories: [stateDir],

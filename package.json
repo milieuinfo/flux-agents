@@ -10,7 +10,10 @@
     "develop": "tsx agents/develop.ts",
     "review": "tsx agents/review.ts",
     "ship": "tsx agents/ship.ts",
+    "publish": "tsx scripts/publish.ts",
+    "publish:ticket": "tsx scripts/publish.ts --skip-overview",
     "refine:dry": "DRY_RUN=1 tsx agents/refine.ts",
+    "publish:dry": "DRY_RUN=1 tsx scripts/publish.ts",
     "sync-cc-agents": "./scripts/sync-cc-agents.sh",
     "link-commands": "./scripts/link-commands.sh"
   },

@@ -196,6 +196,31 @@ export async function ensureTicketWorktree(opts: {
 }
 
 /**
+ * Count commits on the current branch of `worktreePath` that are ahead of
+ * `origin/<baseBranch>`. Used by ship.ts to detect a round that produced
+ * no work (author blocked on missing input → further rounds pointless).
+ *
+ * Uses the local `origin/<baseBranch>` ref — no fetch. The base doesn't
+ * move between rounds of the same ship-run, and we only care whether any
+ * commit landed, not exactly how many vs the latest remote.
+ */
+export async function countCommitsAhead(opts: {
+  worktreePath: string;
+  baseBranch: string;
+}): Promise<number> {
+  const raw = await gitCapture(opts.worktreePath, [
+    'rev-list',
+    '--count',
+    `origin/${opts.baseBranch}..HEAD`,
+  ]);
+  const n = Number(raw.trim());
+  if (!Number.isFinite(n)) {
+    throw new Error(`Kon commits-ahead niet parsen: "${raw.trim()}"`);
+  }
+  return n;
+}
+
+/**
  * Small stopword list (NL + EN) — only the very common fillers we don't
  * want in branch slugs. Intentionally minimal to avoid dropping domain
  * terms that happen to look like filler.

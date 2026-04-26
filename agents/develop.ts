@@ -141,7 +141,7 @@ export async function runDevelop({ key, sprint }: DevelopArgs): Promise<void> {
     prompt: userPrompt,
     options: {
       model: process.env.AGENT3_MODEL ?? 'claude-sonnet-4-6',
-      maxTurns: Number(process.env.AGENT3_MAX_TURNS ?? 60),
+      maxTurns: Number(process.env.AGENT3_MAX_TURNS ?? 100),
       cwd: worktree,
       // Agent writes code-changes.md in state/tickets/<KEY>/, outside cwd.
       additionalDirectories: [stateDir],

@@ -18,6 +18,7 @@
 import { config } from 'dotenv';
 import { resolve } from 'node:path';
 import { log } from './shared/logger.js';
+import { countCommitsAhead, ticketWorktreePath } from './shared/repo.js';
 import { TicketState } from './shared/ticket.js';
 import { runDevelop } from './develop.js';
 import { runReview } from './review.js';
@@ -77,6 +78,24 @@ async function main() {
       return;
     }
     if (status.status === 'changes_requested') {
+      // Deadlock-detectie: als deze ronde 0 commits op de feature-branch
+      // opleverde, is de author geblokkeerd op ontbrekende input (bv.
+      // geen `## Keuze` in ticket.md). Nog een ronde lost dat niet op —
+      // escaleer meteen i.p.v. turns verspillen.
+      const commitsAhead = await countCommitsAhead({
+        worktreePath: ticketWorktreePath(stateDir, key),
+        baseBranch: status.baseBranch,
+      });
+      if (commitsAhead === 0) {
+        await ticket.writeStatus({ ...status, status: 'escalated' });
+        log.warn(
+          `\n⚠️  Ronde ${status.round}: 0 commits op de branch. ` +
+            `Author is waarschijnlijk geblokkeerd op ontbrekende input ` +
+            `(bv. '## Keuze' in ticket.md). Escalatie — verdere rondes zijn zinloos.`,
+        );
+        log.warn(`Lees: ${ticket.reviewPath(status.round)}`);
+        return;
+      }
       if (round >= MAX_ROUNDS) {
         log.warn(
           `\n⚠️  ${MAX_ROUNDS} rondes gedaan, reviewer vraagt nog wijzigingen. Stop.`,

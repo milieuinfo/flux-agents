@@ -25,6 +25,10 @@ tool voor Kris om sprints efficiënter op te nemen.
 | 3 | develop | Claude Agent SDK (Node) | Sonnet | Per-ticket git worktree, implementeert op feature-branch, lokale commits |
 | 4 | review | Claude Agent SDK (Node) | Opus | Reviewt op dezelfde worktree, bij approval: squash + push + `gh pr create` |
 
+Daarnaast is er één **publicatie-script**: `scripts/publish.ts` schrijft de
+output van agents 1 + 2 terug naar Jira via directe REST-calls. Zie
+ontwerpkeuze §9 voor de details.
+
 Agents 3 en 4 hebben ook een **Claude Code subagent variant** in
 `agents/claude-code/.claude/agents/` (ticket-author.md, ticket-reviewer.md)
 voor interactieve debugging. De SDK-scripts laden diezelfde markdowns
@@ -47,6 +51,11 @@ Jira sprint
     ▼  npm run plan -- <sprint>
 ┌─────────────┐
 │ agent 2     │ → state/sprints/<sprint>/_order.md
+└─────────────┘
+    │
+    ▼  npm run publish -- <sprint>   (optioneel, indien zichtbaar in Jira gewenst)
+┌─────────────┐
+│ publish.ts  │ → comment per ticket + umbrella-ticket [Sprint-analyse]
 └─────────────┘
     │
     ▼  (Kris kiest ticket)
@@ -165,14 +174,50 @@ dan `npm run sync-cc-agents` om de CC-mirror bij te werken.
 
 ### 8. MCP Atlassian via Docker per run
 
-Agent 1 start `ghcr.io/sooperset/mcp-atlassian:latest` per run.
-Configuratie via env vars (geen token in Docker image).
+Agent 1 leest Jira via `ghcr.io/sooperset/mcp-atlassian:latest`, gestart
+per run. Configuratie via env vars (geen token in Docker image).
 
 **Waarom:** Jira instance is on-premise Data Center
 (`jira.omgeving.vlaanderen.be`), geen OAuth zoals Cloud. Kris heeft
 al een Personal Access Token voor zijn IntelliJ MCP integratie.
 Sooperset is de standaard community MCP server die zowel Cloud als
-Data Center ondersteunt.
+Data Center ondersteunt. Refine heeft een LLM nodig om tickets te
+analyseren — vandaar de route via MCP. Publicatie naar Jira heeft géén
+LLM-oordeel nodig en gebruikt daarom directe REST-calls (zie §9).
+
+### 9. Publicatie naar Jira via `scripts/publish.ts`
+
+Publish leest `state/sprints/<sprint>/FLUX-*.md` en `_order.md`
+(output van agent 1 + 2) en schrijft die naar Jira via directe REST-calls:
+- Per ticket → comment met vaste header `## Sprint-analyse - AI`
+- `_order.md` → description van een umbrella-ticket (Task, label
+  `sprint-overview`, story points 0, gekoppeld aan de sprint).
+  Find-or-update via JQL: één umbrella per sprint, nooit dupliceren.
+
+`_published.json` houdt per ticket een hash van de gepubliceerde body
+bij. Tweede run zonder content-wijziging slaat alles over. Bij wijziging
+wordt een NIEUWE comment toegevoegd (geen oude verwijderen). Het
+umbrella-ticket wordt geupdated, niet gedupliceerd.
+
+**Waarom een aparte stap en niet in agent 1:** (a) Refinement en
+publicatie hebben verschillende cadansen — Kris wil meestal eerst
+lokaal lezen/aanpassen voor er iets in Jira terechtkomt. (b) Failures
+in de Jira-write-pad mogen de refinement-output (die op disk staat)
+niet beïnvloeden. (c) `--dry-run` schrijft `_preview_*.md` lokaal zodat
+hij vóór commit kan reviewen wat er naar Jira zou gaan.
+
+**Markdown-conversie:** Jira Data Center API verwacht wiki markup
+(`h1.`, `*bold*`, `||header||`, `{code}`). Het script bevat een kleine
+converter (`markdownToJiraWiki`) voor wat agents 1 + 2 produceren —
+headings, lijsten, tables, fenced code, bold, inline code, links, hr.
+Italic en images worden niet gebruikt en niet ondersteund.
+
+**Vereiste env vars** voor publish (boven op de bestaande):
+- `JIRA_SPRINT_FIELD` (default `customfield_10020`) — custom field key
+  voor de sprint-array op een issue. Wijkt af tussen Jira instances.
+- `JIRA_STORYPOINTS_FIELD` (optioneel) — custom field key voor story
+  points. Niet gezet → veld blijft leeg op de umbrella (functioneel
+  equivalent aan 0 voor velocity).
 
 ## Harde regels — agents mogen deze NOOIT overtreden
 
@@ -180,7 +225,11 @@ Data Center ondersteunt.
   de eigen feature-branch
 - **Geen `git push --force`** ooit
 - **Geen PR mergen** — dat doet Kris altijd zelf op GitHub
-- **Geen comments of status-updates in Jira** — alle output is lokale markdown
+- **Geen Jira workflow-transities** — niets in deze pipeline wijzigt
+  ooit de status van een ticket (bv. To Do → In Progress → Done). Het
+  enige wat naar Jira geschreven wordt zijn (a) refinement-comments en
+  (b) het umbrella-ticket per sprint, beide door `publish.ts`. Verder
+  blijft alles lokale markdown.
 - **Geen comments posten op GitHub PR's** — review-feedback blijft in
   `state/tickets/<KEY>/review-r*.md`
 - **Geen dependencies installeren** zonder Kris expliciet te vragen
@@ -222,8 +271,8 @@ commits). `STATE_DIR` uit `.env` wijst naar de tweede; default
 ```
 flux-agents/                      ← deze repo (tooling, code, prompts)
 ├── agents/
-│   ├── refine.ts / plan.ts / develop.ts / review.ts / ship.ts   ← entrypoints
-│   ├── prompts/                  ← canonical system prompts per rol
+│   ├── refine.ts / plan.ts / develop.ts / review.ts / ship.ts   ← agent-entrypoints (SDK)
+│   ├── prompts/                  ← canonical system prompts per agent-rol
 │   │   └── refine.md / plan.md / develop.md / review.md
 │   ├── shared/                   ← gedeelde helpers (query, repo, state, ticket, prompts, logger)
 │   └── claude-code/              ← interactieve CC-variant (optioneel)
@@ -231,6 +280,7 @@ flux-agents/                      ← deze repo (tooling, code, prompts)
 │           ├── agents/           ← mirrors van agents/prompts/ met YAML frontmatter
 │           └── commands/         ← /develop, /review, /address slash commands
 └── scripts/
+    ├── publish.ts                ← publicatie-script (directe Jira REST)
     ├── sync-cc-agents.sh         ← sync canonical → CC mirrors
     └── link-commands.sh          ← symlink flux-web-components/.claude
 
@@ -244,6 +294,7 @@ flux-agents-state/                ← aparte repo (STATE_DIR)
 ├── sprints/<SPRINT>/             ← gecommit (refinement-output)
 │   ├── _meta.json                ← agent 1 hashes
 │   ├── _order.md                 ← agent 2 output
+│   ├── _published.json           ← publish.ts state (hashes per ticket + umbrella key)
 │   └── FLUX-*.md                 ← agent 1 output per ticket
 └── tickets/<KEY>/                ← gecommit (per-ticket werk)
     ├── ticket.md                 ← kopie van refinement
@@ -259,12 +310,17 @@ visibility (tool mag publiek, state bevat interne ticket-details).
 
 ## Technische stack
 
-### SDK side (agent 1 en 2)
+### SDK side (agents 1 en 2)
 - **Node 20+**, ESM modules, TypeScript strict
 - **`@anthropic-ai/claude-agent-sdk`** — de officiële Claude Agent SDK
 - **`tsx`** voor directe uitvoering zonder build step
 - **`dotenv`** voor env configuratie
 - Geen framework of DI — bewust minimaal
+
+### Publish-script (`scripts/publish.ts`)
+- Zelfde Node + tsx + dotenv basis als de agents
+- Native `fetch` (Node 20+) tegen Jira Data Center REST API v2
+- Eigen kleine markdown→wiki markup converter (geen externe dep)
 
 ### Claude Code side (agent 3 en 4)
 - Markdown files met YAML frontmatter in `.claude/commands/` en `.claude/agents/`
@@ -275,7 +331,8 @@ visibility (tool mag publiek, state bevat interne ticket-details).
   via proactive triggers)
 
 ### External tools
-- **`sooperset/mcp-atlassian`** Docker image voor Jira MCP
+- **`sooperset/mcp-atlassian`** Docker image voor Jira MCP — gebruikt door agent 1
+- **Jira Data Center REST API v2** — direct vanuit `scripts/publish.ts` met `fetch`
 - **`gh` CLI** voor de ene GitHub-actie (PR aanmaken)
 - **`git`** — vereist minstens 2.23+ voor `switch`
 
@@ -289,8 +346,9 @@ Als je (Claude in een toekomstige sessie) iets aanpast, valideer:
    schema-wijzigingen vereisen een migratie-strategie.
 3. **Idempotentie agent 1** — herstart blijft non-destructief?
 4. **Max rondes** — blijft escalatie-logica intact?
-5. **Geen nieuwe netwerk-endpoints** — we praten alleen met Jira MCP,
-   Anthropic API (via SDK), GitHub (via gh CLI)
+5. **Geen nieuwe netwerk-endpoints** — we praten alleen met Jira MCP
+   (agent 1), Jira REST direct (publish.ts), Anthropic API (via SDK),
+   GitHub (via gh CLI)
 
 ## Wat NIET bij de scope hoort
 
@@ -300,9 +358,10 @@ Kris er zelf om vraagt:
 
 - Autonoom de hele pipeline doorlopen zonder menselijke triggers
 - Review comments posten op GitHub
-- Agent 5 (finishing/merging) — bewust weggelaten, merge blijft
+- Een finishing/merging-agent — bewust weggelaten, merge blijft
   menselijk
-- Jira status updates terugschrijven
+- Jira workflow-transities (To Do → In Progress → Done) terugschrijven —
+  comments en het umbrella-ticket via `publish.ts` zijn wél in scope
 - Slack-notificaties
 - Dashboard / UI
 - Multi-user support (dit is een persoonlijk tool)
