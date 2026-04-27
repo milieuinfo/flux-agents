@@ -110,7 +110,9 @@ Check elk van de volgende punten expliciet:
       Draft** aangemaakt, nooit als ready-for-review (dat bepaalt Kris
       zelf). Titel = de `<first-line>` uit stap a (letterlijk dezelfde
       string). Body bevat: succescriteria-checklist, samenvatting,
-      link naar Jira ticket (`{JIRA_URL}/browse/<KEY>`).
+      en de Jira ticket-URL die in de user-prompt is meegegeven (kopieer
+      die letterlijk — niet zelf samenstellen, niet aanvullen met andere
+      domeinen).
    d. Noteer de PR-URL in `review-r<N>.md` onderaan en in
       `_status.json.prUrl`.
 

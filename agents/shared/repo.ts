@@ -14,6 +14,28 @@ export function managedRepoPath(stateDir: string): string {
 }
 
 /**
+ * Zorg dat git-commits door agents 3/4 met Kris' VO-identiteit worden
+ * gemaakt in plaats van de host git-config (die typisch op een Claude/SDK
+ * default staat). Zet `GIT_AUTHOR_*` + `GIT_COMMITTER_*` op `process.env`,
+ * zodat het Bash-tool van de agent ze erft. De globale git-config wordt
+ * niet aangeraakt. Te overriden via `FLUX_GIT_AUTHOR_NAME` /
+ * `FLUX_GIT_AUTHOR_EMAIL`.
+ *
+ * Geldt voor zowel de iteratie-commits van agent 3 als de squash-commit
+ * van agent 4: anders verschilt de auteur tussen rondes en de uiteindelijke
+ * PR-commit.
+ */
+export function applyGitIdentityFromEnv(): { name: string; email: string } {
+  const name = process.env.FLUX_GIT_AUTHOR_NAME ?? 'Kris Speltincx';
+  const email = process.env.FLUX_GIT_AUTHOR_EMAIL ?? 'kris.speltincx@vlaanderen.be';
+  process.env.GIT_AUTHOR_NAME = name;
+  process.env.GIT_AUTHOR_EMAIL = email;
+  process.env.GIT_COMMITTER_NAME = name;
+  process.env.GIT_COMMITTER_EMAIL = email;
+  return { name, email };
+}
+
+/**
  * Ensure the managed clone exists and points at the configured remote.
  *
  * First run: `git clone <repoUrl> <cloneDir>`.

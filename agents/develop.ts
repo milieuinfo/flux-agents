@@ -25,6 +25,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { log } from './shared/logger.js';
 import {
+  applyGitIdentityFromEnv,
   ensureRepoClone,
   ensureTicketWorktree,
   managedRepoPath,
@@ -136,6 +137,9 @@ export async function runDevelop({ key, sprint }: DevelopArgs): Promise<void> {
 
   const systemPrompt = await loadPrompt('develop');
   const userPrompt = buildPrompt(key, round, mode, ticket);
+
+  const identity = applyGitIdentityFromEnv();
+  log.info(`Round-commit auteur: ${identity.name} <${identity.email}>`);
 
   const q = query({
     prompt: userPrompt,

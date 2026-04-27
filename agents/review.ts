@@ -22,7 +22,7 @@ import { access } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { log } from './shared/logger.js';
-import { ticketWorktreePath } from './shared/repo.js';
+import { applyGitIdentityFromEnv, ticketWorktreePath } from './shared/repo.js';
 import { loadPrompt } from './shared/prompts.js';
 import { streamLastAssistantText } from './shared/query.js';
 import { TicketState } from './shared/ticket.js';
@@ -68,7 +68,18 @@ export async function runReview({ key }: ReviewArgs): Promise<void> {
   }
 
   const systemPrompt = await loadPrompt('review');
-  const userPrompt = buildPrompt(key, status.round, status.baseBranch, ticket);
+  const jiraUrl = (process.env.JIRA_URL ?? '').replace(/\/$/, '');
+  const jiraTicketUrl = jiraUrl ? `${jiraUrl}/browse/${key}` : '';
+  const userPrompt = buildPrompt(
+    key,
+    status.round,
+    status.baseBranch,
+    ticket,
+    jiraTicketUrl,
+  );
+
+  const identity = applyGitIdentityFromEnv();
+  log.info(`Squash-commit auteur: ${identity.name} <${identity.email}>`);
 
   const q = query({
     prompt: userPrompt,
@@ -119,6 +130,7 @@ function buildPrompt(
   round: number,
   baseBranch: string,
   ticket: TicketState,
+  jiraTicketUrl: string,
 ): string {
   return (
     `Review ronde ${round} van ticket ${key}. Context:\n` +
@@ -131,7 +143,9 @@ function buildPrompt(
     `\nJe cwd is de feature-branch worktree. Base branch is ${baseBranch} ` +
     `(zie _status.json). Schrijf ${ticket.reviewPath(round)} en werk ` +
     `${ticket.statusPath} bij volgens je system prompt. Bij APPROVED: ` +
-    `squash + push + gh pr create --base ${baseBranch}.`
+    `squash + push + gh pr create --base ${baseBranch}.\n\n` +
+    `Jira ticket-URL voor de PR-body (gebruik exact deze, niet zelf ` +
+    `samenstellen): ${jiraTicketUrl}`
   );
 }
 
