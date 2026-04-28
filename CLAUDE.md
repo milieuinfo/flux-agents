@@ -25,9 +25,10 @@ tool voor Kris om sprints efficiënter op te nemen.
 | 3 | develop | Claude Agent SDK (Node) | Sonnet | Per-ticket git worktree, implementeert op feature-branch, lokale commits |
 | 4 | review | Claude Agent SDK (Node) | Opus | Reviewt op dezelfde worktree, bij approval: squash + push + `gh pr create` |
 
-Daarnaast is er één **publicatie-script**: `scripts/publish.ts` schrijft de
-output van agents 1 + 2 terug naar Jira via directe REST-calls. Zie
-ontwerpkeuze §9 voor de details.
+Daarnaast zijn er twee **publicatie-scripts** die direct naar Jira
+schrijven via REST-calls (geen LLM-oordeel nodig):
+- `scripts/publish.ts` — sprint-output van agents 1 + 2 (zie §9)
+- `scripts/publish-review.ts` — losse externe-review-md (zie zijtak hierboven)
 
 Agents 3 en 4 hebben ook een **Claude Code subagent variant** in
 `agents/claude-code/.claude/agents/` (ticket-author.md, ticket-reviewer.md)
@@ -77,6 +78,37 @@ Jira sprint
     │
     ▼  Kris merget zelf
 ```
+
+## Zijtak: externe code review
+
+Naast de pipeline hierboven is er een losse modus om een feature-branch
+van een andere developer te reviewen. Dat ticket zit niet in een sprint
+die door agent 1 + 2 verwerkt is, en er is geen `_status.json` of
+`code-changes.md`.
+
+```
+npm run review-external -- FLUX-XYZ feature-v2/iemand-anders-zn-branch
+    │  per-ticket worktree onder state/worktrees/flux-web-components-FLUX-XYZ-external/
+    │  detached HEAD op origin/<branch>, leest optioneel ticket.md
+    ▼
+state/reviews/FLUX-XYZ/review-<timestamp>.md
+    │
+    ▼
+npm run publish-review -- FLUX-XYZ          (eventueel met --file <pad>)
+    │  comment op het Jira-ticket met header "## Code review - AI"
+    ▼
+Jira-comment
+```
+
+Eigenschappen die haaks staan op de gewone review-flow:
+
+- Géén squash, géén push, géén `gh pr create`.
+- Eén review-md per run (timestamp in bestandsnaam, geen overschrijven).
+- Aparte worktree-naam (`-external` suffix) zodat een lokale develop-state
+  voor hetzelfde ticket niet botst.
+- Idempotency: `state/reviews/<KEY>/_published.json` houdt sha-hashes
+  per gepost bestand bij. Tweede `publish-review` op een ongewijzigd
+  bestand = no-op. Een nieuwe review-md → nieuwe comment.
 
 ## Belangrijke ontwerpkeuzes (met reden)
 
@@ -272,15 +304,17 @@ commits). `STATE_DIR` uit `.env` wijst naar de tweede; default
 flux-agents/                      ← deze repo (tooling, code, prompts)
 ├── agents/
 │   ├── refine.ts / plan.ts / develop.ts / review.ts / ship.ts   ← agent-entrypoints (SDK)
+│   ├── review-external.ts        ← zijtak voor externe code-reviews
 │   ├── prompts/                  ← canonical system prompts per agent-rol
-│   │   └── refine.md / plan.md / develop.md / review.md
-│   ├── shared/                   ← gedeelde helpers (query, repo, state, ticket, prompts, logger)
+│   │   └── refine.md / plan.md / develop.md / review.md / review-external.md
+│   ├── shared/                   ← gedeelde helpers (query, repo, state, ticket, jira, prompts, logger)
 │   └── claude-code/              ← interactieve CC-variant (optioneel)
 │       └── .claude/
 │           ├── agents/           ← mirrors van agents/prompts/ met YAML frontmatter
 │           └── commands/         ← /develop, /review, /address slash commands
 └── scripts/
-    ├── publish.ts                ← publicatie-script (directe Jira REST)
+    ├── publish.ts                ← sprint-publicatie (directe Jira REST)
+    ├── publish-review.ts         ← review-publicatie (1 ticket, 1 comment per run)
     ├── sync-cc-agents.sh         ← sync canonical → CC mirrors
     └── link-commands.sh          ← symlink flux-web-components/.claude
 
@@ -296,11 +330,14 @@ flux-agents-state/                ← aparte repo (STATE_DIR)
 │   ├── _order.md                 ← agent 2 output
 │   ├── _published.json           ← publish.ts state (hashes per ticket + umbrella key)
 │   └── FLUX-*.md                 ← agent 1 output per ticket
-└── tickets/<KEY>/                ← gecommit (per-ticket werk)
-    ├── ticket.md                 ← kopie van refinement
-    ├── code-changes.md           ← agent 3 per ronde
-    ├── review-r<N>.md            ← agent 4 per ronde
-    └── _status.json              ← round, status, baseBranch, branch, prUrl
+├── tickets/<KEY>/                ← gecommit (per-ticket werk)
+│   ├── ticket.md                 ← kopie van refinement
+│   ├── code-changes.md           ← agent 3 per ronde
+│   ├── review-r<N>.md            ← agent 4 per ronde
+│   └── _status.json              ← round, status, baseBranch, branch, prUrl
+└── reviews/<KEY>/                ← gecommit (externe code-reviews)
+    ├── review-<timestamp>.md     ← review-external output (1 per run)
+    └── _published.json           ← publish-review state (hash per bestand)
 ```
 
 **Waarom gesplitst:** tooling en work-product hebben verschillende
@@ -347,8 +384,8 @@ Als je (Claude in een toekomstige sessie) iets aanpast, valideer:
 3. **Idempotentie agent 1** — herstart blijft non-destructief?
 4. **Max rondes** — blijft escalatie-logica intact?
 5. **Geen nieuwe netwerk-endpoints** — we praten alleen met Jira MCP
-   (agent 1), Jira REST direct (publish.ts), Anthropic API (via SDK),
-   GitHub (via gh CLI)
+   (agent 1), Jira REST direct (publish.ts en publish-review.ts),
+   Anthropic API (via SDK), GitHub (via gh CLI)
 
 ## Wat NIET bij de scope hoort
 

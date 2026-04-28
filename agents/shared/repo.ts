@@ -179,6 +179,19 @@ export function ticketWorktreePath(stateDir: string, ticketKey: string): string 
 }
 
 /**
+ * Resolve the worktree path used by review-external (review op een branch
+ * van een andere developer). Bewust een andere naam dan
+ * `ticketWorktreePath` zodat een externe review niet botst met een
+ * eventuele develop/review-state voor hetzelfde ticket.
+ */
+export function externalReviewWorktreePath(
+  stateDir: string,
+  ticketKey: string,
+): string {
+  return resolve(stateDir, 'worktrees', `flux-web-components-${ticketKey}-external`);
+}
+
+/**
  * Ensure a per-ticket worktree exists on the given feature branch.
  *
  * Semantics:

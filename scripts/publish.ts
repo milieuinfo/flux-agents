@@ -27,19 +27,24 @@ import { createHash } from 'node:crypto';
 import { access, readFile, readdir, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { log } from '../agents/shared/logger.js';
+import {
+  addComment,
+  applyJiraSslConfig,
+  createJiraClient,
+  jiraFetch,
+  markdownToJiraWiki,
+  type JiraClient,
+} from '../agents/shared/jira.js';
 
 config();
 
 // Jira Data Center heeft vaak een self-signed cert; respect JIRA_SSL_VERIFY=false
 // door TLS-verificatie globaal uit te zetten voor dit proces. Moet vóór de
 // eerste fetch-call gebeuren.
-if ((process.env.JIRA_SSL_VERIFY ?? 'true') === 'false') {
-  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-}
+applyJiraSslConfig();
 
 const COMMENT_HEADER = '## Sprint-analyse - AI';
 const OVERVIEW_LABEL = 'sprint-overview';
-const DEFAULT_SPRINT_FIELD = 'customfield_10020';
 
 interface CliArgs {
   sprintId: string;
@@ -93,49 +98,7 @@ function parseArgs(): CliArgs {
   return args;
 }
 
-function requireEnv(name: string): string {
-  const v = process.env[name];
-  if (!v) {
-    console.error(`Missing required env var: ${name}`);
-    process.exit(1);
-  }
-  return v;
-}
-
-// --- Jira REST client -----------------------------------------------------
-
-interface JiraClient {
-  baseUrl: string;
-  token: string;
-  sprintField: string;
-  storyPointsField?: string;
-}
-
-async function jiraFetch<T = unknown>(
-  client: JiraClient,
-  method: 'GET' | 'POST' | 'PUT',
-  path: string,
-  body?: unknown,
-): Promise<T> {
-  const res = await fetch(`${client.baseUrl}${path}`, {
-    method,
-    headers: {
-      Authorization: `Bearer ${client.token}`,
-      Accept: 'application/json',
-      ...(body !== undefined && { 'Content-Type': 'application/json' }),
-    },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Jira ${method} ${path} → ${res.status}: ${text.slice(0, 400)}`);
-  }
-  // 204 No Content (PUT update) heeft geen body
-  if (res.status === 204) return undefined as T;
-  const ct = res.headers.get('content-type') ?? '';
-  if (!ct.includes('application/json')) return undefined as T;
-  return (await res.json()) as T;
-}
+// --- Jira REST helpers (sprint-overview specifiek) ------------------------
 
 interface JiraIssue {
   key: string;
@@ -159,12 +122,6 @@ async function searchByJql(client: JiraClient, jql: string, fields: string[] = [
 async function getIssue(client: JiraClient, key: string, fields: string[]): Promise<JiraIssue> {
   const q = encodeURIComponent(fields.join(','));
   return jiraFetch<JiraIssue>(client, 'GET', `/rest/api/2/issue/${key}?fields=${q}`);
-}
-
-async function addComment(client: JiraClient, key: string, body: string): Promise<void> {
-  await jiraFetch(client, 'POST', `/rest/api/2/issue/${key}/comment`, {
-    body: markdownToJiraWiki(body),
-  });
 }
 
 async function updateDescription(client: JiraClient, key: string, description: string): Promise<void> {
@@ -325,103 +282,6 @@ async function findUmbrellaTicket(
     );
   }
   return issues[0].key;
-}
-
-// --- Markdown → Jira wiki markup -----------------------------------------
-
-/**
- * Pragmatische converter van CommonMark-achtige markdown naar Jira Data Center
- * wiki markup. Dekt wat agent 1 + 2 produceren: headings, lijsten, tables,
- * bold, inline code, fenced code blocks, hr's, links. Italic en images niet —
- * die gebruiken de agents niet.
- */
-export function markdownToJiraWiki(md: string): string {
-  const lines = md.split('\n');
-  const out: string[] = [];
-  let inFence = false;
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-
-    // Fenced code blocks
-    if (/^```/.test(line)) {
-      if (!inFence) {
-        const lang = line.replace(/^```/, '').trim();
-        out.push(lang ? `{code:${lang}}` : '{code}');
-        inFence = true;
-      } else {
-        out.push('{code}');
-        inFence = false;
-      }
-      continue;
-    }
-    if (inFence) {
-      out.push(line);
-      continue;
-    }
-
-    // Table separator: |---|---|  → upgrade vorige regel naar Jira header (||x||y||)
-    if (/^\s*\|[\s|:\-]+\|\s*$/.test(line) && /^\s*\|.*\|\s*$/.test(lines[i - 1] ?? '')) {
-      const prev = out[out.length - 1];
-      if (prev !== undefined && /^\s*\|.*\|\s*$/.test(prev)) {
-        out[out.length - 1] = prev.replace(/\|/g, '||');
-      }
-      continue;
-    }
-
-    // Headings
-    const h = line.match(/^(#{1,6})\s+(.*)$/);
-    if (h) {
-      out.push(`h${h[1].length}. ${convertInline(h[2])}`);
-      continue;
-    }
-
-    // Horizontal rule
-    if (/^\s*(-{3,}|_{3,}|\*{3,})\s*$/.test(line)) {
-      out.push('----');
-      continue;
-    }
-
-    // Bullet list (-, *, +)
-    const bullet = line.match(/^(\s*)[-*+]\s+(.*)$/);
-    if (bullet) {
-      const depth = Math.floor(bullet[1].length / 2) + 1;
-      out.push(`${'*'.repeat(depth)} ${convertInline(bullet[2])}`);
-      continue;
-    }
-
-    // Numbered list
-    const numbered = line.match(/^(\s*)\d+\.\s+(.*)$/);
-    if (numbered) {
-      const depth = Math.floor(numbered[1].length / 2) + 1;
-      out.push(`${'#'.repeat(depth)} ${convertInline(numbered[2])}`);
-      continue;
-    }
-
-    out.push(convertInline(line));
-  }
-
-  return out.join('\n');
-}
-
-function convertInline(s: string): string {
-  // Stash inline code eerst zodat content binnen backticks niet verminkt wordt.
-  const stash: string[] = [];
-  s = s.replace(/`([^`]+)`/g, (_, c: string) => {
-    stash.push(c);
-    return `\x00CODE${stash.length - 1}\x00`;
-  });
-
-  // **bold** → *bold* (markdown ** wordt Jira *)
-  s = s.replace(/\*\*([^*\n]+)\*\*/g, '*$1*');
-
-  // [text](url) → [text|url]
-  s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '[$1|$2]');
-
-  // Restore code → {{code}}
-  s = s.replace(/\x00CODE(\d+)\x00/g, (_, idx: string) => `{{${stash[Number(idx)]}}}`);
-
-  return s;
 }
 
 // --- Bodies + state -------------------------------------------------------
@@ -621,12 +481,7 @@ async function main() {
       `skipComments: ${args.skipComments}, skipOverview: ${args.skipOverview}`,
   );
 
-  const client: JiraClient = {
-    baseUrl: requireEnv('JIRA_URL').replace(/\/$/, ''),
-    token: requireEnv('JIRA_PERSONAL_TOKEN'),
-    sprintField: process.env.JIRA_SPRINT_FIELD ?? DEFAULT_SPRINT_FIELD,
-    storyPointsField: process.env.JIRA_STORYPOINTS_FIELD || undefined,
-  };
+  const client = createJiraClient();
 
   const { sprintName } = await loadSprintMeta(sprintDir);
   const published: PublishedState = (await readPublishedState(publishedPath)) ?? {
