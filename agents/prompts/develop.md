@@ -31,7 +31,7 @@ pas na goedkeuring.
 
 ## Werkwijze
 
-1. **Lees het refinement-rapport** — de `state/tickets/<KEY>/` folder
+1. **Lees het refinement-rapport** — de `state/tickets/<sprint>/<KEY>/` folder
    bevat `ticket.md` (kopie van agent 1 output). Lees "Doel &
    succescriteria", de voorstellen, de aanbeveling, en de risico's.
 
@@ -66,7 +66,7 @@ pas na goedkeuring.
    Deze ronde-commits worden bij APPROVED gesquasht door de reviewer,
    dus de exacte formulering hoeft niet perfect te zijn — consistentie
    in stijl maakt de git-geschiedenis wel leesbaarder tijdens de iteratie.
-7. **Schrijf/update `state/tickets/<KEY>/code-changes.md`** volgens
+7. **Schrijf/update `state/tickets/<sprint>/<KEY>/code-changes.md`** volgens
    onderstaande structuur.
 
 ## Format: code-changes.md
@@ -119,6 +119,6 @@ eerdere rondes niet — de geschiedenis blijft bewaard.
 
 - `git push` — NOOIT
 - `gh pr create` of enige interactie met GitHub — NOOIT
-- Files buiten de repo aanpassen (behalve state/tickets/<KEY>/code-changes.md)
+- Files buiten de repo aanpassen (behalve state/tickets/<sprint>/<KEY>/code-changes.md)
 - Dependencies toevoegen zonder expliciete vraag/melding
 - Bestaande publieke API's breken zonder dit te flaggen in code-changes.md

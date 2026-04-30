@@ -25,7 +25,7 @@ import { log } from './shared/logger.js';
 import { applyGitIdentityFromEnv, ticketWorktreePath } from './shared/repo.js';
 import { loadPrompt } from './shared/prompts.js';
 import { streamLastAssistantText } from './shared/query.js';
-import { TicketState } from './shared/ticket.js';
+import { TicketState, locateTicketSprint } from './shared/ticket.js';
 
 config();
 
@@ -42,7 +42,8 @@ export async function runReview({ key }: ReviewArgs): Promise<void> {
 
   log.info(`Agent 4 (review) starting — ticket: ${key}`);
 
-  const ticket = new TicketState(stateDir, key);
+  const ticketSprint = await locateTicketSprint(stateDir, key);
+  const ticket = new TicketState(stateDir, ticketSprint, key);
   const status = await ticket.readStatus();
   if (!status) {
     throw new Error(

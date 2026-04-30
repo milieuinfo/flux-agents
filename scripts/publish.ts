@@ -29,11 +29,17 @@ import { join, resolve } from 'node:path';
 import { log } from '../agents/shared/logger.js';
 import {
   addComment,
+  addIssueLink,
   applyJiraSslConfig,
   createJiraClient,
+  getIssueLinks,
   jiraFetch,
+  listFields,
+  listIssueLinkTypes,
   markdownToJiraWiki,
   type JiraClient,
+  type JiraField,
+  type JiraLinkType,
 } from '../agents/shared/jira.js';
 
 config();
@@ -60,6 +66,8 @@ interface PublishedState {
   overviewKey?: string;
   overviewHash?: string;
   overviewUpdatedAt?: string;
+  epicKey?: string;
+  epicLinkedAt?: string;
 }
 
 function parseArgs(): CliArgs {
@@ -142,6 +150,7 @@ async function createUmbrellaIssue(
   sprintName: string,
   sprintId: number,
   description: string,
+  epic?: { key: string; linkField: string },
 ): Promise<string> {
   const summary = `[Sprint-analyse] ${sprintName}`;
   const fields: Record<string, unknown> = {
@@ -154,6 +163,9 @@ async function createUmbrellaIssue(
   };
   if (client.storyPointsField) {
     fields[client.storyPointsField] = 0;
+  }
+  if (epic) {
+    fields[epic.linkField] = epic.key;
   }
   const res = await jiraFetch<CreateIssueResponse>(client, 'POST', '/rest/api/2/issue', { fields });
   return res.key;
@@ -264,6 +276,221 @@ async function findSprintIdByName(
     `Sprint "${sprintName}" niet gevonden op ${anyTicketKey}. ` +
       `Beschikbaar (op ${client.sprintField}): ${JSON.stringify(raw)}`,
   );
+}
+
+// --- Epic resolutie -------------------------------------------------------
+
+const EPIC_LINK_SCHEMA = 'com.pyxis.greenhopper.jira:gh-epic-link';
+const EPIC_NAME_SCHEMA = 'com.pyxis.greenhopper.jira:gh-epic-label';
+const TICKET_KEY_RE = /^[A-Z][A-Z0-9_]+-\d+$/;
+
+interface EpicConfig {
+  /** ID van het Epic Link customfield (bv. customfield_10014). */
+  linkField: string;
+  /** Key van de epic waaraan we de umbrella hangen. */
+  key: string;
+}
+
+let cachedFields: JiraField[] | null = null;
+async function getFields(client: JiraClient): Promise<JiraField[]> {
+  if (!cachedFields) cachedFields = await listFields(client);
+  return cachedFields;
+}
+
+async function findEpicLinkField(client: JiraClient): Promise<string> {
+  const override = process.env.JIRA_EPIC_LINK_FIELD;
+  if (override) return override;
+  const fields = await getFields(client);
+  const f = fields.find(
+    (f) =>
+      f.schema?.custom === EPIC_LINK_SCHEMA ||
+      f.name.toLowerCase() === 'epic link',
+  );
+  if (!f) {
+    throw new Error(
+      `Epic Link customfield niet gevonden. Zet JIRA_EPIC_LINK_FIELD ` +
+        `(bv. customfield_10014) in .env.`,
+    );
+  }
+  return f.id;
+}
+
+async function findEpicNameField(client: JiraClient): Promise<string> {
+  const override = process.env.JIRA_EPIC_NAME_FIELD;
+  if (override) return override;
+  const fields = await getFields(client);
+  const f = fields.find(
+    (f) =>
+      f.schema?.custom === EPIC_NAME_SCHEMA ||
+      f.name.toLowerCase() === 'epic name',
+  );
+  if (!f) {
+    throw new Error(
+      `Epic Name customfield niet gevonden. Zet JIRA_EPIC_NAME_FIELD ` +
+        `(bv. customfield_10011) in .env.`,
+    );
+  }
+  return f.id;
+}
+
+/**
+ * Zet `JIRA_UMBRELLA_EPIC` om naar een issue-key. De input mag:
+ *   - een directe issue-key zijn (bv. `FLUX-42`) — wordt geverifieerd
+ *   - of een Epic Name (bv. `[2026] - samenwerking`) — wordt opgezocht
+ *     via JQL op het Epic Name customfield.
+ *
+ * Geeft `null` terug als de env var leeg is.
+ */
+async function resolveEpicConfig(
+  client: JiraClient,
+  projectKey: string,
+): Promise<EpicConfig | null> {
+  const raw = (process.env.JIRA_UMBRELLA_EPIC ?? '').trim();
+  if (!raw) return null;
+
+  const linkField = await findEpicLinkField(client);
+
+  if (TICKET_KEY_RE.test(raw)) {
+    // Direct key — verifieer dat het bestaat en een Epic is.
+    const issue = await getIssue(client, raw, ['issuetype']);
+    const issuetype = (issue.fields?.issuetype as { name?: string } | undefined)
+      ?.name;
+    if (issuetype !== 'Epic') {
+      throw new Error(
+        `JIRA_UMBRELLA_EPIC=${raw} is geen Epic (issuetype=${issuetype}).`,
+      );
+    }
+    return { linkField, key: raw };
+  }
+
+  // Naam → JQL-lookup
+  const nameField = await findEpicNameField(client);
+  const cfId = nameField.replace(/^customfield_/, '');
+  const escaped = raw.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  const jql =
+    `project = ${projectKey} AND issuetype = Epic AND ` +
+    `cf[${cfId}] = "${escaped}"`;
+  const issues = await searchByJql(client, jql, ['summary']);
+  if (issues.length === 0) {
+    throw new Error(
+      `Geen Epic gevonden met Epic Name "${raw}" in ${projectKey}. ` +
+        `Controleer de naam of zet JIRA_UMBRELLA_EPIC op de issue-key.`,
+    );
+  }
+  if (issues.length > 1) {
+    throw new Error(
+      `Meerdere Epics met Epic Name "${raw}": ` +
+        `${issues.map((i) => i.key).join(', ')} — gebruik issue-key in JIRA_UMBRELLA_EPIC.`,
+    );
+  }
+  return { linkField, key: issues[0].key };
+}
+
+async function getCurrentEpicLink(
+  client: JiraClient,
+  issueKey: string,
+  linkField: string,
+): Promise<string | null> {
+  const issue = await getIssue(client, issueKey, [linkField]);
+  const v = issue.fields?.[linkField];
+  return typeof v === 'string' && v.length > 0 ? v : null;
+}
+
+async function setEpicLink(
+  client: JiraClient,
+  issueKey: string,
+  linkField: string,
+  epicKey: string,
+): Promise<void> {
+  await jiraFetch(client, 'PUT', `/rest/api/2/issue/${issueKey}`, {
+    fields: { [linkField]: epicKey },
+  });
+}
+
+/**
+ * Vind het link-type met inward-description "Wordt gerealiseerd door".
+ * Eerst kijken naar `JIRA_REALIZATION_LINK_TYPE` (exacte naam-match).
+ * Anders fallback op een Nederlandstalige inward, dan Engelstalig.
+ */
+async function findRealizationLinkType(
+  client: JiraClient,
+): Promise<JiraLinkType> {
+  const types = await listIssueLinkTypes(client);
+  const configured = process.env.JIRA_REALIZATION_LINK_TYPE;
+  if (configured) {
+    const t = types.find((t) => t.name === configured);
+    if (!t) {
+      throw new Error(
+        `JIRA_REALIZATION_LINK_TYPE="${configured}" niet gevonden. ` +
+          `Beschikbaar: ${types.map((t) => t.name).join(', ')}.`,
+      );
+    }
+    return t;
+  }
+  const candidates = ['wordt gerealiseerd door', 'is realized by'];
+  for (const cand of candidates) {
+    const t = types.find((t) => t.inward.toLowerCase() === cand);
+    if (t) return t;
+  }
+  throw new Error(
+    `Geen link-type gevonden met inward "Wordt gerealiseerd door". ` +
+      `Beschikbaar: ${types
+        .map((t) => `${t.name} (in: "${t.inward}", uit: "${t.outward}")`)
+        .join(', ')}. ` +
+      `Zet JIRA_REALIZATION_LINK_TYPE in .env op de juiste naam.`,
+  );
+}
+
+/**
+ * Zorg dat de umbrella via `linkType` gelinkt is met elk gegeven ticket.
+ * Direction: umbrella = inwardIssue (de umbrella "wordt gerealiseerd door"
+ * elk ticket); ticket = outwardIssue. Bestaande links met dezelfde type +
+ * outward-key worden overgeslagen.
+ */
+async function linkUmbrellaToTickets(
+  client: JiraClient,
+  umbrellaKey: string,
+  ticketKeys: string[],
+  linkType: JiraLinkType,
+  args: CliArgs,
+): Promise<{ linked: number; skipped: number; failed: number }> {
+  const existing = await getIssueLinks(client, umbrellaKey);
+  const existingTargets = new Set(
+    existing
+      .filter(
+        (l) => l.type.name === linkType.name && l.outwardIssue?.key !== undefined,
+      )
+      .map((l) => l.outwardIssue!.key),
+  );
+
+  let linked = 0;
+  let skipped = 0;
+  let failed = 0;
+
+  for (const key of ticketKeys) {
+    if (key === umbrellaKey) continue; // niet aan zichzelf linken
+    if (existingTargets.has(key)) {
+      log.info(`  ${key}: link bestaat al, skip`);
+      skipped++;
+      continue;
+    }
+    if (args.dryRun) {
+      log.info(
+        `  ${key}: dry-run — zou ${umbrellaKey} "${linkType.inward}" ${key} linken`,
+      );
+      skipped++;
+      continue;
+    }
+    try {
+      await addIssueLink(client, linkType.name, umbrellaKey, key);
+      log.info(`  ${key}: link gelegd (${linkType.name})`);
+      linked++;
+    } catch (err) {
+      log.error(`  ${key}: link FAILED`, err);
+      failed++;
+    }
+  }
+  return { linked, skipped, failed };
 }
 
 async function findUmbrellaTicket(
@@ -423,7 +650,26 @@ async function publishOverview(
   const description = buildOverviewDescription(orderMd);
   const h = hash(description);
 
-  if (published.overviewKey && published.overviewHash === h) {
+  // Epic-config wordt vooraf opgelost zodat we hem zowel bij creatie als bij
+  // het bijwerken van een bestaande umbrella kunnen gebruiken. Faalt → no-op
+  // qua epic-link (umbrella zelf wordt nog wel verwerkt).
+  let epic: EpicConfig | null = null;
+  try {
+    epic = await resolveEpicConfig(client, projectKey);
+    if (epic) {
+      log.info(
+        `Epic-link: umbrella zal gehangen worden onder ${epic.key} ` +
+          `(via ${epic.linkField})`,
+      );
+    }
+  } catch (err) {
+    log.error('Epic-link config FAILED — umbrella krijgt geen epic-link:', err);
+  }
+
+  const descriptionUnchanged =
+    !!published.overviewKey && published.overviewHash === h;
+
+  if (descriptionUnchanged && !epic) {
     log.info(`Umbrella ${published.overviewKey}: unchanged, skipping`);
     return 'unchanged';
   }
@@ -432,6 +678,11 @@ async function publishOverview(
     const previewPath = join(sprintDir, '_preview_overview.md');
     await writeFile(previewPath, description, 'utf-8');
     log.info(`Dry-run umbrella → ${previewPath}`);
+    if (epic) {
+      log.info(
+        `Dry-run epic-link → ${published.overviewKey ?? '(nieuwe umbrella)'} → ${epic.key}`,
+      );
+    }
     return 'skipped';
   }
 
@@ -439,11 +690,16 @@ async function publishOverview(
     let key = published.overviewKey ?? null;
     if (!key) key = await findUmbrellaTicket(client, sprintName, projectKey);
 
-    let action: 'created' | 'updated';
+    let action: 'created' | 'updated' | 'unchanged';
     if (key) {
-      log.info(`Umbrella ${key}: updating description`);
-      await updateDescription(client, key, description);
-      action = 'updated';
+      if (descriptionUnchanged) {
+        log.info(`Umbrella ${key}: description unchanged`);
+        action = 'unchanged';
+      } else {
+        log.info(`Umbrella ${key}: updating description`);
+        await updateDescription(client, key, description);
+        action = 'updated';
+      }
     } else {
       if (!anyTicketKeyForSprintLookup) {
         throw new Error(
@@ -455,13 +711,42 @@ async function publishOverview(
       log.info(`Umbrella: not found, looking up sprint-ID via ${anyTicketKeyForSprintLookup}`);
       const sprintId = await findSprintIdByName(client, anyTicketKeyForSprintLookup, sprintName);
       log.info(`Umbrella: creating in ${projectKey} (sprintId: ${sprintId})`);
-      key = await createUmbrellaIssue(client, projectKey, sprintName, sprintId, description);
+      key = await createUmbrellaIssue(
+        client,
+        projectKey,
+        sprintName,
+        sprintId,
+        description,
+        epic ?? undefined,
+      );
       log.info(`Umbrella created: ${key}`);
       action = 'created';
     }
     published.overviewKey = key;
     published.overviewHash = h;
     published.overviewUpdatedAt = new Date().toISOString();
+
+    // Idempotente epic-link: alleen PUT als de huidige waarde mist of afwijkt.
+    // Bij creatie hebben we de link al meegegeven; dan slaat dit blok over.
+    if (epic && action !== 'created') {
+      try {
+        const current = await getCurrentEpicLink(client, key, epic.linkField);
+        if (current === epic.key) {
+          log.info(`Epic-link ${key} → ${epic.key}: ongewijzigd`);
+        } else {
+          log.info(
+            `Epic-link ${key} → ${epic.key} (was: ${current ?? '(leeg)'})`,
+          );
+          await setEpicLink(client, key, epic.linkField, epic.key);
+        }
+      } catch (err) {
+        log.error(`Epic-link op ${key} FAILED:`, err);
+      }
+    }
+    if (epic) {
+      published.epicKey = epic.key;
+      published.epicLinkedAt = new Date().toISOString();
+    }
     return action;
   } catch (err) {
     log.error('Umbrella: FAILED', err);
@@ -492,6 +777,7 @@ async function main() {
 
   let commentStats = { posted: 0, skipped: 0, failed: 0 };
   let overviewStatus: 'created' | 'updated' | 'unchanged' | 'skipped' | 'failed' = 'skipped';
+  let linkStats = { linked: 0, skipped: 0, failed: 0 };
 
   if (!args.skipComments) {
     commentStats = await publishComments(client, sprintDir, sprintName, args, published);
@@ -512,6 +798,30 @@ async function main() {
       published,
       anyKey,
     );
+
+    // Issue-links: umbrella "wordt gerealiseerd door" elk sprint-ticket.
+    // Loopt ook bij overviewStatus='unchanged' — links kunnen ontbreken
+    // ook al is de description al actueel (bv. eerste run met deze feature).
+    // Slaat over bij 'failed' (geen key) of 'skipped' zonder bestaande key.
+    if (overviewStatus !== 'failed' && published.overviewKey && tickets.length > 0) {
+      try {
+        const linkType = await findRealizationLinkType(client);
+        log.info(
+          `Linking umbrella ${published.overviewKey} aan ${tickets.length} ticket(s) ` +
+            `via "${linkType.name}" (inward: "${linkType.inward}")`,
+        );
+        linkStats = await linkUmbrellaToTickets(
+          client,
+          published.overviewKey,
+          tickets.map((t) => t.key),
+          linkType,
+          args,
+        );
+      } catch (err) {
+        log.error('Issue-links: FAILED', err);
+        linkStats.failed = tickets.length;
+      }
+    }
   }
 
   if (!args.dryRun) {
@@ -520,10 +830,15 @@ async function main() {
 
   log.info(
     `Done. Comments — posted: ${commentStats.posted}, skipped: ${commentStats.skipped}, ` +
-      `failed: ${commentStats.failed}. Overview: ${overviewStatus}.`,
+      `failed: ${commentStats.failed}. Overview: ${overviewStatus}. ` +
+      `Links — linked: ${linkStats.linked}, skipped: ${linkStats.skipped}, failed: ${linkStats.failed}.`,
   );
 
-  if (commentStats.failed > 0 || overviewStatus === 'failed') {
+  if (
+    commentStats.failed > 0 ||
+    overviewStatus === 'failed' ||
+    linkStats.failed > 0
+  ) {
     process.exit(1);
   }
 }

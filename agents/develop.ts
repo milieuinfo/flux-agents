@@ -40,6 +40,7 @@ import {
   extractBranchSlug,
   extractTitle,
   locateRefinement,
+  migrateLegacyTicketDir,
   seedTicketMd,
 } from './shared/ticket.js';
 
@@ -73,7 +74,8 @@ export async function runDevelop({ key, sprint }: DevelopArgs): Promise<void> {
   const refinement = await locateRefinement(stateDir, key, sprint);
   log.info(`Refinement: ${refinement.path} (sprint ${refinement.sprint})`);
 
-  const ticket = new TicketState(stateDir, key);
+  await migrateLegacyTicketDir(stateDir, key);
+  const ticket = new TicketState(stateDir, refinement.sprint, key);
   await ticket.ensureDir();
   await seedTicketMd(ticket, refinement.path);
 

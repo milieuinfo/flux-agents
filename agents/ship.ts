@@ -19,7 +19,11 @@ import { config } from 'dotenv';
 import { resolve } from 'node:path';
 import { log } from './shared/logger.js';
 import { countCommitsAhead, ticketWorktreePath } from './shared/repo.js';
-import { TicketState } from './shared/ticket.js';
+import {
+  TicketState,
+  locateRefinement,
+  migrateLegacyTicketDir,
+} from './shared/ticket.js';
 import { runDevelop } from './develop.js';
 import { runReview } from './review.js';
 
@@ -45,7 +49,12 @@ function parseArgs(): ShipArgs {
 async function main() {
   const { key, sprint } = parseArgs();
   const stateDir = resolve(process.env.STATE_DIR ?? './state');
-  const ticket = new TicketState(stateDir, key);
+
+  // Sprint vooraf opzoeken zodat we ticket-state in de geneste layout
+  // kunnen lezen vanaf ronde 1.
+  const refinement = await locateRefinement(stateDir, key, sprint);
+  await migrateLegacyTicketDir(stateDir, key);
+  const ticket = new TicketState(stateDir, refinement.sprint, key);
 
   log.info(`🚢 Ship starting — ticket: ${key} (max ${MAX_ROUNDS} rondes)`);
 

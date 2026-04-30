@@ -8,7 +8,7 @@ Verwerk review feedback voor ticket `$1`.
 
 ## Stap 1 — Valideer state
 
-Lees `state/tickets/$1/_status.json`. Vereist:
+Lees `state/tickets/<sprint>/$1/_status.json`. Vereist:
 - `status` is `"changes_requested"` (anders: is er niks te adresseren)
 - Er is een `review-r<round>.md` met blockers
 
@@ -32,9 +32,9 @@ Schrijf het bestand terug.
 Roep de `ticket-author` subagent aan:
 
 > Vervolgiteratie voor ticket $1. Dit is ronde {nieuwe round}.
-> - Refinement: `state/tickets/$1/ticket.md`
-> - Jouw eigen vorige werk: `state/tickets/$1/code-changes.md`
-> - Review feedback van vorige ronde: `state/tickets/$1/review-r{round-1}.md`
+> - Refinement: `state/tickets/<sprint>/$1/ticket.md`
+> - Jouw eigen vorige werk: `state/tickets/<sprint>/$1/code-changes.md`
+> - Review feedback van vorige ronde: `state/tickets/<sprint>/$1/review-r{round-1}.md`
 >
 > Focus op de 🔴 Blockers uit de review. 🟡 Aanbevelingen mag je meenemen
 > als het goedkoop is, maar niet als het scope uitbreidt.

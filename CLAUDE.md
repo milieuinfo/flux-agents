@@ -225,6 +225,15 @@ Publish leest `state/sprints/<sprint>/FLUX-*.md` en `_order.md`
 - `_order.md` → description van een umbrella-ticket (Task, label
   `sprint-overview`, story points 0, gekoppeld aan de sprint).
   Find-or-update via JQL: één umbrella per sprint, nooit dupliceren.
+- Issue-links: umbrella "Wordt gerealiseerd door" elk sprint-ticket
+  (link-type wordt opgezocht via `/rest/api/2/issueLinkType` op basis
+  van de inward-description; override via `JIRA_REALIZATION_LINK_TYPE`).
+  Idempotent — bestaande links worden overgeslagen.
+- Epic-link: als `JIRA_UMBRELLA_EPIC` is gezet (issue-key of Epic Name),
+  hangt de umbrella onder die epic. Epic Link en Epic Name customfields
+  worden auto-gedetecteerd via `/rest/api/2/field`; override via
+  `JIRA_EPIC_LINK_FIELD` / `JIRA_EPIC_NAME_FIELD`. Idempotent — alleen
+  PUT als de huidige waarde mist of afwijkt.
 
 `_published.json` houdt per ticket een hash van de gepubliceerde body
 bij. Tweede run zonder content-wijziging slaat alles over. Bij wijziging
@@ -250,6 +259,15 @@ Italic en images worden niet gebruikt en niet ondersteund.
 - `JIRA_STORYPOINTS_FIELD` (optioneel) — custom field key voor story
   points. Niet gezet → veld blijft leeg op de umbrella (functioneel
   equivalent aan 0 voor velocity).
+- `JIRA_REALIZATION_LINK_TYPE` (optioneel) — exacte naam van het issue
+  link-type voor "Wordt gerealiseerd door" (bv. `Realization`). Niet
+  gezet → het script zoekt zelf via inward-description.
+- `JIRA_UMBRELLA_EPIC` (optioneel) — epic waaraan het umbrella-ticket
+  wordt gehangen. Mag een issue-key zijn (`FLUX-42`) of een Epic Name
+  (`[2026] - samenwerking`). Leeg → geen epic-link.
+- `JIRA_EPIC_LINK_FIELD` / `JIRA_EPIC_NAME_FIELD` (optioneel) — overrides
+  voor de Epic Link en Epic Name customfields. Leeg → auto-detect via
+  `/rest/api/2/field`.
 
 ## Harde regels — agents mogen deze NOOIT overtreden
 
@@ -263,7 +281,7 @@ Italic en images worden niet gebruikt en niet ondersteund.
   (b) het umbrella-ticket per sprint, beide door `publish.ts`. Verder
   blijft alles lokale markdown.
 - **Geen comments posten op GitHub PR's** — review-feedback blijft in
-  `state/tickets/<KEY>/review-r*.md`
+  `state/tickets/<sprint>/<KEY>/review-r*.md`
 - **Geen dependencies installeren** zonder Kris expliciet te vragen
   en te motiveren waarom
 - **Geen secrets loggen** — tokens in `.env` blijven daar
@@ -330,7 +348,7 @@ flux-agents-state/                ← aparte repo (STATE_DIR)
 │   ├── _order.md                 ← agent 2 output
 │   ├── _published.json           ← publish.ts state (hashes per ticket + umbrella key)
 │   └── FLUX-*.md                 ← agent 1 output per ticket
-├── tickets/<KEY>/                ← gecommit (per-ticket werk)
+├── tickets/<SPRINT>/<KEY>/       ← gecommit (per-ticket werk, gegroepeerd per sprint)
 │   ├── ticket.md                 ← kopie van refinement
 │   ├── code-changes.md           ← agent 3 per ronde
 │   ├── review-r<N>.md            ← agent 4 per ronde
@@ -378,9 +396,10 @@ visibility (tool mag publiek, state bevat interne ticket-details).
 Als je (Claude in een toekomstige sessie) iets aanpast, valideer:
 
 1. **Harde regels hierboven** — nog steeds afdwingbaar?
-2. **State-compatibiliteit** — kunnen bestaande `state/tickets/*`
-   folders nog door de nieuwe code gelezen worden? `_status.json`
-   schema-wijzigingen vereisen een migratie-strategie.
+2. **State-compatibiliteit** — kunnen bestaande
+   `state/tickets/<SPRINT>/*` folders nog door de nieuwe code gelezen
+   worden? `_status.json` schema-wijzigingen vereisen een
+   migratie-strategie.
 3. **Idempotentie agent 1** — herstart blijft non-destructief?
 4. **Max rondes** — blijft escalatie-logica intact?
 5. **Geen nieuwe netwerk-endpoints** — we praten alleen met Jira MCP

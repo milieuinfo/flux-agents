@@ -85,6 +85,79 @@ export async function addComment(
   });
 }
 
+// --- Issue links ----------------------------------------------------------
+
+export interface JiraLinkType {
+  id: string;
+  name: string;
+  inward: string;
+  outward: string;
+}
+
+export interface JiraIssueLink {
+  id: string;
+  type: { name: string; inward: string; outward: string };
+  inwardIssue?: { key: string };
+  outwardIssue?: { key: string };
+}
+
+/**
+ * Maak een issue-link tussen twee tickets via de gegeven link-type-naam.
+ * `inwardKey` ziet de relatie als de inward-description, `outwardKey` als
+ * de outward-description. Voor type "Realization" (NL "wordt gerealiseerd
+ * door"/"realiseert"): zet de umbrella op `inwardKey` ("wordt gerealiseerd
+ * door [ticket]") en het concrete ticket op `outwardKey` ("realiseert
+ * [umbrella]").
+ */
+export async function addIssueLink(
+  client: JiraClient,
+  typeName: string,
+  inwardKey: string,
+  outwardKey: string,
+): Promise<void> {
+  await jiraFetch(client, 'POST', '/rest/api/2/issueLink', {
+    type: { name: typeName },
+    inwardIssue: { key: inwardKey },
+    outwardIssue: { key: outwardKey },
+  });
+}
+
+export async function getIssueLinks(
+  client: JiraClient,
+  key: string,
+): Promise<JiraIssueLink[]> {
+  const issue = await jiraFetch<{ fields?: { issuelinks?: JiraIssueLink[] } }>(
+    client,
+    'GET',
+    `/rest/api/2/issue/${key}?fields=issuelinks`,
+  );
+  return issue.fields?.issuelinks ?? [];
+}
+
+export async function listIssueLinkTypes(
+  client: JiraClient,
+): Promise<JiraLinkType[]> {
+  const res = await jiraFetch<{ issueLinkTypes: JiraLinkType[] }>(
+    client,
+    'GET',
+    '/rest/api/2/issueLinkType',
+  );
+  return res.issueLinkTypes ?? [];
+}
+
+// --- Fields ---------------------------------------------------------------
+
+export interface JiraField {
+  id: string;
+  name: string;
+  custom: boolean;
+  schema?: { type?: string; custom?: string };
+}
+
+export async function listFields(client: JiraClient): Promise<JiraField[]> {
+  return jiraFetch<JiraField[]>(client, 'GET', '/rest/api/2/field');
+}
+
 // --- Markdown → Jira wiki markup -----------------------------------------
 
 /**

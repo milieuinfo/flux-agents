@@ -26,6 +26,7 @@ import {
 } from './shared/repo.js';
 import { loadPrompt } from './shared/prompts.js';
 import { streamLastAssistantText } from './shared/query.js';
+import { locateRefinement } from './shared/ticket.js';
 
 config();
 
@@ -70,13 +71,23 @@ async function runReviewExternal(args: ReviewExternalArgs): Promise<void> {
   await mkdir(reviewsDir, { recursive: true });
   const outputPath = resolve(reviewsDir, `review-${timestampSlug()}.md`);
 
+  // Refinement is optioneel — externe branches komen vaak van iemand
+  // anders en zijn niet door agent 1 gerefined. Als er wél een
+  // refinement-rapport bestaat onder state/sprints/, geven we dat pad mee.
+  let refinementPath: string | null = null;
+  try {
+    refinementPath = (await locateRefinement(stateDir, key)).path;
+  } catch {
+    // geen refinement gevonden — niets aan de hand
+  }
+
   const systemPrompt = await loadPrompt('review-external');
   const userPrompt = buildPrompt({
     key,
     branch,
     baseBranch,
     outputPath,
-    stateDir,
+    refinementPath,
   });
 
   const q = query({
@@ -108,10 +119,14 @@ function buildPrompt(opts: {
   branch: string;
   baseBranch: string;
   outputPath: string;
-  stateDir: string;
+  refinementPath: string | null;
 }): string {
-  const { key, branch, baseBranch, outputPath, stateDir } = opts;
-  const ticketMd = resolve(stateDir, 'tickets', key, 'ticket.md');
+  const { key, branch, baseBranch, outputPath, refinementPath } = opts;
+  const refinementLine = refinementPath
+    ? `- Refinement-rapport: ${refinementPath}. Lees het en gebruik de ` +
+      `"Doel & succescriteria"-sectie.\n`
+    : `- Geen refinement-rapport beschikbaar voor dit ticket. Sla de ` +
+      `"Succescriteria"-sectie van de review over.\n`;
   return (
     `Externe review van ticket ${key} op branch ${branch}.\n\n` +
     `**Belangrijke context:**\n` +
@@ -119,10 +134,8 @@ function buildPrompt(opts: {
     `- Base-branch: ${baseBranch}. Gebruik die in alle git-commando's ` +
     `(bv. \`git log --oneline ${baseBranch}..HEAD\`, ` +
     `\`git diff ${baseBranch}...HEAD\`).\n` +
-    `- Refinement-rapport (optioneel): ${ticketMd}. Bestaat het, lees ` +
-    `het en gebruik de "Doel & succescriteria"-sectie. Bestaat het ` +
-    `niet, sla de "Succescriteria"-sectie van de review over.\n\n` +
-    `**Output:** schrijf één markdown-bestand naar exact dit pad ` +
+    refinementLine +
+    `\n**Output:** schrijf één markdown-bestand naar exact dit pad ` +
     `(letterlijk overnemen, niet zelf samenstellen):\n` +
     `${outputPath}\n\n` +
     `Volg het format en de werkwijze uit je system-prompt. Geen git-, ` +

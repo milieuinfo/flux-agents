@@ -184,7 +184,7 @@ npm run develop -- FLUX-123
 ```
 
 Wat dit doet:
-- Kopieert het refinement-rapport naar `state/tickets/FLUX-123/ticket.md`
+- Kopieert het refinement-rapport naar `state/tickets/<sprint>/FLUX-123/ticket.md`
   (als dat er nog niet staat — eventuele `## Keuze` annotaties blijven
   bewaard).
 - Maakt een per-ticket git worktree aan onder
@@ -192,7 +192,7 @@ Wat dit doet:
   `origin/<FLUX_BASE_BRANCH>` (default `develop-v2`).
 - Maakt een feature-branch `feature-v2/flux-123-<slug>`.
 - Roept de `ticket-author` subagent aan (Sonnet) om te implementeren.
-- Schrijft `state/tickets/FLUX-123/code-changes.md`.
+- Schrijft `state/tickets/<sprint>/FLUX-123/code-changes.md`.
 - Géén push, géén PR.
 
 ### Stap 4: review
@@ -205,7 +205,7 @@ Roept `ticket-reviewer` aan (Opus) op dezelfde worktree. Drie uitkomsten:
 
 - **APPROVED** — commits worden gesquasht tegen `origin/develop-v2`,
   feature-branch gepusht, PR geopend via `gh pr create --base develop-v2`.
-- **CHANGES_REQUESTED** — lees `state/tickets/FLUX-123/review-r<N>.md`,
+- **CHANGES_REQUESTED** — lees `state/tickets/<sprint>/FLUX-123/review-r<N>.md`,
   dan opnieuw `npm run develop -- FLUX-123`. Dat detecteert automatisch
   dat het ronde N+1 is en schakelt naar address-modus.
 - **ESCALATED** — max 3 rondes bereikt; geen PR, jij beslist manueel.

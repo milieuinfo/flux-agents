@@ -1,5 +1,13 @@
-import { access, copyFile, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import {
+  access,
+  copyFile,
+  mkdir,
+  readFile,
+  readdir,
+  rename,
+  writeFile,
+} from 'node:fs/promises';
+import { dirname, join, resolve } from 'node:path';
 import { log } from './logger.js';
 
 export type TicketStatus =
@@ -23,11 +31,12 @@ export interface TicketStateJson {
 export class TicketState {
   constructor(
     private readonly stateDir: string,
+    readonly sprint: string,
     readonly key: string,
   ) {}
 
   get ticketDir(): string {
-    return resolve(this.stateDir, 'tickets', this.key);
+    return resolve(this.stateDir, 'tickets', this.sprint, this.key);
   }
 
   get ticketMdPath(): string {
@@ -166,6 +175,98 @@ export function extractBranchSlug(ticketMd: string): string | null {
   if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(raw)) return null;
   if (raw.length < 2 || raw.length > 60) return null;
   return raw;
+}
+
+/**
+ * Vind de sprint-folder waaronder dit ticket onder `state/tickets/` staat.
+ * Migreert eerst stilletjes een eventuele legacy locatie
+ * (`tickets/<KEY>/`) naar de geneste layout (`tickets/<sprint>/<KEY>/`).
+ *
+ * Gooit als het ticket nog niet bestaat (develop heeft nog niet gedraaid)
+ * of als het in meerdere sprint-folders voorkomt.
+ */
+export async function locateTicketSprint(
+  stateDir: string,
+  key: string,
+): Promise<string> {
+  await migrateLegacyTicketDir(stateDir, key);
+
+  const ticketsRoot = resolve(stateDir, 'tickets');
+  let entries;
+  try {
+    entries = await readdir(ticketsRoot, { withFileTypes: true });
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      throw new Error(`Geen tickets-folder onder ${stateDir}.`);
+    }
+    throw err;
+  }
+
+  const matches: string[] = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const candidate = join(ticketsRoot, entry.name, key, '_status.json');
+    try {
+      await access(candidate);
+      matches.push(entry.name);
+    } catch {
+      // niet hier, volgende sprint
+    }
+  }
+
+  if (matches.length === 0) {
+    throw new Error(
+      `Geen ticket-state voor ${key} onder ${ticketsRoot}/<sprint>/${key}/. ` +
+        `Draai eerst 'npm run develop -- ${key}'.`,
+    );
+  }
+  if (matches.length > 1) {
+    throw new Error(
+      `Ticket ${key} bestaat in meerdere sprint-folders (${matches.join(', ')}). ` +
+        `Geef de sprint expliciet mee.`,
+    );
+  }
+  return matches[0];
+}
+
+/**
+ * Verplaats `tickets/<KEY>/` naar `tickets/<sprint>/<KEY>/` op basis van
+ * de `sprint`-veld in `_status.json`. No-op als de legacy folder niet
+ * bestaat of geen `_status.json` heeft.
+ */
+export async function migrateLegacyTicketDir(
+  stateDir: string,
+  key: string,
+): Promise<void> {
+  const legacyDir = resolve(stateDir, 'tickets', key);
+  const legacyStatus = join(legacyDir, '_status.json');
+  let raw: string;
+  try {
+    raw = await readFile(legacyStatus, 'utf-8');
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return;
+    throw err;
+  }
+  const status = JSON.parse(raw) as TicketStateJson;
+  if (!status.sprint) {
+    log.warn(
+      `Legacy ${legacyDir}/_status.json mist 'sprint'-veld; geen migratie.`,
+    );
+    return;
+  }
+  const targetDir = resolve(stateDir, 'tickets', status.sprint, key);
+  try {
+    await access(targetDir);
+    log.warn(
+      `Legacy ${legacyDir} en doel ${targetDir} bestaan beide; legacy laten staan, repareer manueel.`,
+    );
+    return;
+  } catch {
+    // doel bestaat nog niet, verplaats
+  }
+  await mkdir(dirname(targetDir), { recursive: true });
+  await rename(legacyDir, targetDir);
+  log.info(`Migrated ${legacyDir} → ${targetDir}`);
 }
 
 async function assertExists(path: string, message: string): Promise<void> {
