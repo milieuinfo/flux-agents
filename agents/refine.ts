@@ -34,6 +34,12 @@ import {
   prepareWorktree,
 } from './shared/repo.js';
 import {
+  applyJiraSslConfig,
+  createJiraClient,
+  getIssueFields,
+  type JiraClient,
+} from './shared/jira.js';
+import {
   extractMarkdown,
   extractTicketRefinement,
   streamAllAssistantText,
@@ -390,8 +396,76 @@ function tryParseJson(s: string): unknown {
   }
 }
 
+/**
+ * Lees `state/sprints/<id>/_published.json` indien aanwezig en geef de
+ * `overviewKey` terug (de Jira-key van het door publish.ts beheerde
+ * [Sprint-analyse]-umbrella-ticket). Ontbreekt het bestand → undefined.
+ */
+async function readOverviewKey(state: SprintState): Promise<string | undefined> {
+  try {
+    const raw = await readFile(state.publishedPath, 'utf-8');
+    const parsed = JSON.parse(raw) as { overviewKey?: string };
+    return parsed.overviewKey;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+    log.warn(`Could not read ${state.publishedPath}:`, err);
+    return undefined;
+  }
+}
+
+/**
+ * Filter het door publish.ts beheerde [Sprint-analyse]-umbrella-ticket uit
+ * de sprint-lijst. Twee criteria — `overviewKey` uit `_published.json` (als
+ * dat er is) én summary-prefix `[Sprint-analyse]` als veiligheidsnet.
+ */
+function filterUmbrella(
+  tickets: Array<{ key: string; summary: string; status: string; updated: string }>,
+  overviewKey: string | undefined,
+): Array<{ key: string; summary: string; status: string; updated: string }> {
+  return tickets.filter((t) => {
+    if (overviewKey && t.key === overviewKey) {
+      log.info(`  ${t.key}: skipping (sprint-analyse umbrella)`);
+      return false;
+    }
+    if (t.summary.startsWith('[Sprint-analyse]')) {
+      log.info(`  ${t.key}: skipping (sprint-analyse umbrella)`);
+      return false;
+    }
+    return true;
+  });
+}
+
+/**
+ * Haal de inhoudelijke velden van een ticket op via Jira REST en bereken
+ * de content-hash (zonder `updated`). Wordt gebruikt door agent 1 om te
+ * detecteren of een ticket waarvan enkel `updated` is gewijzigd écht nieuw
+ * gerefined moet worden — een goedkope check zodat we niet onnodig een LLM
+ * heen sturen voor tickets waar enkel een comment aan toegevoegd is.
+ */
+async function fetchContentHash(
+  jira: JiraClient,
+  key: string,
+  acFieldId: string | undefined,
+): Promise<string> {
+  const fields = ['summary', 'description', 'status'];
+  if (acFieldId) fields.push(acFieldId);
+  const f = await getIssueFields(jira, key, fields);
+  const status = f.status as { name?: string } | null;
+  return hashTicketContent({
+    summary: String(f.summary ?? ''),
+    description: f.description == null ? null : String(f.description),
+    acceptanceCriteria: acFieldId
+      ? f[acFieldId] == null
+        ? null
+        : String(f[acFieldId])
+      : null,
+    status: status?.name ?? '',
+  });
+}
+
 async function main() {
   const args = parseArgs();
+  applyJiraSslConfig();
   const stateDir = resolve(process.env.STATE_DIR ?? './state');
   const fallbackLabel = args.tickets ? `tickets-${Date.now()}` : `jql-${Date.now()}`;
   const folderName = args.folderName ?? fallbackLabel;
@@ -417,9 +491,14 @@ async function main() {
   const state = new SprintState(stateDir, folderName);
   await state.ensureDir();
 
+  const jira = createJiraClient();
+  const acFieldId = process.env.JIRA_AC_FIELD || undefined;
+
   const existingMeta = await state.readMeta();
-  const tickets = await listSprintTickets(args, stateDir);
-  log.info(`Found ${tickets.length} tickets`);
+  const overviewKey = await readOverviewKey(state);
+  const allTickets = await listSprintTickets(args, stateDir);
+  const tickets = filterUmbrella(allTickets, overviewKey);
+  log.info(`Found ${allTickets.length} tickets (${tickets.length} after filter)`);
 
   const newMeta: SprintMeta = {
     sprintId: folderName,
@@ -432,21 +511,39 @@ async function main() {
   let skipped = 0;
 
   for (const t of tickets) {
-    // Quick hash based on list-level fields. A deeper re-check (description,
-    // AC) happens implicitly because the agent fetches those on refinement.
-    const quickHash = hashTicketContent({
-      summary: t.summary,
-      description: '',
-      status: t.status,
-      updated: t.updated,
-    });
-
     const prevMeta = existingMeta?.tickets[t.key];
     const markdownExists = await state.ticketExists(t.key);
 
+    // Geval A — snelle hit: timestamp matcht, niets veranderd Jira-zijde.
     if (prevMeta && markdownExists && prevMeta.jiraUpdated === t.updated) {
       log.info(`  ${t.key}: unchanged, skipping`);
       newMeta.tickets[t.key] = prevMeta;
+      skipped++;
+      continue;
+    }
+
+    // Geval B/C — fetch echte content om vast te stellen of een refine nodig is.
+    // Dit dekt ook de comment-only-update flow: publish.ts plaatst comments waardoor
+    // `updated` wijzigt, maar de inhoud niet — dan is `contentHash` ongewijzigd.
+    let contentHash: string;
+    try {
+      contentHash = await fetchContentHash(jira, t.key, acFieldId);
+    } catch (err) {
+      log.error(`  ${t.key}: kon content niet ophalen via REST, val terug op refine:`, err);
+      contentHash = '';
+    }
+
+    if (
+      prevMeta &&
+      markdownExists &&
+      contentHash !== '' &&
+      prevMeta.contentHash === contentHash
+    ) {
+      log.info(`  ${t.key}: only timestamp changed, skipping`);
+      newMeta.tickets[t.key] = {
+        ...prevMeta,
+        jiraUpdated: t.updated,
+      };
       skipped++;
       continue;
     }
@@ -463,7 +560,7 @@ async function main() {
       await state.writeTicketMarkdown(t.key, md);
       newMeta.tickets[t.key] = {
         key: t.key,
-        contentHash: quickHash,
+        contentHash,
         lastRefinedAt: new Date().toISOString(),
         jiraUpdated: t.updated,
       };

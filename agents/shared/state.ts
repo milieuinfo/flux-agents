@@ -31,6 +31,10 @@ export class SprintState {
     return join(this.sprintDir, '_meta.json');
   }
 
+  get publishedPath(): string {
+    return join(this.sprintDir, '_published.json');
+  }
+
   ticketPath(key: string): string {
     return join(this.sprintDir, `${key}.md`);
   }
@@ -78,22 +82,23 @@ export class SprintState {
 }
 
 /**
- * Hash the fields of a Jira ticket that we care about for change detection.
- * If any of these change, the ticket needs re-refinement.
+ * Hash de inhoudelijke velden van een Jira-ticket. Bewust ZONDER `updated`:
+ * Jira's `updated`-timestamp wijzigt ook bij niet-inhoudelijke veranderingen
+ * (bv. een toegevoegde comment via `publish.ts`), en die mogen geen
+ * heranalyse triggeren. Op `updated` wordt apart een snelle pre-check gedaan
+ * in agent 1 — de hash is voor de echte content-vergelijking.
  */
 export function hashTicketContent(ticket: {
   summary: string;
-  description: string;
-  acceptanceCriteria?: string;
+  description: string | null;
+  acceptanceCriteria?: string | null;
   status: string;
-  updated: string;
 }): string {
   const canonical = JSON.stringify({
     summary: ticket.summary.trim(),
-    description: ticket.description.trim(),
-    acceptanceCriteria: (ticket.acceptanceCriteria || '').trim(),
+    description: (ticket.description ?? '').trim(),
+    acceptanceCriteria: (ticket.acceptanceCriteria ?? '').trim(),
     status: ticket.status,
-    updated: ticket.updated,
   });
   return createHash('sha256').update(canonical).digest('hex').slice(0, 16);
 }

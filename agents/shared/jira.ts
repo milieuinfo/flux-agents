@@ -85,6 +85,33 @@ export async function addComment(
   });
 }
 
+// --- Issue fields ---------------------------------------------------------
+
+export interface JiraIssueResponse {
+  key: string;
+  fields: Record<string, unknown>;
+}
+
+/**
+ * Haal een issue op met enkel de gevraagde velden. Wrapper rond
+ * `GET /rest/api/2/issue/{key}?fields=...`. Wordt o.a. gebruikt door agent 1
+ * (refine) om snel de inhoudelijke velden van een ticket op te halen voor de
+ * content-hash vergelijking, zonder een LLM-run te starten.
+ */
+export async function getIssueFields(
+  client: JiraClient,
+  key: string,
+  fields: string[],
+): Promise<Record<string, unknown>> {
+  const fieldsParam = fields.join(',');
+  const issue = await jiraFetch<JiraIssueResponse>(
+    client,
+    'GET',
+    `/rest/api/2/issue/${encodeURIComponent(key)}?fields=${encodeURIComponent(fieldsParam)}`,
+  );
+  return issue.fields ?? {};
+}
+
 // --- Issue links ----------------------------------------------------------
 
 export interface JiraLinkType {
