@@ -22,8 +22,8 @@
 
 import { config } from 'dotenv';
 import { query } from '@anthropic-ai/claude-agent-sdk';
-import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
 import { log } from './shared/logger.js';
 import { loadPrompt } from './shared/prompts.js';
 import { SprintState, hashTicketContent, type SprintMeta } from './shared/state.js';
@@ -170,7 +170,10 @@ function buildJql(args: CliArgs): string | null {
  * This call does NOT need code access — it's a pure Jira lookup —
  * so we leave `cwd` undefined and limit tools to the Jira MCP.
  */
-async function listSprintTickets(args: CliArgs): Promise<Array<{
+async function listSprintTickets(
+  args: CliArgs,
+  stateDir: string,
+): Promise<Array<{
   key: string;
   summary: string;
   status: string;
@@ -186,11 +189,48 @@ async function listSprintTickets(args: CliArgs): Promise<Array<{
     maxTurns: 5,
     allowedTools: ['mcp__mcp-atlassian'],
   });
-  const json = extractJson(response);
+
+  let json: unknown;
+  try {
+    json = extractJson(response);
+  } catch (err) {
+    const dumpPath = await dumpRawResponse(stateDir, 'refine-list-tickets', response);
+    throw new Error(
+      `Could not extract JSON from list-tickets response: ${(err as Error).message}. ` +
+        `Raw response written to ${dumpPath}.`,
+    );
+  }
   if (!Array.isArray(json)) {
-    throw new Error(`Expected array of tickets, got: ${response.slice(0, 200)}`);
+    const dumpPath = await dumpRawResponse(stateDir, 'refine-list-tickets', response);
+    throw new Error(
+      `Expected array of tickets, got ${typeof json} (${truncate(JSON.stringify(json), 120)}). ` +
+        `Raw response written to ${dumpPath}.`,
+    );
   }
   return json as Array<{ key: string; summary: string; status: string; updated: string }>;
+}
+
+/**
+ * Persist a raw model response under `<stateDir>/logs/` so we can inspect what
+ * the model actually returned when parsing failed. Returns the absolute path.
+ * Failure to write is logged but not re-thrown — we don't want a logging issue
+ * to mask the original parse error.
+ */
+async function dumpRawResponse(
+  stateDir: string,
+  label: string,
+  body: string,
+): Promise<string> {
+  const logsDir = join(stateDir, 'logs');
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const path = join(logsDir, `${label}-${stamp}.txt`);
+  try {
+    await mkdir(logsDir, { recursive: true });
+    await writeFile(path, body, 'utf-8');
+  } catch (err) {
+    log.warn(`Failed to write debug dump to ${path}:`, err);
+  }
+  return path;
 }
 
 /**
@@ -300,22 +340,53 @@ async function runQuery(
 }
 
 /**
- * Extract the first JSON value from a text response.
- * The model sometimes wraps JSON in fences or adds a trailing line.
+ * Extract the first parseable JSON value from a text response.
+ *
+ * The model can wrap JSON in ```json fences, prefix it with prose, intermix
+ * unrelated brace-using text ("the {tickets} are below"), or close with a
+ * trailing comment. We try multiple strategies in order of likelihood and
+ * accept the first candidate that parses.
+ *
+ * Strategy:
+ *  1. Each fenced code block (```json or plain ```), in order.
+ *  2. Each `[...]` slice — for every `[` position, try shrinking from the
+ *     last matching `]`. We prefer arrays because every caller asks for one.
+ *  3. Each `{...}` slice as a fallback, same shrink-from-the-right approach.
+ *
+ * Throws with a snippet of the raw text if nothing parses, so the dump file
+ * referenced in the wrapping error is the one to inspect.
  */
 function extractJson(text: string): unknown {
-  const fenced = text.match(/```(?:json)?\n([\s\S]*?)\n```/);
-  const raw = fenced ? fenced[1] : text;
-  // Find the first { or [ and last matching bracket
-  const start = raw.search(/[\[{]/);
-  if (start === -1) throw new Error(`No JSON found in response: ${text.slice(0, 200)}`);
-  const candidate = raw.slice(start);
+  const fenceRe = /```(?:json)?\s*\n([\s\S]*?)\n```/g;
+  let m: RegExpExecArray | null;
+  while ((m = fenceRe.exec(text)) !== null) {
+    const parsed = tryParseJson(m[1].trim());
+    if (parsed !== undefined) return parsed;
+  }
+
+  for (const [openCh, closeCh] of [
+    ['[', ']'],
+    ['{', '}'],
+  ] as const) {
+    let openIdx = -1;
+    while ((openIdx = text.indexOf(openCh, openIdx + 1)) !== -1) {
+      let closeIdx = text.lastIndexOf(closeCh);
+      while (closeIdx > openIdx) {
+        const parsed = tryParseJson(text.slice(openIdx, closeIdx + 1));
+        if (parsed !== undefined) return parsed;
+        closeIdx = text.lastIndexOf(closeCh, closeIdx - 1);
+      }
+    }
+  }
+
+  throw new Error(`No parseable JSON found. First 200 chars: ${truncate(text, 200)}`);
+}
+
+function tryParseJson(s: string): unknown {
   try {
-    return JSON.parse(candidate);
+    return JSON.parse(s);
   } catch {
-    // Try trimming trailing noise
-    const end = Math.max(candidate.lastIndexOf(']'), candidate.lastIndexOf('}'));
-    return JSON.parse(candidate.slice(0, end + 1));
+    return undefined;
   }
 }
 
@@ -347,7 +418,7 @@ async function main() {
   await state.ensureDir();
 
   const existingMeta = await state.readMeta();
-  const tickets = await listSprintTickets(args);
+  const tickets = await listSprintTickets(args, stateDir);
   log.info(`Found ${tickets.length} tickets`);
 
   const newMeta: SprintMeta = {
