@@ -112,6 +112,59 @@ export async function getIssueFields(
   return issue.fields ?? {};
 }
 
+// --- Comments -------------------------------------------------------------
+
+export interface JiraComment {
+  id: string;
+  author?: { name?: string; displayName?: string };
+  body: string;
+  created: string;
+  updated?: string;
+}
+
+interface JiraCommentBlock {
+  comments?: JiraComment[];
+}
+
+/**
+ * Haal alle comments op een ticket op. Gebruikt het `comment` field van
+ * `/rest/api/2/issue/{key}` zodat we niet apart de comment-endpoint hoeven
+ * aan te spreken.
+ */
+export async function getIssueComments(
+  client: JiraClient,
+  key: string,
+): Promise<JiraComment[]> {
+  const fields = await getIssueFields(client, key, ['comment']);
+  const block = fields.comment as JiraCommentBlock | undefined;
+  return block?.comments ?? [];
+}
+
+/**
+ * Headers die door de eigen publicatie-scripts (`publish.ts` en
+ * `publish-review.ts`) op comments worden gezet. Worden gebruikt om
+ * AI-comments uit te sluiten bij content-hashing en bij wat de refine-LLM
+ * mag laten meewegen — anders zou een AI-comment via `publish.ts` zelf
+ * een nieuwe refine-cyclus triggeren.
+ */
+const AI_COMMENT_HEADER_RE =
+  /^(?:h2\.|##)\s*(?:Sprint-analyse|Code review)\s*-\s*AI/m;
+
+export function isAiGeneratedComment(body: string): boolean {
+  return AI_COMMENT_HEADER_RE.test(body);
+}
+
+/**
+ * Geef alleen menselijke comments terug, gesorteerd op created. Wordt zowel
+ * door agent 1's content-hash als door de prompt-builder gebruikt zodat het
+ * filter-criterium op één plek staat.
+ */
+export function humanComments(comments: JiraComment[]): JiraComment[] {
+  return comments
+    .filter((c) => !isAiGeneratedComment(c.body))
+    .sort((a, b) => a.created.localeCompare(b.created));
+}
+
 // --- Issue links ----------------------------------------------------------
 
 export interface JiraLinkType {

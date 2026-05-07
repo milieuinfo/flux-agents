@@ -160,17 +160,32 @@ GitHub is voor mensen.
 
 ### 5. Agent 1 gebruikt Jira MCP, herstart idempotent
 
-Agent 1 hasht de relevante velden van elk Jira-ticket (`summary`,
-`description`, `status`, `updated`). Bij herstart op dezelfde sprint
-worden alleen tickets met een gewijzigd `updated`-veld opnieuw
-geanalyseerd. Bij een update wordt de vorige markdown niet
+Agent 1 hasht de inhoudelijke velden van elk Jira-ticket (`summary`,
+`description`, `acceptance criteria`, `status`, en menselijke `comments`).
+Een snelle pre-check op `updated` skipt het meeste werk; pas als de
+timestamp verschilt wordt de hash herberekend en eventueel het ticket
+opnieuw geanalyseerd. Bij een update wordt de vorige markdown niet
 overschreven — er wordt een `## Update YYYY-MM-DD` sectie onderaan
 toegevoegd.
+
+**Comments wegen mee:** een collega die een opmerking toevoegt → bij
+volgende run automatisch een re-refine. AI-gegenereerde comments
+(`## Sprint-analyse - AI` van `publish.ts`, `## Code review - AI` van
+`publish-review.ts`) worden gefilterd vóór ze in de hash belanden —
+anders zou de pipeline zichzelf eindeloos triggeren. Het filter staat in
+`agents/shared/jira.ts` (`isAiGeneratedComment`/`humanComments`).
+
+De fetch-prompt vraagt expliciet om alle comments en het system prompt
+(`agents/prompts/refine.md`) instrueert het model expliciet hoe ze te
+behandelen — recente comments hebben voorrang op stale description-tekst
+als die tegenstrijdig zijn, en AI-comments worden genegeerd als input.
 
 **Waarom:** (a) Kris heeft vaak al feedback/annotaties op een markdown
 geschreven voor hij het ticket echt oppakt — die moeten bewaard
 blijven. (b) Hele sprints re-analyseren is duur als er maar één ticket
-veranderd is.
+veranderd is. (c) Wat in Jira gebeurt na de eerste refine (PO die een
+keuze toelicht in een comment) hoort de volgende analyse te beïnvloeden
+— vandaar comments-in-hash, niet alleen description.
 
 ### 5b. Twee outputs per ticket: uitgebreid + beknopt
 

@@ -36,7 +36,9 @@ import {
 import {
   applyJiraSslConfig,
   createJiraClient,
+  getIssueComments,
   getIssueFields,
+  humanComments,
   type JiraClient,
 } from './shared/jira.js';
 import {
@@ -260,7 +262,13 @@ async function refineTicket(
 
   const prompt =
     `Haal ticket ${key} op via de Jira MCP (inclusief description, ` +
-    `acceptance criteria custom field indien aanwezig, status, labels, links). ` +
+    `acceptance criteria custom field indien aanwezig, status, labels, ` +
+    `links, en ALLE comments). Comments tellen mee bij je analyse — een ` +
+    `collega heeft daar mogelijk context, beslissingen of follow-up-vragen ` +
+    `geplaatst die niet in description staan. Negeer comments waarvan de ` +
+    `body begint met \`h2. Sprint-analyse - AI\` of \`h2. Code review - AI\` ` +
+    `(of de markdown-equivalenten met \`## …\`) — die zijn door deze ` +
+    `pipeline zelf gepost en mogen niet als input dienen. ` +
     `Je werkdirectory is de develop-v2 worktree van flux-web-components — ` +
     `gebruik Read/Glob/Grep om de relevante component-code te consulteren ` +
     `volgens de instructies in je system prompt. ` +
@@ -516,8 +524,12 @@ function filterUmbrella(
  * Haal de inhoudelijke velden van een ticket op via Jira REST en bereken
  * de content-hash (zonder `updated`). Wordt gebruikt door agent 1 om te
  * detecteren of een ticket waarvan enkel `updated` is gewijzigd écht nieuw
- * gerefined moet worden — een goedkope check zodat we niet onnodig een LLM
- * heen sturen voor tickets waar enkel een comment aan toegevoegd is.
+ * gerefined moet worden.
+ *
+ * Menselijke comments wegen mee: een collega die een opmerking toevoegt op
+ * een ticket triggert automatisch een re-refine. AI-comments (zoals die van
+ * `publish.ts` of `publish-review.ts`) worden gefilterd zodat de pipeline
+ * geen self-loop creëert.
  */
 async function fetchContentHash(
   jira: JiraClient,
@@ -526,8 +538,12 @@ async function fetchContentHash(
 ): Promise<string> {
   const fields = ['summary', 'description', 'status'];
   if (acFieldId) fields.push(acFieldId);
-  const f = await getIssueFields(jira, key, fields);
+  const [f, comments] = await Promise.all([
+    getIssueFields(jira, key, fields),
+    getIssueComments(jira, key),
+  ]);
   const status = f.status as { name?: string } | null;
+  const human = humanComments(comments).map((c) => c.body);
   return hashTicketContent({
     summary: String(f.summary ?? ''),
     description: f.description == null ? null : String(f.description),
@@ -537,6 +553,7 @@ async function fetchContentHash(
         : String(f[acFieldId])
       : null,
     status: status?.name ?? '',
+    comments: human,
   });
 }
 

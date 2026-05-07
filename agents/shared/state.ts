@@ -121,21 +121,35 @@ export class SprintState {
 /**
  * Hash de inhoudelijke velden van een Jira-ticket. Bewust ZONDER `updated`:
  * Jira's `updated`-timestamp wijzigt ook bij niet-inhoudelijke veranderingen
- * (bv. een toegevoegde comment via `publish.ts`), en die mogen geen
- * heranalyse triggeren. Op `updated` wordt apart een snelle pre-check gedaan
- * in agent 1 — de hash is voor de echte content-vergelijking.
+ * en die mogen geen heranalyse triggeren puur op timestamp. Op `updated`
+ * wordt apart een snelle pre-check gedaan in agent 1 — deze hash is voor
+ * de echte content-vergelijking.
+ *
+ * Menselijke comments wegen WEL mee: een collega die een opmerking
+ * toevoegt → automatisch een re-refine bij volgende run. AI-gegenereerde
+ * comments (zoals die van `publish.ts` of `publish-review.ts`) moeten
+ * door de caller uitgefilterd worden via `humanComments` voor ze hier
+ * binnenkomen — anders zouden AI's eigen comments zelf een refine-cyclus
+ * triggeren.
  */
 export function hashTicketContent(ticket: {
   summary: string;
   description: string | null;
   acceptanceCriteria?: string | null;
   status: string;
+  comments?: string[];
 }): string {
-  const canonical = JSON.stringify({
+  const canonical: Record<string, unknown> = {
     summary: ticket.summary.trim(),
     description: (ticket.description ?? '').trim(),
     acceptanceCriteria: (ticket.acceptanceCriteria ?? '').trim(),
     status: ticket.status,
-  });
-  return createHash('sha256').update(canonical).digest('hex').slice(0, 16);
+  };
+  // Alleen toevoegen als er menselijke comments zijn — zo blijft de hash van
+  // tickets zonder comments identiek aan vóór deze feature, wat een onnodige
+  // massale re-refine bij upgrade voorkomt.
+  if (ticket.comments && ticket.comments.length > 0) {
+    canonical.comments = ticket.comments.map((c) => c.trim());
+  }
+  return createHash('sha256').update(JSON.stringify(canonical)).digest('hex').slice(0, 16);
 }
