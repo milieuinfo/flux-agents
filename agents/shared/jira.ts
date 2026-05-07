@@ -165,6 +165,69 @@ export function humanComments(comments: JiraComment[]): JiraComment[] {
     .sort((a, b) => a.created.localeCompare(b.created));
 }
 
+// --- Attachments ----------------------------------------------------------
+
+export interface JiraAttachment {
+  id: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+  /** Authenticated download URL — vaak `/secure/attachment/{id}/{filename}`. */
+  content: string;
+  created?: string;
+}
+
+/** Mime-types die Anthropic vision officieel ondersteunt. */
+const VISION_MIME_RE = /^image\/(jpeg|png|gif|webp)$/i;
+
+export function isVisionSupportedImage(att: JiraAttachment): boolean {
+  return VISION_MIME_RE.test(att.mimeType);
+}
+
+export async function getIssueAttachments(
+  client: JiraClient,
+  key: string,
+): Promise<JiraAttachment[]> {
+  const fields = await getIssueFields(client, key, ['attachment']);
+  const raw = fields.attachment;
+  if (!Array.isArray(raw)) return [];
+  return raw as JiraAttachment[];
+}
+
+/**
+ * Download een attachment als bytes. Gebruikt het zelfde PAT-token als de
+ * REST-calls; de download-URL ligt typisch onder `/secure/attachment/...`
+ * en is dezelfde host. Werkt zowel met absolute als relatieve `content`-
+ * URLs.
+ *
+ * Returns base64 + mime-type — handig om direct als image-content-block
+ * aan de Claude SDK door te geven.
+ */
+export async function downloadAttachmentAsBase64(
+  client: JiraClient,
+  att: JiraAttachment,
+): Promise<{ data: string; mediaType: string; bytes: number }> {
+  const url = att.content.startsWith('http')
+    ? att.content
+    : `${client.baseUrl}${att.content.startsWith('/') ? '' : '/'}${att.content}`;
+  const res = await fetch(url, {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${client.token}` },
+  });
+  if (!res.ok) {
+    throw new Error(
+      `Jira attachment ${att.id} (${att.filename}) → ${res.status}: ` +
+        `${(await res.text()).slice(0, 200)}`,
+    );
+  }
+  const buf = Buffer.from(await res.arrayBuffer());
+  return {
+    data: buf.toString('base64'),
+    mediaType: att.mimeType,
+    bytes: buf.byteLength,
+  };
+}
+
 // --- Issue links ----------------------------------------------------------
 
 export interface JiraLinkType {

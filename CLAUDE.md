@@ -161,12 +161,12 @@ GitHub is voor mensen.
 ### 5. Agent 1 gebruikt Jira MCP, herstart idempotent
 
 Agent 1 hasht de inhoudelijke velden van elk Jira-ticket (`summary`,
-`description`, `acceptance criteria`, `status`, en menselijke `comments`).
-Een snelle pre-check op `updated` skipt het meeste werk; pas als de
-timestamp verschilt wordt de hash herberekend en eventueel het ticket
-opnieuw geanalyseerd. Bij een update wordt de vorige markdown niet
-overschreven — er wordt een `## Update YYYY-MM-DD` sectie onderaan
-toegevoegd.
+`description`, `acceptance criteria`, `status`, menselijke `comments`,
+en image-attachments). Een snelle pre-check op `updated` skipt het
+meeste werk; pas als de timestamp verschilt wordt de hash herberekend
+en eventueel het ticket opnieuw geanalyseerd. Bij een update wordt de
+vorige markdown niet overschreven — er wordt een `## Update YYYY-MM-DD`
+sectie onderaan toegevoegd.
 
 **Comments wegen mee:** een collega die een opmerking toevoegt → bij
 volgende run automatisch een re-refine. AI-gegenereerde comments
@@ -179,6 +179,19 @@ De fetch-prompt vraagt expliciet om alle comments en het system prompt
 (`agents/prompts/refine.md`) instrueert het model expliciet hoe ze te
 behandelen — recente comments hebben voorrang op stale description-tekst
 als die tegenstrijdig zijn, en AI-comments worden genegeerd als input.
+
+**Images wegen ook mee:** image-attachments van het ticket
+(jpeg/png/gif/webp) worden via Jira REST gedownload en als vision
+content blocks aan de SDK doorgegeven (vóór de tekst-instructie in de
+user-prompt). Een nieuwe of vervangen screenshot wijzigt de hash en
+triggert dus een re-refine — handig voor visuele bugs waar de
+description amper context geeft. Limieten via env vars
+`JIRA_REFINE_IMAGE_MAX_COUNT` (default 5) en
+`JIRA_REFINE_IMAGE_MAX_BYTES` (default 5MB totaal) beschermen tegen
+token-budget-explosie. SVG en andere niet-rasterformaten worden
+overgeslagen — Anthropic vision ondersteunt ze niet. Selectie en
+download in `agents/refine.ts` (`selectImageAttachments`,
+`loadImagePayloads`).
 
 **Waarom:** (a) Kris heeft vaak al feedback/annotaties op een markdown
 geschreven voor hij het ticket echt oppakt — die moeten bewaard

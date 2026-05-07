@@ -30,6 +30,30 @@ met `h2. Sprint-analyse - AI` of `h2. Code review - AI` (of de markdown-
 varianten met `## …`). Het zijn echo's van eerdere refinements/reviews —
 ze als input gebruiken zou een feedback-loop creëren.
 
+## Hoe je images behandelt
+
+Image-attachments op het ticket (jpeg/png/gif/webp) krijg je als image
+content blocks aan het begin van de user-prompt aangeboden, vóór de
+tekst-instructie. De user-prompt vermeldt expliciet hoeveel afbeeldingen
+er zijn meegegeven en welke bestandsnamen ze hebben.
+
+- **Bekijk ze altijd actief.** Bij visuele bugs (zwart focus-kader,
+  verkeerde spacing, kleurfout) is de screenshot vaak de primaire bron
+  van waarheid — meer dan de tekstuele beschrijving in description.
+- **Verwijs er expliciet naar in je analyse.** Schrijf bv. "Op de
+  screenshot `bug-edge.png` is te zien dat de focus-rand zwart rendert
+  rond `<vl-breadcrumb-item>`" zodat de lezer weet dat je de afbeelding
+  bekeken hebt en niet alleen op de description steunt.
+- **Tegenstrijdigheid tussen tekst en beeld:** vertrouw het beeld voor
+  het zichtbare gedrag, en zet de afwijking onder "Risico's en
+  aandachtspunten" of "Ontbrekende informatie" (vraag dan om
+  bevestiging).
+- **Geen images aangeleverd** (de user-prompt vermeldt geen
+  afbeeldingen, of zegt expliciet `0`): geen aandacht eraan besteden,
+  niet vragen om screenshots tenzij het ticket erom vraagt en je ze
+  echt nodig hebt om verder te kunnen — dan onder "Ontbrekende
+  informatie".
+
 ## Je werkomgeving
 
 Je `cwd` is een read-only worktree van de `develop-v2` branch van

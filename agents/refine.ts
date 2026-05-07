@@ -36,9 +36,13 @@ import {
 import {
   applyJiraSslConfig,
   createJiraClient,
+  downloadAttachmentAsBase64,
+  getIssueAttachments,
   getIssueComments,
   getIssueFields,
   humanComments,
+  isVisionSupportedImage,
+  type JiraAttachment,
   type JiraClient,
 } from './shared/jira.js';
 import {
@@ -251,6 +255,7 @@ async function refineTicket(
   existingMarkdown: string | null,
   systemPrompt: string,
   worktreeDir: string,
+  jira: JiraClient,
 ): Promise<string> {
   const updateInstruction = existingMarkdown
     ? `\n\nEr bestaat al een vorige analyse van dit ticket (zie hieronder). ` +
@@ -259,6 +264,25 @@ async function refineTicket(
       `toe met een bullet list van wat er veranderd is t.o.v. de vorige versie.\n\n` +
       `--- VORIGE ANALYSE ---\n${existingMarkdown}\n--- EINDE VORIGE ANALYSE ---`
     : '';
+
+  // Pre-fetch image-attachments via Jira REST. Sneller en deterministischer
+  // dan de MCP via een tool-call vragen, en we kunnen zo de payloads als
+  // eerste-message-blocks aan de SDK doorgeven (de SDK ondersteunt geen
+  // image-bytes via de string-prompt).
+  const selectedImages = await selectImageAttachments(jira, key);
+  const imagePayloads = await loadImagePayloads(jira, selectedImages);
+  const imagesContext =
+    imagePayloads.length > 0
+      ? `\n\nAan dit ticket hangen ${imagePayloads.length} afbeelding(en) — ` +
+        `screenshots of designs die hierboven aan jou zijn doorgegeven als ` +
+        `image content blocks (vóór deze tekst-instructie). Bestandsnamen ` +
+        `(in volgorde): ${selectedImages
+          .slice(0, imagePayloads.length)
+          .map((a) => a.filename)
+          .join(', ')}. ` +
+        `Bekijk ze actief en weeg de visuele info mee in je analyse — bij ` +
+        `visuele bugs is de screenshot vaak de primaire bron van waarheid.`
+      : '';
 
   const prompt =
     `Haal ticket ${key} op via de Jira MCP (inclusief description, ` +
@@ -272,7 +296,18 @@ async function refineTicket(
     `Je werkdirectory is de develop-v2 worktree van flux-web-components — ` +
     `gebruik Read/Glob/Grep om de relevante component-code te consulteren ` +
     `volgens de instructies in je system prompt. ` +
-    `Produceer dan de refinement markdown volgens het format in je system prompt.${updateInstruction}`;
+    `Produceer dan de refinement markdown volgens het format in je system prompt.` +
+    imagesContext +
+    updateInstruction;
+
+  if (imagePayloads.length > 0) {
+    log.info(
+      `  ${key}: ${imagePayloads.length} image(s) als context toegevoegd ` +
+        `(totaal ${(
+          imagePayloads.reduce((n, p) => n + p.data.length * 0.75, 0) / 1024
+        ).toFixed(0)}kB base64-decoded)`,
+    );
+  }
 
   const response = await runQuery(prompt, {
     systemPrompt,
@@ -282,6 +317,7 @@ async function refineTicket(
     cwd: worktreeDir,
     allowedTools: ['mcp__mcp-atlassian', 'Read', 'Glob', 'Grep'],
     collectAllTurns: true,
+    images: imagePayloads,
   });
 
   // First try to anchor on the ticket-key heading anywhere in the transcript:
@@ -398,6 +434,44 @@ function truncate(s: string, n: number): string {
   return s.length > n ? `${s.slice(0, n)}…` : s;
 }
 
+interface ImagePayload {
+  data: string;
+  mediaType: string;
+}
+
+/**
+ * Wrap een tekst-prompt + optionele image-payloads in een single-shot
+ * AsyncIterable<SDKUserMessage>. Wordt gebruikt wanneer de refine-call
+ * Jira-attachments als image-content-blocks moet meesturen — de SDK
+ * accepteert images alleen via deze structurele content-vorm, niet via
+ * de string-prompt.
+ */
+async function* singleUserMessageWithImages(
+  text: string,
+  images: ImagePayload[],
+): AsyncGenerator<{
+  type: 'user';
+  message: { role: 'user'; content: unknown };
+  parent_tool_use_id: null;
+}> {
+  const content: unknown[] = [];
+  // Images eerst: vision-modellen krijgen zo de visuele context binnen vóór
+  // ze de tekst-instructie verwerken — best practice voor "analyseer deze
+  // afbeelding"-prompts.
+  for (const img of images) {
+    content.push({
+      type: 'image',
+      source: { type: 'base64', media_type: img.mediaType, data: img.data },
+    });
+  }
+  content.push({ type: 'text', text });
+  yield {
+    type: 'user',
+    message: { role: 'user', content },
+    parent_tool_use_id: null,
+  };
+}
+
 /**
  * Run a query against the SDK and collect the full text response.
  */
@@ -409,12 +483,21 @@ async function runQuery(
     cwd?: string;
     allowedTools?: string[];
     collectAllTurns?: boolean;
+    images?: ImagePayload[];
   } = {},
 ): Promise<string> {
   const model = process.env.AGENT1_MODEL ?? 'claude-opus-4-7';
 
+  // String-prompt is de gewone weg. Alleen wanneer er images zijn,
+  // schakelen we naar de AsyncIterable-vorm: de SDK ondersteunt image
+  // content-blocks niet via de string-prompt.
+  const promptArg =
+    opts.images && opts.images.length > 0
+      ? (singleUserMessageWithImages(prompt, opts.images) as never)
+      : prompt;
+
   const q = query({
-    prompt,
+    prompt: promptArg,
     options: {
       model,
       maxTurns: opts.maxTurns ?? 10,
@@ -529,7 +612,8 @@ function filterUmbrella(
  * Menselijke comments wegen mee: een collega die een opmerking toevoegt op
  * een ticket triggert automatisch een re-refine. AI-comments (zoals die van
  * `publish.ts` of `publish-review.ts`) worden gefilterd zodat de pipeline
- * geen self-loop creëert.
+ * geen self-loop creëert. Image-attachments wegen ook mee — een nieuw
+ * screenshot bij een visuele bug triggert een re-refine.
  */
 async function fetchContentHash(
   jira: JiraClient,
@@ -538,9 +622,10 @@ async function fetchContentHash(
 ): Promise<string> {
   const fields = ['summary', 'description', 'status'];
   if (acFieldId) fields.push(acFieldId);
-  const [f, comments] = await Promise.all([
+  const [f, comments, attachments] = await Promise.all([
     getIssueFields(jira, key, fields),
     getIssueComments(jira, key),
+    selectImageAttachments(jira, key),
   ]);
   const status = f.status as { name?: string } | null;
   const human = humanComments(comments).map((c) => c.body);
@@ -554,7 +639,68 @@ async function fetchContentHash(
       : null,
     status: status?.name ?? '',
     comments: human,
+    attachments: attachments.map((a) => `${a.id}:${a.size}`),
   });
+}
+
+/**
+ * Selecteer image-attachments die we als image-content-blocks aan de
+ * refine-LLM mogen doorgeven. Filtert op door Anthropic ondersteunde
+ * mime-types (jpeg/png/gif/webp), respecteert harde limieten op aantal
+ * en totale bytes via `JIRA_REFINE_IMAGE_MAX_COUNT` (default 5) en
+ * `JIRA_REFINE_IMAGE_MAX_BYTES` (default 5_000_000 = 5MB totaal).
+ *
+ * Sorteert op `created` (oudste eerst) zodat de selectie deterministisch
+ * is over runs heen — handig voor de hash-stabiliteit.
+ */
+async function selectImageAttachments(
+  jira: JiraClient,
+  key: string,
+): Promise<JiraAttachment[]> {
+  const all = await getIssueAttachments(jira, key);
+  const images = all
+    .filter(isVisionSupportedImage)
+    .sort((a, b) => (a.created ?? '').localeCompare(b.created ?? ''));
+
+  const maxCount = Number(process.env.JIRA_REFINE_IMAGE_MAX_COUNT ?? 5);
+  const maxBytes = Number(process.env.JIRA_REFINE_IMAGE_MAX_BYTES ?? 5_000_000);
+
+  const selected: JiraAttachment[] = [];
+  let totalBytes = 0;
+  for (const att of images) {
+    if (selected.length >= maxCount) break;
+    if (totalBytes + att.size > maxBytes) continue;
+    selected.push(att);
+    totalBytes += att.size;
+  }
+  return selected;
+}
+
+/**
+ * Download de geselecteerde images en converteer naar de payload-shape
+ * voor de SDK image-content-blocks. Faalt soft per attachment: als één
+ * download afbreekt blijven de overige bruikbaar.
+ */
+async function loadImagePayloads(
+  jira: JiraClient,
+  attachments: JiraAttachment[],
+): Promise<ImagePayload[]> {
+  const payloads: ImagePayload[] = [];
+  for (const att of attachments) {
+    try {
+      const { data, mediaType, bytes } = await downloadAttachmentAsBase64(
+        jira,
+        att,
+      );
+      payloads.push({ data, mediaType });
+      log.info(
+        `    image: ${att.filename} (${att.mimeType}, ${(bytes / 1024).toFixed(0)}kB)`,
+      );
+    } catch (err) {
+      log.warn(`    image: ${att.filename} download FAILED — overslaan:`, err);
+    }
+  }
+  return payloads;
 }
 
 async function main() {
@@ -657,7 +803,7 @@ async function main() {
 
     const existing = markdownExists ? await state.readTicketMarkdown(t.key) : null;
     try {
-      const md = await refineTicket(t.key, existing, systemPrompt, worktreeDir);
+      const md = await refineTicket(t.key, existing, systemPrompt, worktreeDir, jira);
       await state.writeTicketMarkdown(t.key, md);
       newMeta.tickets[t.key] = {
         key: t.key,

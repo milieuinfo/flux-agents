@@ -138,6 +138,12 @@ export function hashTicketContent(ticket: {
   acceptanceCriteria?: string | null;
   status: string;
   comments?: string[];
+  /**
+   * Stabiele identiteit van image-attachments — typisch `${id}:${size}` per
+   * attachment. Een nieuwe of vervangen screenshot wijzigt de string en
+   * triggert dus een re-refine. Verwijderen van een attachment ook.
+   */
+  attachments?: string[];
 }): string {
   const canonical: Record<string, unknown> = {
     summary: ticket.summary.trim(),
@@ -145,11 +151,15 @@ export function hashTicketContent(ticket: {
     acceptanceCriteria: (ticket.acceptanceCriteria ?? '').trim(),
     status: ticket.status,
   };
-  // Alleen toevoegen als er menselijke comments zijn — zo blijft de hash van
-  // tickets zonder comments identiek aan vóór deze feature, wat een onnodige
-  // massale re-refine bij upgrade voorkomt.
+  // Alleen toevoegen als er waarden zijn — zo blijft de hash van tickets
+  // zonder comments/attachments identiek aan vóór deze feature, wat een
+  // onnodige massale re-refine bij upgrade voorkomt.
   if (ticket.comments && ticket.comments.length > 0) {
     canonical.comments = ticket.comments.map((c) => c.trim());
+  }
+  if (ticket.attachments && ticket.attachments.length > 0) {
+    // Sorteer voor stabiliteit — Jira's volgorde is niet gegarandeerd.
+    canonical.attachments = [...ticket.attachments].sort();
   }
   return createHash('sha256').update(JSON.stringify(canonical)).digest('hex').slice(0, 16);
 }
