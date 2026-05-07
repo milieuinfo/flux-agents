@@ -20,7 +20,7 @@ tool voor Kris om sprints efficiënter op te nemen.
 
 | # | Naam | Runtime | Model | Rol |
 |---|------|---------|-------|-----|
-| 1 | refine | Claude Agent SDK (Node) | Opus | Analyseert Jira-tickets, schrijft refinement-markdown per ticket |
+| 1 | refine | Claude Agent SDK (Node) | Opus + Sonnet | Analyseert Jira-tickets, schrijft uitgebreide refinement-markdown per ticket + (Sonnet) een beknopte Jira-comment-versie |
 | 2 | plan | Claude Agent SDK (Node) | Opus | Leest alle markdowns van een sprint, produceert volgorde + dependency graph |
 | 3 | develop | Claude Agent SDK (Node) | Sonnet | Per-ticket git worktree, implementeert op feature-branch, lokale commits |
 | 4 | review | Claude Agent SDK (Node) | Opus | Reviewt op dezelfde worktree, bij approval: squash + push + `gh pr create` |
@@ -36,8 +36,9 @@ voor interactieve debugging. De SDK-scripts laden diezelfde markdowns
 (frontmatter gestript) als system prompt — één bron van waarheid.
 
 **Waarom deze modelverdeling:** Opus waar de analyse en oordeel zit
-(refine, plan, review), Sonnet waar executie belangrijker is dan diepte
-(author). Dit is ook kostenoptimaal voor Kris' MAX plan gebruik.
+(refine, plan, review), Sonnet waar executie of inkorten belangrijker is
+dan diepte (author, refine-summary). Dit is ook kostenoptimaal voor Kris'
+MAX plan gebruik.
 
 ## De pipeline in één oogopslag
 
@@ -46,7 +47,8 @@ Jira sprint
     │
     ▼  npm run refine -- <sprint>
 ┌─────────────┐
-│ agent 1     │ → state/sprints/<sprint>/FLUX-*.md
+│ agent 1     │ → state/sprints/<sprint>/FLUX-*.md         (uitgebreid, Opus)
+│             │ → state/sprints/<sprint>/FLUX-*.jira.md    (beknopt, Sonnet)
 └─────────────┘
     │
     ▼  npm run plan -- <sprint>
@@ -170,6 +172,33 @@ geschreven voor hij het ticket echt oppakt — die moeten bewaard
 blijven. (b) Hele sprints re-analyseren is duur als er maar één ticket
 veranderd is.
 
+### 5b. Twee outputs per ticket: uitgebreid + beknopt
+
+Direct na de Opus-refinement doet agent 1 een tweede LLM-call (Sonnet,
+override via `AGENT1_SUMMARY_MODEL`) die het uitgebreide rapport inkort
+tot een Jira-comment-vriendelijke versie. De Sonnet-call krijgt enkel
+de tekst van de `.md` mee — geen tools, geen MCP. Output:
+`FLUX-XXX.jira.md` naast de bestaande `FLUX-XXX.md`. Canonical prompt
+in `agents/prompts/refine-summary.md`.
+
+**Faalt soft:** als de samenvatting-call faalt of de output niet door
+de shape-check raakt, blijft de uitgebreide `.md` staan en wordt een
+eventueel oude `.jira.md` verwijderd zodat publish.ts geen stale
+samenvatting post.
+
+**Backfill voor bestaande sprints:** als een ticket op disk al een
+`.md` heeft maar nog geen `.jira.md` (sprint gerefined vóór deze
+feature bestond), genereert agent 1 hem alsnog tijdens de skip-paden
+— een `npm run refine -- <sprint>` op een onveranderde sprint vult de
+ontbrekende samenvattingen aan zonder dat `_meta.json` weggegooid
+hoeft te worden.
+
+**Waarom een tweede call ipv één gecombineerde:** een gefocuste prompt
+op één taak (samenvatten) geeft betrouwbaarder en stabieler korte
+outputs, en je kan de samenvatting opnieuw genereren zonder de zware
+Opus-refine te hoeven herhalen. Sonnet is hier ruim voldoende — Opus
+voor inkorten is overkill.
+
 ### 6. Agent 2 heeft geen tools nodig
 
 Alle ticket-data zit al in markdown-vorm in `state/sprints/`. Agent 2
@@ -219,9 +248,13 @@ LLM-oordeel nodig en gebruikt daarom directe REST-calls (zie §9).
 
 ### 9. Publicatie naar Jira via `scripts/publish.ts`
 
-Publish leest `state/sprints/<sprint>/FLUX-*.md` en `_order.md`
-(output van agent 1 + 2) en schrijft die naar Jira via directe REST-calls:
-- Per ticket → comment met vaste header `## Sprint-analyse - AI`
+Publish leest `state/sprints/<sprint>/FLUX-*.md` (en bij voorkeur
+`FLUX-*.jira.md`) en `_order.md` (output van agent 1 + 2) en schrijft
+die naar Jira via directe REST-calls:
+- Per ticket → comment met vaste header `## Sprint-analyse - AI`.
+  Publish prefereert `FLUX-XXX.jira.md` als die bestaat (de beknopte
+  Sonnet-versie uit §5b); valt terug op de uitgebreide `FLUX-XXX.md`
+  als de samenvatting ontbreekt. Eén comment per ticket per run.
 - `_order.md` → description van een umbrella-ticket (Task, label
   `sprint-overview`, story points 0, gekoppeld aan de sprint).
   Find-or-update via JQL: één umbrella per sprint, nooit dupliceren.
@@ -324,7 +357,7 @@ flux-agents/                      ← deze repo (tooling, code, prompts)
 │   ├── refine.ts / plan.ts / develop.ts / review.ts / ship.ts   ← agent-entrypoints (SDK)
 │   ├── review-external.ts        ← zijtak voor externe code-reviews
 │   ├── prompts/                  ← canonical system prompts per agent-rol
-│   │   └── refine.md / plan.md / develop.md / review.md / review-external.md
+│   │   └── refine.md / refine-summary.md / plan.md / develop.md / review.md / review-external.md
 │   ├── shared/                   ← gedeelde helpers (query, repo, state, ticket, jira, prompts, logger)
 │   └── claude-code/              ← interactieve CC-variant (optioneel)
 │       └── .claude/
@@ -347,7 +380,8 @@ flux-agents-state/                ← aparte repo (STATE_DIR)
 │   ├── _meta.json                ← agent 1 hashes
 │   ├── _order.md                 ← agent 2 output
 │   ├── _published.json           ← publish.ts state (hashes per ticket + umbrella key)
-│   └── FLUX-*.md                 ← agent 1 output per ticket
+│   ├── FLUX-*.md                 ← agent 1 output per ticket (uitgebreid, Opus)
+│   └── FLUX-*.jira.md            ← agent 1 beknopte versie (Sonnet, voor Jira-comment)
 ├── tickets/<SPRINT>/<KEY>/       ← gecommit (per-ticket werk, gegroepeerd per sprint)
 │   ├── ticket.md                 ← kopie van refinement
 │   ├── code-changes.md           ← agent 3 per ronde
