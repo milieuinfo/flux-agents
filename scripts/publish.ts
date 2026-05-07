@@ -561,14 +561,27 @@ async function writePublishedState(path: string, state: PublishedState): Promise
 async function listTicketMarkdowns(
   sprintDir: string,
   filter?: string[],
-): Promise<Array<{ key: string; path: string }>> {
+): Promise<Array<{ key: string; path: string; isSummary: boolean }>> {
   const entries = await readdir(sprintDir);
   const allow = filter ? new Set(filter) : null;
-  return entries
-    .filter((f) => f.endsWith('.md') && !f.startsWith('_'))
-    .map((f) => ({ key: f.replace(/\.md$/, ''), path: join(sprintDir, f) }))
-    .filter((t) => (allow ? allow.has(t.key) : true))
-    .sort((a, b) => a.key.localeCompare(b.key));
+
+  // Eén entry per ticket-key. Een `<KEY>.jira.md` (door refine.ts gegenereerd
+  // als beknopte Jira-comment-versie) krijgt voorrang op `<KEY>.md`.
+  // De uitgebreide md blijft op disk staan, maar wordt niet als comment
+  // gepost zolang er een summary is.
+  const byKey = new Map<string, { key: string; path: string; isSummary: boolean }>();
+  for (const f of entries) {
+    if (!f.endsWith('.md') || f.startsWith('_')) continue;
+    const isSummary = f.endsWith('.jira.md');
+    const key = isSummary ? f.replace(/\.jira\.md$/, '') : f.replace(/\.md$/, '');
+    if (allow && !allow.has(key)) continue;
+
+    const existing = byKey.get(key);
+    if (!existing || (isSummary && !existing.isSummary)) {
+      byKey.set(key, { key, path: join(sprintDir, f), isSummary });
+    }
+  }
+  return [...byKey.values()].sort((a, b) => a.key.localeCompare(b.key));
 }
 
 async function fileExists(p: string): Promise<boolean> {

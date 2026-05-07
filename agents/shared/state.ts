@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, writeFile, access } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, access, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { log } from './logger.js';
 
@@ -39,6 +39,15 @@ export class SprintState {
     return join(this.sprintDir, `${key}.md`);
   }
 
+  /**
+   * Pad van de beknopte Jira-comment-versie. Wordt door de refine-agent
+   * geproduceerd via een tweede Sonnet-call; door publish.ts gepost als die
+   * bestaat (anders fallback op het volledige rapport).
+   */
+  summaryPath(key: string): string {
+    return join(this.sprintDir, `${key}.jira.md`);
+  }
+
   async ensureDir(): Promise<void> {
     await mkdir(this.sprintDir, { recursive: true });
   }
@@ -66,6 +75,15 @@ export class SprintState {
     }
   }
 
+  async summaryExists(key: string): Promise<boolean> {
+    try {
+      await access(this.summaryPath(key));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   async readTicketMarkdown(key: string): Promise<string | null> {
     try {
       return await readFile(this.ticketPath(key), 'utf-8');
@@ -78,6 +96,25 @@ export class SprintState {
   async writeTicketMarkdown(key: string, content: string): Promise<void> {
     await writeFile(this.ticketPath(key), content, 'utf-8');
     log.debug(`wrote ${this.ticketPath(key)}`);
+  }
+
+  async writeTicketSummary(key: string, content: string): Promise<void> {
+    await writeFile(this.summaryPath(key), content, 'utf-8');
+    log.debug(`wrote ${this.summaryPath(key)}`);
+  }
+
+  /**
+   * Verwijder een eventueel bestaande summary. Wordt aangeroepen wanneer de
+   * tweede Sonnet-call faalt: de uitgebreide markdown is wel ververst, dus
+   * een oude summary die niet meer bij de huidige analyse past mag niet
+   * blijven staan om door publish.ts gepost te worden.
+   */
+  async deleteTicketSummary(key: string): Promise<void> {
+    try {
+      await unlink(this.summaryPath(key));
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+    }
   }
 }
 

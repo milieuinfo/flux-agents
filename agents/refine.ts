@@ -286,6 +286,83 @@ async function refineTicket(
 }
 
 /**
+ * Genereer de beknopte Jira-comment-versie van een refinement-rapport.
+ * Aparte LLM-call (Sonnet by default) zodat de samenvatting gefocust is op
+ * één taak: inkorten. Geen tools nodig — pure tekst-in/tekst-uit.
+ *
+ * `assertRefinementShape` wordt hier hergebruikt: de samenvatting moet ook
+ * met `# {KEY}` beginnen. Een lengte-minimum van 400 chars is voor een
+ * korte versie te streng — daarom een eigen, mildere check.
+ */
+async function summarizeRefinement(
+  key: string,
+  fullMarkdown: string,
+  systemPrompt: string,
+): Promise<string> {
+  const prompt =
+    `Hieronder volgt een uitgebreid refinement-rapport. Produceer de ` +
+    `beknopte Jira-comment-versie volgens je system prompt.\n\n` +
+    `--- RAPPORT ---\n${fullMarkdown}\n--- EINDE RAPPORT ---`;
+
+  const model = process.env.AGENT1_SUMMARY_MODEL ?? 'claude-sonnet-4-6';
+
+  const q = query({
+    prompt,
+    options: {
+      model,
+      maxTurns: 2,
+      systemPrompt: { type: 'preset', preset: 'claude_code', append: systemPrompt },
+      // Geen MCP, geen Read/Glob/Grep — de samenvatting heeft alleen het
+      // rapport in de prompt nodig.
+      allowedTools: [],
+    },
+  });
+
+  const response = await streamLastAssistantText(q);
+  const md = extractMarkdown(response);
+  assertSummaryShape(key, md);
+  return md;
+}
+
+/**
+ * Backfill: als een ticket al een refinement-md heeft maar nog geen
+ * `.jira.md` (bv. omdat de refine-run van vóór deze feature dateert),
+ * genereer alsnog de beknopte versie. Faalt soft.
+ */
+async function backfillSummaryIfMissing(
+  state: SprintState,
+  key: string,
+  summaryPrompt: string,
+): Promise<void> {
+  if (await state.summaryExists(key)) return;
+  const md = await state.readTicketMarkdown(key);
+  if (!md) return;
+  try {
+    const summary = await summarizeRefinement(key, md, summaryPrompt);
+    await state.writeTicketSummary(key, summary);
+    log.info(`  ${key}: summary backfilled`);
+  } catch (err) {
+    log.warn(`  ${key}: summary backfill FAILED:`, err);
+  }
+}
+
+function assertSummaryShape(key: string, md: string): void {
+  const firstLine = md.split('\n', 1)[0] ?? '';
+  const hasH1WithKey = /^#\s/.test(firstLine) && firstLine.includes(key);
+  if (!hasH1WithKey) {
+    throw new Error(
+      `Summary voor ${key} begint niet met "# ${key}…" — eerste regel: ` +
+        truncate(firstLine, 120),
+    );
+  }
+  if (md.length < 150) {
+    throw new Error(
+      `Summary voor ${key} is verdacht kort (${md.length} chars).`,
+    );
+  }
+}
+
+/**
  * Minimal sanity-check voor de refinement-output. Het model gaf in een
  * enkele run enkel een losse code-snippet terug; die belandde dan als
  * "refinement" op disk. Liever hier falen dan troep committen.
@@ -488,6 +565,7 @@ async function main() {
   }
 
   const systemPrompt = await loadPrompt('refine');
+  const summaryPrompt = await loadPrompt('refine-summary');
   const state = new SprintState(stateDir, folderName);
   await state.ensureDir();
 
@@ -519,6 +597,9 @@ async function main() {
       log.info(`  ${t.key}: unchanged, skipping`);
       newMeta.tickets[t.key] = prevMeta;
       skipped++;
+      if (!args.dryRun) {
+        await backfillSummaryIfMissing(state, t.key, summaryPrompt);
+      }
       continue;
     }
 
@@ -545,6 +626,9 @@ async function main() {
         jiraUpdated: t.updated,
       };
       skipped++;
+      if (!args.dryRun) {
+        await backfillSummaryIfMissing(state, t.key, summaryPrompt);
+      }
       continue;
     }
 
@@ -565,6 +649,19 @@ async function main() {
         jiraUpdated: t.updated,
       };
       refined++;
+
+      // Beknopte Jira-comment-versie. Faalt soft: de uitgebreide md staat
+      // al op disk en is bruikbaar; we ruimen wel een oude .jira.md op
+      // zodat publish.ts niet een stale samenvatting post bij de nieuwe
+      // analyse.
+      try {
+        const summary = await summarizeRefinement(t.key, md, summaryPrompt);
+        await state.writeTicketSummary(t.key, summary);
+        log.info(`  ${t.key}: summary geschreven`);
+      } catch (err) {
+        log.warn(`  ${t.key}: summary FAILED — uitgebreide md blijft staan:`, err);
+        await state.deleteTicketSummary(t.key);
+      }
     } catch (err) {
       log.error(`  ${t.key}: FAILED`, err);
       // Keep previous meta if we had one, so we can retry later
