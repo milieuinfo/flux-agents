@@ -105,12 +105,40 @@ Check elk van de volgende punten expliciet:
    c. `gh pr create --draft --base <baseBranch>` — de PR wordt **als
       Draft** aangemaakt, nooit als ready-for-review (dat bepaalt Kris
       zelf). Titel = de `<first-line>` uit stap a (letterlijk dezelfde
-      string). Body bevat: succescriteria-checklist, samenvatting,
-      en de Jira ticket-URL die in de user-prompt is meegegeven (kopieer
-      die letterlijk — niet zelf samenstellen, niet aanvullen met andere
-      domeinen).
+      string). Body volgens onderstaand vast format — zelfde secties,
+      zelfde volgorde, geen extra secties of preambule.
    d. Noteer de PR-URL in `review-r<N>.md` onderaan en in
       `_status.json.prUrl`.
+
+## Format: PR-body (strikt)
+
+```
+## Jira
+{Letterlijke ticket-URL die in de user-prompt is meegegeven. Niet zelf
+samenstellen, niet aanvullen met andere domeinen.}
+
+## Samenvatting
+{1-3 zinnen, functioneel: wat verandert er voor de gebruiker of consumer
+van de component. Geen implementatiedetails.}
+
+## Wijzigingen
+{Bullets per relevante wijziging, op functioneel niveau (niet
+bestand-voor-bestand). Een component-tweak, een nieuwe API, een
+gefixte bug — elk één bullet. 2-6 bullets is normaal.}
+
+## Backwards compatibility
+{Eén regel — kies één:
+- "Volledig backwards-compatible — geen breaking changes."
+- "Breaking change: <wat breekt> — <migratie-pad voor consumers>."
+- "Additieve wijziging met deprecated path: <wat is deprecated, wat is
+  het nieuwe alternatief, wanneer wordt deprecated verwijderd>."}
+
+## Succescriteria
+{Checklist per succescriterium uit het refinement-rapport. Format:
+- [x] {criterium} — {hoe geadresseerd, in 1 korte zin}
+- [ ] {criterium} — {waarom NIET aangepakt, of expliciet uit scope}
+Volgorde: zelfde als in `## Doel & succescriteria` van het rapport.}
+```
 
 ## Format: review-r<N>.md
 
