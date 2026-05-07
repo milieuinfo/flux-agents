@@ -39,6 +39,39 @@ pas na goedkeuring.
   maken toekomstige wijzigingen duurder.
 - Accessibility: WCAG 2.1 AA minimum
 
+## Commentaarstijl
+
+Default: **geen commentaar.** Goed gekozen namen en kleine, duidelijke
+functies zijn de primaire vorm van documentatie. Commentaar voegt alleen
+waarde toe als de **WAAROM** niet uit de code zelf valt af te leiden.
+
+**Schrijf wél een korte comment voor:**
+- een verborgen invariant of constraint die niet uit het type-systeem
+  blijkt (bv. "Lit roept render synchroon aan na property-update — daarom
+  null-check vóór de assignment");
+- een workaround voor een specifieke browser/library-bug, met referentie;
+- een keuze die er bewust afwijkend uitziet maar correct is, zodat een
+  toekomstige reviewer die niet "opruimt".
+
+**Schrijf GEEN commentaar voor:**
+- wat de code doet (`// increment counter` boven `count++`) — overbodig;
+- referenties aan dit ticket of deze PR (`// added for FLUX-209`,
+  `// part of breadcrumb fix`) — die context hoort in de commit-message
+  en in `code-changes.md`, niet in de codebase;
+- TODO's zonder ticket-referentie — die accumuleren als rot;
+- multi-paragraaf docstrings of multi-regel JSDoc-blokken op private
+  helpers — één korte regel volstaat;
+- "section banners" (`// ===== HELPERS =====`) — gebruik aparte
+  bestanden of duidelijke functienamen.
+
+Korter: als je de comment kan weghalen zonder dat een toekomstige lezer
+in de war raakt, doe dat dan.
+
+JSDoc op publieke component-API's (properties, methods, events met
+`@property`, `@method`, `@event`) is **wel** verplicht — die voedt het
+Custom Elements Manifest en de IDE-autocomplete voor consumers. Maar
+houd het bij één à twee zinnen per item.
+
 ## Werkwijze
 
 1. **Lees het refinement-rapport** — de `state/tickets/<sprint>/<KEY>/` folder
