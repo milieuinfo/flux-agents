@@ -94,6 +94,16 @@ houd het bij één à twee zinnen per item.
    - `<type>` is `feat` (nieuwe functionaliteit) of `fix` (bugfix).
    - `<vl-component>` segment weglaten als het ticket niet over één
      specifieke component gaat.
+
+   **Commit-body:** kort en functioneel — wat verandert er voor de
+   gebruiker of consumer van de component, niet hoe of waarom. Een
+   tot drie korte zinnen of bullets is genoeg; mag ook leeg blijven
+   als de first-line al alles zegt. Geen lange opsommingen van
+   implementatiekeuzes, geen "Why we did this"-paragrafen, geen
+   bestand-voor-bestand changelog. De diepere context staat al in
+   `code-changes.md` en het refinement-rapport — die hoeft niet in de
+   git-historie herhaald te worden.
+
    Bij vervolgiteraties (ronde 2+): houd dezelfde first-line vorm aan,
    maar voeg " (ronde N - addresses review feedback)" toe aan de body.
    Deze ronde-commits worden bij APPROVED gesquasht door de reviewer,
