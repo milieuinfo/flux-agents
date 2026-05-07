@@ -92,8 +92,14 @@ Check elk van de volgende punten expliciet:
         technisch (bv. "fix focus trap leak bij keyboard-only
         sluiten"), max ~60 tekens.
 
-      **Body:** synthese van de ronde-commit messages — wat is er
-      gedaan, welke keuzes, welke niet-triviale trade-offs.
+      **Body:** kort en functioneel — wat verandert er voor de
+      gebruiker of consumer van de component, niet hoe of waarom.
+      Een tot drie korte zinnen of bullets is genoeg; mag ook leeg
+      blijven als de first-line al alles zegt. Geen lange opsomming
+      van implementatiekeuzes, geen "why we did this"-paragrafen,
+      geen bestand-voor-bestand changelog. De diepere context staat
+      al in `code-changes.md` en het refinement-rapport — die hoeft
+      niet in de git-historie herhaald te worden.
 
    b. `git push -u origin <branch>`
    c. `gh pr create --draft --base <baseBranch>` — de PR wordt **als
