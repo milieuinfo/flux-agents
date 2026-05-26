@@ -58,18 +58,28 @@ Jira sprint
 state/
 ├── sprints/
 │   └── SPRINT-42/
-│       ├── _meta.json          ← agent 1: hashes/timestamps
-│       ├── _order.md           ← agent 2
-│       ├── FLUX-123.md         ← agent 1
+│       ├── _meta.json              ← agent 1: hashes/timestamps
+│       ├── _order.md               ← agent 2
+│       ├── FLUX-123.md             ← agent 1
 │       └── FLUX-124.md
 └── tickets/
-    └── FLUX-123/
-        ├── ticket.md           ← kopie van refinement-rapport
-        ├── code-changes.md     ← agent 3 (groeit per ronde)
-        ├── review-r1.md        ← agent 4 ronde 1
-        ├── review-r2.md        ← agent 4 ronde 2 (indien)
-        └── _status.json        ← round, status, baseBranch
+    └── SPRINT-42/
+        └── FLUX-123/
+            ├── ticket.md           ← kopie van refinement-rapport
+            ├── code-changes.md     ← agent 3 (groeit per ronde)
+            ├── review-r1.md        ← agent 4 ronde 1
+            ├── review-r2.md        ← agent 4 ronde 2 (indien)
+            ├── _status.json        ← round, status, baseBranch, profile?
+            └── <profile>/          ← mét --profile: eigen kopie per profile
+                ├── ticket.md
+                ├── code-changes.md
+                ├── review-r*.md
+                └── _status.json
 ```
+
+Zonder `--profile` blijft de layout op `<KEY>/`-niveau zoals altijd.
+Met `--profile <naam>` gaan alle per-ronde bestanden in een subfolder
+`<KEY>/<naam>/` — zie [AI-profiles](#ai-profiles-optioneel).
 
 ## Setup
 
@@ -224,6 +234,44 @@ Stopt bij APPROVED (PR geopend), ESCALATED (mens nodig), of na ronde 3
 als er nog wijzigingen gevraagd worden. Handmatig `develop` + `review`
 na elkaar draaien blijft werken en is aangewezen wanneer je per stap
 wil verifiëren.
+
+### AI-profiles (optioneel)
+
+`flux-web-components` heeft `./set-ai-profile.sh <profile>` dat een
+AI-configuratie activeert (CLAUDE.local.md, `.claude/settings.local.json`,
+`.claude/skills`, optioneel AGENTS.md/SKILLS.md). Profiles zitten onder
+`ai/profiles/` in die repo — bijvoorbeeld `kris`, `karim` of `no` (opt-out).
+
+De agents die in een worktree draaien (`develop`, `review`, `ship`,
+`review-external`) ondersteunen een optionele `--profile <naam>` vlag:
+
+```bash
+npm run develop -- FLUX-123 --profile kris
+npm run review  -- FLUX-123 --profile kris
+npm run ship    -- FLUX-123 --profile karim
+npm run review-external -- FLUX-595 feature-v2/iemand-anders --profile kris
+```
+
+Wat er onder de motorkap gebeurt bij `--profile kris`:
+
+- Worktree: `state/worktrees/flux-web-components-FLUX-123-kris/`
+- Branch:   `feature-v2/kris/FLUX-123-<slug>`
+- State:    `state/tickets/<sprint>/FLUX-123/kris/{ticket.md, code-changes.md, review-r*.md, _status.json}`
+- Voor de SDK-call wordt `./set-ai-profile.sh kris` in de worktree
+  uitgevoerd, zodat de CLAUDE.local.md/settings/skills van dat profile
+  meedraaien.
+
+Dezelfde ticket-actie kan zo parallel met verschillende profiles lopen
+zonder dat de runs elkaars worktree, branch of state raken. Geen
+`--profile` = exact gedrag van vóór de feature (volledig
+backwards-compatible).
+
+**Foutpaden:**
+- `set-ai-profile.sh` ontbreekt in de gechecked-out branch → harde fout
+  met duidelijke melding. Voorkomt stille profile-mismatch.
+- Onbekend profile → exit-code van het script wordt gepropageerd.
+- `review` zonder `--profile` op een ticket dat met profile is gestart
+  → fout die exact het juiste commando voorstelt.
 
 ### Stap 5: merge
 

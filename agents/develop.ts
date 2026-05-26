@@ -25,6 +25,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { log } from './shared/logger.js';
 import {
+  applyAiProfile,
   applyGitIdentityFromEnv,
   ensureRepoClone,
   ensureTicketWorktree,
@@ -49,6 +50,7 @@ config();
 export interface DevelopArgs {
   key: string;
   sprint?: string;
+  profile?: string;
 }
 
 function requireEnv(name: string): string {
@@ -61,13 +63,16 @@ function requireEnv(name: string): string {
  * Run the develop agent for a single ticket. Exported so the ship
  * orchestrator can invoke it directly without spawning a subprocess.
  */
-export async function runDevelop({ key, sprint }: DevelopArgs): Promise<void> {
+export async function runDevelop({ key, sprint, profile }: DevelopArgs): Promise<void> {
   const stateDir = resolve(process.env.STATE_DIR ?? './state');
   const repoUrl = requireEnv('FLUX_REPO_URL');
   const baseBranch = process.env.FLUX_BASE_BRANCH ?? 'develop-v2';
   const mainRepoDir = resolve(process.env.FLUX_REPO_DIR ?? managedRepoPath(stateDir));
 
-  log.info(`Agent 3 (develop) starting — ticket: ${key}`);
+  log.info(
+    `Agent 3 (develop) starting — ticket: ${key}` +
+      (profile ? `, profile: ${profile}` : ''),
+  );
 
   await ensureRepoClone({ repoUrl, cloneDir: mainRepoDir });
 
@@ -75,7 +80,7 @@ export async function runDevelop({ key, sprint }: DevelopArgs): Promise<void> {
   log.info(`Refinement: ${refinement.path} (sprint ${refinement.sprint})`);
 
   await migrateLegacyTicketDir(stateDir, key);
-  const ticket = new TicketState(stateDir, refinement.sprint, key);
+  const ticket = new TicketState(stateDir, refinement.sprint, key, profile);
   await ticket.ensureDir();
   await seedTicketMd(ticket, refinement.path);
 
@@ -84,7 +89,7 @@ export async function runDevelop({ key, sprint }: DevelopArgs): Promise<void> {
   // Prefer the agent-1-chosen slug from "## Branch slug"; fall back to
   // mechanical slugification when that section is missing (older refinements).
   const slug = extractBranchSlug(ticketMd) ?? slugifyTitle(title);
-  const branch = ticketBranchName(key, slug);
+  const branch = ticketBranchName(key, slug, profile);
 
   // Derive round + mode from prior status.
   const prev = await ticket.readStatus();
@@ -115,7 +120,7 @@ export async function runDevelop({ key, sprint }: DevelopArgs): Promise<void> {
     );
   }
 
-  const worktree = ticketWorktreePath(stateDir, key);
+  const worktree = ticketWorktreePath(stateDir, key, profile);
   const created = await ensureTicketWorktree({
     mainRepoDir,
     worktreePath: worktree,
@@ -123,6 +128,10 @@ export async function runDevelop({ key, sprint }: DevelopArgs): Promise<void> {
     baseBranch,
   });
   log.info(created ? `Worktree aangemaakt: ${worktree}` : `Worktree hergebruikt: ${worktree}`);
+
+  if (profile) {
+    await applyAiProfile(worktree, profile);
+  }
 
   const now = new Date().toISOString();
   await ticket.writeStatus({
@@ -135,6 +144,7 @@ export async function runDevelop({ key, sprint }: DevelopArgs): Promise<void> {
     startedAt: prev?.startedAt ?? now,
     updatedAt: now,
     prUrl: prev?.prUrl,
+    profile,
   });
 
   const systemPrompt = await loadPrompt('develop');
@@ -160,7 +170,10 @@ export async function runDevelop({ key, sprint }: DevelopArgs): Promise<void> {
 
   const summary = await streamLastAssistantText(q);
   log.info(`Author samenvatting:\n${truncate(summary, 800)}`);
-  log.info(`Klaar. Verifieer ${ticket.codeChangesPath}, dan: npm run review -- ${key}`);
+  const nextCmd = profile
+    ? `npm run review -- ${key} --profile ${profile}`
+    : `npm run review -- ${key}`;
+  log.info(`Klaar. Verifieer ${ticket.codeChangesPath}, dan: ${nextCmd}`);
 }
 
 function buildPrompt(
@@ -198,12 +211,27 @@ function truncate(s: string, n: number): string {
 
 function parseArgs(): DevelopArgs {
   const argv = process.argv.slice(2);
-  const key = argv[0];
+  let profile: string | undefined;
+  const positionals: string[] = [];
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === '--profile') {
+      const next = argv[++i];
+      if (!next) {
+        console.error('--profile verwacht een argument');
+        process.exit(1);
+      }
+      profile = next;
+    } else if (!a.startsWith('--')) {
+      positionals.push(a);
+    }
+  }
+  const key = positionals[0];
   if (!key) {
-    console.error('Usage: develop <TICKET-KEY> [sprintId]');
+    console.error('Usage: develop <TICKET-KEY> [sprintId] [--profile <naam>]');
     process.exit(1);
   }
-  return { key, sprint: argv[1] };
+  return { key, sprint: positionals[1], profile };
 }
 
 // Only run as CLI when invoked directly (not when imported by ship.ts).

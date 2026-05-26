@@ -26,6 +26,12 @@ export interface TicketStateJson {
   startedAt: string;
   updatedAt: string;
   prUrl?: string;
+  /**
+   * AI-profile dat actief is voor deze ticket-run (komt uit `--profile`
+   * op de develop/review/ship-CLI). Ontbreekt voor runs zonder profile —
+   * gedrag dan exact als vóór de profile-feature.
+   */
+  profile?: string;
 }
 
 export class TicketState {
@@ -33,10 +39,12 @@ export class TicketState {
     private readonly stateDir: string,
     readonly sprint: string,
     readonly key: string,
+    readonly profile?: string,
   ) {}
 
   get ticketDir(): string {
-    return resolve(this.stateDir, 'tickets', this.sprint, this.key);
+    const base = resolve(this.stateDir, 'tickets', this.sprint, this.key);
+    return this.profile ? join(base, this.profile) : base;
   }
 
   get ticketMdPath(): string {
@@ -182,12 +190,17 @@ export function extractBranchSlug(ticketMd: string): string | null {
  * Migreert eerst stilletjes een eventuele legacy locatie
  * (`tickets/<KEY>/`) naar de geneste layout (`tickets/<sprint>/<KEY>/`).
  *
+ * Met een `profile` zoeken we naar `tickets/<sprint>/<KEY>/<profile>/_status.json`
+ * — profile-runs zitten in een subfolder zodat parallelle profile-runs niet
+ * botsen. Zonder profile valt het scannen terug op het oude pad.
+ *
  * Gooit als het ticket nog niet bestaat (develop heeft nog niet gedraaid)
  * of als het in meerdere sprint-folders voorkomt.
  */
 export async function locateTicketSprint(
   stateDir: string,
   key: string,
+  profile?: string,
 ): Promise<string> {
   await migrateLegacyTicketDir(stateDir, key);
 
@@ -205,7 +218,9 @@ export async function locateTicketSprint(
   const matches: string[] = [];
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
-    const candidate = join(ticketsRoot, entry.name, key, '_status.json');
+    const candidate = profile
+      ? join(ticketsRoot, entry.name, key, profile, '_status.json')
+      : join(ticketsRoot, entry.name, key, '_status.json');
     try {
       await access(candidate);
       matches.push(entry.name);
@@ -215,9 +230,14 @@ export async function locateTicketSprint(
   }
 
   if (matches.length === 0) {
+    const expected = profile
+      ? `${ticketsRoot}/<sprint>/${key}/${profile}/`
+      : `${ticketsRoot}/<sprint>/${key}/`;
+    const hint = profile
+      ? `npm run develop -- ${key} --profile ${profile}`
+      : `npm run develop -- ${key}`;
     throw new Error(
-      `Geen ticket-state voor ${key} onder ${ticketsRoot}/<sprint>/${key}/. ` +
-        `Draai eerst 'npm run develop -- ${key}'.`,
+      `Geen ticket-state voor ${key} onder ${expected}. Draai eerst '${hint}'.`,
     );
   }
   if (matches.length > 1) {

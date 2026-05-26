@@ -173,9 +173,18 @@ export function baseBranchWorktreePath(stateDir: string, baseBranch: string): st
  * Resolve the per-ticket worktree path. Each ticket gets its own worktree
  * so agents 3/4 (author/reviewer) can work in parallel without clobbering
  * each other's branches and working states.
+ *
+ * Met een `profile` wordt het profile als suffix in de mapnaam opgenomen,
+ * zodat dezelfde ticket-actie parallel met verschillende AI-profiles kan
+ * lopen zonder dat ze elkaars worktree raken.
  */
-export function ticketWorktreePath(stateDir: string, ticketKey: string): string {
-  return resolve(stateDir, 'worktrees', `flux-web-components-${ticketKey}`);
+export function ticketWorktreePath(
+  stateDir: string,
+  ticketKey: string,
+  profile?: string,
+): string {
+  const suffix = profile ? `${ticketKey}-${profile}` : ticketKey;
+  return resolve(stateDir, 'worktrees', `flux-web-components-${suffix}`);
 }
 
 /**
@@ -183,12 +192,19 @@ export function ticketWorktreePath(stateDir: string, ticketKey: string): string 
  * van een andere developer). Bewust een andere naam dan
  * `ticketWorktreePath` zodat een externe review niet botst met een
  * eventuele develop/review-state voor hetzelfde ticket.
+ *
+ * Met een `profile` schuift het profile-segment tussen ticket-key en
+ * `external` (`<KEY>-<profile>-external`), zodat de `-external` suffix
+ * altijd het eindstuk blijft en bestaande paden zonder profile ongewijzigd
+ * zijn.
  */
 export function externalReviewWorktreePath(
   stateDir: string,
   ticketKey: string,
+  profile?: string,
 ): string {
-  return resolve(stateDir, 'worktrees', `flux-web-components-${ticketKey}-external`);
+  const middle = profile ? `${ticketKey}-${profile}` : ticketKey;
+  return resolve(stateDir, 'worktrees', `flux-web-components-${middle}-external`);
 }
 
 /**
@@ -323,9 +339,62 @@ export function slugifyTitle(title: string, maxWords = 4): string {
  * refinement markdown) and fall back to `slugifyTitle` on the title when
  * that section is absent.
  *
- * FLUX stays uppercase in the branch name.
+ * FLUX stays uppercase in the branch name. Een optioneel `profile` wordt
+ * als path-segment tussen het `feature-v2`-prefix en de ticket-key gezet
+ * (`feature-v2/<profile>/<KEY>-<slug>`), zodat profile-runs groeperen in
+ * `git branch` en de bestaande pattern `feature-v2/FLUX-*` zonder profile
+ * intact blijft.
  */
-export function ticketBranchName(ticketKey: string, slug: string): string {
+export function ticketBranchName(
+  ticketKey: string,
+  slug: string,
+  profile?: string,
+): string {
   const key = ticketKey.toUpperCase();
-  return slug ? `feature-v2/${key}-${slug}` : `feature-v2/${key}`;
+  const prefix = profile ? `feature-v2/${profile}` : 'feature-v2';
+  return slug ? `${prefix}/${key}-${slug}` : `${prefix}/${key}`;
+}
+
+/**
+ * Run `./set-ai-profile.sh <profile>` inside the worktree so that the AI
+ * configuration (CLAUDE.local.md, .claude/settings.local.json, .claude/skills,
+ * optioneel AGENTS.md/SKILLS.md) wijst naar het gekozen profile vóór de SDK
+ * met die cwd start.
+ *
+ * Idempotent — het script overschrijft de symlinks elke keer. Faalt hard
+ * als het script ontbreekt of een onbekend profile krijgt; we propageren
+ * dan stderr zodat de oorzaak zichtbaar is in de agent-output.
+ */
+export async function applyAiProfile(
+  worktreePath: string,
+  profile: string,
+): Promise<void> {
+  const script = join(worktreePath, 'set-ai-profile.sh');
+  if (!(await pathExists(script))) {
+    throw new Error(
+      `set-ai-profile.sh niet gevonden in worktree ${worktreePath}; ` +
+        `profile-feature vereist dat script in de gechecked-out branch.`,
+    );
+  }
+
+  log.info(`Activeer AI-profile '${profile}' in ${worktreePath}`);
+  await new Promise<void>((resolvePromise, rejectPromise) => {
+    const child = spawn('./set-ai-profile.sh', [profile], {
+      cwd: worktreePath,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let stderr = '';
+    child.stdout?.on('data', (chunk) => log.debug(chunk.toString().trimEnd()));
+    child.stderr?.on('data', (chunk) => (stderr += chunk.toString()));
+    child.on('error', rejectPromise);
+    child.on('close', (code) => {
+      if (code === 0) resolvePromise();
+      else
+        rejectPromise(
+          new Error(
+            `set-ai-profile.sh ${profile} faalde (exit ${code}): ${stderr.trim()}`,
+          ),
+        );
+    });
+  });
 }

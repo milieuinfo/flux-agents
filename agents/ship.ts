@@ -34,36 +34,55 @@ const MAX_ROUNDS = 3;
 interface ShipArgs {
   key: string;
   sprint?: string;
+  profile?: string;
 }
 
 function parseArgs(): ShipArgs {
   const argv = process.argv.slice(2);
-  const key = argv[0];
+  let profile: string | undefined;
+  const positionals: string[] = [];
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === '--profile') {
+      const next = argv[++i];
+      if (!next) {
+        console.error('--profile verwacht een argument');
+        process.exit(1);
+      }
+      profile = next;
+    } else if (!a.startsWith('--')) {
+      positionals.push(a);
+    }
+  }
+  const key = positionals[0];
   if (!key) {
-    console.error('Usage: ship <TICKET-KEY> [sprintId]');
+    console.error('Usage: ship <TICKET-KEY> [sprintId] [--profile <naam>]');
     process.exit(1);
   }
-  return { key, sprint: argv[1] };
+  return { key, sprint: positionals[1], profile };
 }
 
 async function main() {
-  const { key, sprint } = parseArgs();
+  const { key, sprint, profile } = parseArgs();
   const stateDir = resolve(process.env.STATE_DIR ?? './state');
 
   // Sprint vooraf opzoeken zodat we ticket-state in de geneste layout
   // kunnen lezen vanaf ronde 1.
   const refinement = await locateRefinement(stateDir, key, sprint);
   await migrateLegacyTicketDir(stateDir, key);
-  const ticket = new TicketState(stateDir, refinement.sprint, key);
+  const ticket = new TicketState(stateDir, refinement.sprint, key, profile);
 
-  log.info(`🚢 Ship starting — ticket: ${key} (max ${MAX_ROUNDS} rondes)`);
+  log.info(
+    `🚢 Ship starting — ticket: ${key} (max ${MAX_ROUNDS} rondes)` +
+      (profile ? `, profile: ${profile}` : ''),
+  );
 
   for (let round = 1; round <= MAX_ROUNDS; round++) {
     log.info(`\n━━━ Ronde ${round} — develop ━━━`);
-    await runDevelop({ key, sprint });
+    await runDevelop({ key, sprint, profile });
 
     log.info(`\n━━━ Ronde ${round} — review ━━━`);
-    await runReview({ key });
+    await runReview({ key, profile });
 
     const status = await ticket.readStatus();
     if (!status) {
@@ -92,7 +111,7 @@ async function main() {
       // geen `## Keuze` in ticket.md). Nog een ronde lost dat niet op —
       // escaleer meteen i.p.v. turns verspillen.
       const commitsAhead = await countCommitsAhead({
-        worktreePath: ticketWorktreePath(stateDir, key),
+        worktreePath: ticketWorktreePath(stateDir, key, profile),
         baseBranch: status.baseBranch,
       });
       if (commitsAhead === 0) {

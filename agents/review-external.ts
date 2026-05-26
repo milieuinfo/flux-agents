@@ -19,6 +19,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { log } from './shared/logger.js';
 import {
+  applyAiProfile,
   ensureRepoClone,
   externalReviewWorktreePath,
   managedRepoPath,
@@ -34,10 +35,11 @@ interface ReviewExternalArgs {
   key: string;
   branch: string;
   baseBranch: string;
+  profile?: string;
 }
 
 async function runReviewExternal(args: ReviewExternalArgs): Promise<void> {
-  const { key, branch, baseBranch } = args;
+  const { key, branch, baseBranch, profile } = args;
   const stateDir = resolve(process.env.STATE_DIR ?? './state');
   const repoUrl = process.env.FLUX_REPO_URL;
   if (!repoUrl) {
@@ -45,7 +47,8 @@ async function runReviewExternal(args: ReviewExternalArgs): Promise<void> {
   }
 
   log.info(
-    `Review-external starting — ticket: ${key}, branch: ${branch}, base: ${baseBranch}`,
+    `Review-external starting — ticket: ${key}, branch: ${branch}, base: ${baseBranch}` +
+      (profile ? `, profile: ${profile}` : ''),
   );
 
   const cloneDir = resolve(
@@ -53,7 +56,7 @@ async function runReviewExternal(args: ReviewExternalArgs): Promise<void> {
   );
   await ensureRepoClone({ repoUrl, cloneDir });
 
-  const worktree = externalReviewWorktreePath(stateDir, key);
+  const worktree = externalReviewWorktreePath(stateDir, key, profile);
   await prepareWorktree({
     mainRepoDir: cloneDir,
     worktreePath: worktree,
@@ -66,6 +69,10 @@ async function runReviewExternal(args: ReviewExternalArgs): Promise<void> {
     worktreePath: resolve(stateDir, 'worktrees', `flux-web-components-${baseBranch}`),
     ref: baseBranch,
   });
+
+  if (profile) {
+    await applyAiProfile(worktree, profile);
+  }
 
   const reviewsDir = resolve(stateDir, 'reviews', key);
   await mkdir(reviewsDir, { recursive: true });
@@ -159,6 +166,7 @@ function truncate(s: string, n: number): string {
 function parseArgs(): ReviewExternalArgs {
   const argv = process.argv.slice(2);
   let baseBranch = process.env.FLUX_BASE_BRANCH ?? 'develop-v2';
+  let profile: string | undefined;
   const positionals: string[] = [];
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -169,6 +177,13 @@ function parseArgs(): ReviewExternalArgs {
         process.exit(1);
       }
       baseBranch = next;
+    } else if (a === '--profile') {
+      const next = argv[++i];
+      if (!next) {
+        console.error('--profile verwacht een argument');
+        process.exit(1);
+      }
+      profile = next;
     } else if (!a.startsWith('--')) {
       positionals.push(a);
     }
@@ -176,11 +191,11 @@ function parseArgs(): ReviewExternalArgs {
   const [key, branch] = positionals;
   if (!key || !branch) {
     console.error(
-      'Usage: review-external <TICKET-KEY> <BRANCH> [--base <baseBranch>]',
+      'Usage: review-external <TICKET-KEY> <BRANCH> [--base <baseBranch>] [--profile <naam>]',
     );
     process.exit(1);
   }
-  return { key, branch, baseBranch };
+  return { key, branch, baseBranch, profile };
 }
 
 const isMain = process.argv[1] === fileURLToPath(import.meta.url);

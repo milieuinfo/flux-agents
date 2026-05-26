@@ -246,7 +246,9 @@ hier worktrees uit:
   HEAD, alleen voor code-lezen.
 - Agents 3/4: per-ticket worktree op een feature-branch
   (`state/worktrees/flux-web-components-<KEY>/`), afgesplitst van
-  `origin/<FLUX_BASE_BRANCH>`.
+  `origin/<FLUX_BASE_BRANCH>`. Bij een `--profile` (zie §10) zit het
+  profile in de mapnaam — `flux-web-components-<KEY>-<profile>/` —
+  zodat profile-runs niet botsen.
 
 **Waarom deze managed-clone-aanpak:** (a) Server-ready — fresh install
 heeft alleen `.env` nodig, de clone komt automatisch. (b) Volledige
@@ -330,6 +332,59 @@ Italic en images worden niet gebruikt en niet ondersteund.
   voor de Epic Link en Epic Name customfields. Leeg → auto-detect via
   `/rest/api/2/field`.
 
+### 10. AI-profile per ticket-run (`--profile`)
+
+`flux-web-components` heeft sinds kort `./set-ai-profile.sh <profile>`,
+dat een AI-configuratie-profile activeert door symlinks te leggen voor
+`CLAUDE.local.md`, `.claude/settings.local.json`, `.claude/skills` en
+optioneel `AGENTS.md`/`SKILLS.md`. Profiles staan onder
+`ai/profiles/<naam>/` in de checkout (bv. `kris`, `karim`, `no`).
+
+De agents die in een worktree van flux-web-components draaien
+(`develop`, `review`, `ship`, `review-external`) accepteren een
+optionele `--profile <naam>` vlag. Default = geen profile → gedrag
+identiek aan vóór de feature (backwards compatible).
+
+Bij een profile-run gebeurt het volgende:
+- **Worktree-pad** krijgt het profile als suffix:
+  `state/worktrees/flux-web-components-<KEY>-<profile>/`
+  (extern: `flux-web-components-<KEY>-<profile>-external/`).
+- **Branch-naam** krijgt het profile als path-segment:
+  `feature-v2/<profile>/<KEY>-<slug>`. Het bestaande
+  `feature-v2/FLUX-*` pattern voor profile-loze runs verandert niet.
+- **Ticket-state** gaat in een subfolder per profile:
+  `state/tickets/<sprint>/<KEY>/<profile>/{ticket.md, code-changes.md,
+  review-r*.md, _status.json}`. `ticket.md` wordt per profile
+  gedupliceerd — bewust, zodat profile-runs mogen divergeren (eigen
+  `## Keuze` per profile).
+- **`_status.json`** krijgt een veld `profile: "<naam>"` zodat ship.ts
+  weet welk profile bij welke ronde hoort. `review.ts` weigert met een
+  duidelijke melding als `--profile` ontbreekt terwijl `_status.json`
+  er één bevat — voorkomt stille profile-mismatch.
+- **Profile-activatie** in de worktree gebeurt door
+  `applyAiProfile(worktreePath, profile)` (in `agents/shared/repo.ts`),
+  dat `./set-ai-profile.sh <profile>` in de worktree-cwd draait vóór de
+  SDK-call. Idempotent — opnieuw draaien is safe en switcht netjes als
+  je per ongeluk een ander profile actief had.
+
+**Faalmodes (allebei harde fout, geen halve toestand):**
+- `set-ai-profile.sh` ontbreekt in de gechecked-out branch → fout met
+  duidelijke melding. Voorkomt dat de SDK stil met team-default config
+  draait terwijl je een profile dacht te activeren.
+- onbekend profile → exit-code en stderr van het script worden
+  gepropageerd. Agent draait niet.
+
+**Waarom een aparte worktree/branch/state per profile:** dezelfde
+ticket-actie kan parallel of na elkaar met verschillende profiles
+lopen zonder dat de runs elkaars commits, branch-naam of `_status.json`
+overschrijven. Concrete use case: vergelijken hoe verschillende
+profile-configs (skills, settings, instructies) hetzelfde ticket
+implementeren.
+
+**Niet in scope:** `refine` en `plan` krijgen geen `--profile`. Refine
+gebruikt enkel een read-only worktree op de base-branch en raakt geen
+profile-specifieke config; plan heeft geen worktree.
+
 ## Harde regels — agents mogen deze NOOIT overtreden
 
 - **Geen `git push` behalve** door agent 4 bij APPROVED, en alleen naar
@@ -402,8 +457,9 @@ flux-agents-state/                ← aparte repo (STATE_DIR)
 ├── repo/                         ← gitignored (managed clone, bij eerste run aangemaakt)
 │   └── flux-web-components/      ← volledig los van Kris' eigen werkclone
 ├── worktrees/                    ← gitignored (per-ticket + base-branch worktrees)
-│   ├── flux-web-components-develop-v2/     ← agent 1 leest hieruit
-│   └── flux-web-components-FLUX-<KEY>/     ← agents 3/4 werken hier
+│   ├── flux-web-components-develop-v2/        ← agent 1 leest hieruit
+│   ├── flux-web-components-FLUX-<KEY>/        ← agents 3/4 werken hier (geen profile)
+│   └── flux-web-components-FLUX-<KEY>-<profile>/  ← idem mét --profile (§10)
 ├── sprints/<SPRINT>/             ← gecommit (refinement-output)
 │   ├── _meta.json                ← agent 1 hashes
 │   ├── _order.md                 ← agent 2 output
@@ -411,10 +467,15 @@ flux-agents-state/                ← aparte repo (STATE_DIR)
 │   ├── FLUX-*.md                 ← agent 1 output per ticket (uitgebreid, Opus)
 │   └── FLUX-*.jira.md            ← agent 1 beknopte versie (Sonnet, voor Jira-comment)
 ├── tickets/<SPRINT>/<KEY>/       ← gecommit (per-ticket werk, gegroepeerd per sprint)
-│   ├── ticket.md                 ← kopie van refinement
-│   ├── code-changes.md           ← agent 3 per ronde
-│   ├── review-r<N>.md            ← agent 4 per ronde
-│   └── _status.json              ← round, status, baseBranch, branch, prUrl
+│   ├── ticket.md                 ← kopie van refinement (zonder profile)
+│   ├── code-changes.md           ← agent 3 per ronde (zonder profile)
+│   ├── review-r<N>.md            ← agent 4 per ronde (zonder profile)
+│   ├── _status.json              ← round, status, baseBranch, branch, prUrl, profile?
+│   └── <profile>/                ← mét --profile: eigen kopie per profile (§10)
+│       ├── ticket.md
+│       ├── code-changes.md
+│       ├── review-r<N>.md
+│       └── _status.json
 └── reviews/<KEY>/                ← gecommit (externe code-reviews)
     ├── review-<timestamp>.md     ← review-external output (1 per run)
     └── _published.json           ← publish-review state (hash per bestand)
@@ -467,6 +528,11 @@ Als je (Claude in een toekomstige sessie) iets aanpast, valideer:
 5. **Geen nieuwe netwerk-endpoints** — we praten alleen met Jira MCP
    (agent 1), Jira REST direct (publish.ts en publish-review.ts),
    Anthropic API (via SDK), GitHub (via gh CLI)
+6. **Profile-paden** — als je helpers in `shared/repo.ts` of
+   `shared/ticket.ts` wijzigt die het worktree-pad, branch-naam of
+   ticket-state-pad bouwen, behoud dan de optionele `profile`-parameter
+   en de regel "zonder profile = exact het oude pad". Anders breekt §10
+   in twee richtingen tegelijk (backwards-compat én profile-isolatie).
 
 ## Wat NIET bij de scope hoort
 

@@ -22,7 +22,11 @@ import { access } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { log } from './shared/logger.js';
-import { applyGitIdentityFromEnv, ticketWorktreePath } from './shared/repo.js';
+import {
+  applyAiProfile,
+  applyGitIdentityFromEnv,
+  ticketWorktreePath,
+} from './shared/repo.js';
 import { loadPrompt } from './shared/prompts.js';
 import { streamLastAssistantText } from './shared/query.js';
 import { TicketState, locateTicketSprint } from './shared/ticket.js';
@@ -31,24 +35,29 @@ config();
 
 export interface ReviewArgs {
   key: string;
+  profile?: string;
 }
 
 /**
  * Run the review agent for a single ticket. Exported so the ship
  * orchestrator can call it directly.
  */
-export async function runReview({ key }: ReviewArgs): Promise<void> {
+export async function runReview({ key, profile }: ReviewArgs): Promise<void> {
   const stateDir = resolve(process.env.STATE_DIR ?? './state');
 
-  log.info(`Agent 4 (review) starting — ticket: ${key}`);
+  log.info(
+    `Agent 4 (review) starting — ticket: ${key}` +
+      (profile ? `, profile: ${profile}` : ''),
+  );
 
-  const ticketSprint = await locateTicketSprint(stateDir, key);
-  const ticket = new TicketState(stateDir, ticketSprint, key);
+  const ticketSprint = await locateTicketSprint(stateDir, key, profile);
+  const ticket = new TicketState(stateDir, ticketSprint, key, profile);
   const status = await ticket.readStatus();
   if (!status) {
-    throw new Error(
-      `Geen _status.json voor ${key}. Draai eerst 'npm run develop -- ${key}'.`,
-    );
+    const hint = profile
+      ? `npm run develop -- ${key} --profile ${profile}`
+      : `npm run develop -- ${key}`;
+    throw new Error(`Geen _status.json voor ${key}. Draai eerst '${hint}'.`);
   }
   if (status.status === 'approved') {
     throw new Error(
@@ -59,13 +68,34 @@ export async function runReview({ key }: ReviewArgs): Promise<void> {
     throw new Error(`Ticket ${key} is escalated. Menselijke interventie nodig.`);
   }
 
-  const worktree = ticketWorktreePath(stateDir, key);
+  // Fallback: als geen --profile is meegegeven maar _status.json wél een
+  // profile bevat (bv. review na develop in dezelfde shell-sessie zonder
+  // dat je het profile herhaalt), hergebruiken we dat. We doen GEEN
+  // herlocatie van de TicketState — die staat al in de juiste folder omdat
+  // locateTicketSprint zonder profile-arg de profile-loze paden zocht.
+  // Daarom: als status.profile bestaat maar profile-arg ontbreekt, vragen
+  // we een expliciete --profile zodat paden consistent zijn.
+  if (!profile && status.profile) {
+    throw new Error(
+      `Ticket ${key} is opgestart met profile '${status.profile}'. ` +
+        `Gebruik 'npm run review -- ${key} --profile ${status.profile}'.`,
+    );
+  }
+
+  const worktree = ticketWorktreePath(stateDir, key, profile);
   try {
     await access(worktree);
   } catch {
-    throw new Error(
-      `Worktree ontbreekt: ${worktree}. Draai eerst 'npm run develop -- ${key}'.`,
-    );
+    const hint = profile
+      ? `npm run develop -- ${key} --profile ${profile}`
+      : `npm run develop -- ${key}`;
+    throw new Error(`Worktree ontbreekt: ${worktree}. Draai eerst '${hint}'.`);
+  }
+
+  if (profile) {
+    // Idempotente refresh — voorkomt dat een eerder profile in dezelfde
+    // worktree blijft plakken na een handmatige switch.
+    await applyAiProfile(worktree, profile);
   }
 
   const systemPrompt = await loadPrompt('review');
@@ -112,12 +142,16 @@ export async function runReview({ key }: ReviewArgs): Promise<void> {
         `APPROVED — PR: ${after.prUrl ?? 'URL niet opgeslagen'}. Merge zelf op GitHub.`,
       );
       break;
-    case 'changes_requested':
+    case 'changes_requested': {
+      const nextCmd = profile
+        ? `npm run develop -- ${key} --profile ${profile}`
+        : `npm run develop -- ${key}`;
       log.info(
         `CHANGES_REQUESTED — lees ${ticket.reviewPath(after.round)}, dan: ` +
-          `npm run develop -- ${key}  (start ronde ${after.round + 1}).`,
+          `${nextCmd}  (start ronde ${after.round + 1}).`,
       );
       break;
+    }
     case 'escalated':
       log.warn(`ESCALATED — ronde ${after.round}. Menselijke review nodig.`);
       break;
@@ -155,12 +189,28 @@ function truncate(s: string, n: number): string {
 }
 
 function parseArgs(): ReviewArgs {
-  const key = process.argv.slice(2)[0];
+  const argv = process.argv.slice(2);
+  let profile: string | undefined;
+  const positionals: string[] = [];
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === '--profile') {
+      const next = argv[++i];
+      if (!next) {
+        console.error('--profile verwacht een argument');
+        process.exit(1);
+      }
+      profile = next;
+    } else if (!a.startsWith('--')) {
+      positionals.push(a);
+    }
+  }
+  const key = positionals[0];
   if (!key) {
-    console.error('Usage: review <TICKET-KEY>');
+    console.error('Usage: review <TICKET-KEY> [--profile <naam>]');
     process.exit(1);
   }
-  return { key };
+  return { key, profile };
 }
 
 // Only run as CLI when invoked directly (not when imported by ship.ts).
