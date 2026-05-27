@@ -26,6 +26,7 @@ import {
   prepareWorktree,
 } from './shared/repo.js';
 import { loadPrompt } from './shared/prompts.js';
+import { bashAgentHooks } from './shared/observability.js';
 import { streamLastAssistantText } from './shared/query.js';
 import { locateRefinement } from './shared/ticket.js';
 
@@ -109,6 +110,7 @@ async function runReviewExternal(args: ReviewExternalArgs): Promise<void> {
       allowedTools: ['Read', 'Write', 'Edit', 'Glob', 'Grep', 'Bash'],
       permissionMode: 'bypassPermissions',
       allowDangerouslySkipPermissions: true,
+      hooks: bashAgentHooks(),
     },
   });
 

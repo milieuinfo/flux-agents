@@ -35,6 +35,7 @@ import {
   ticketWorktreePath,
 } from './shared/repo.js';
 import { loadPrompt } from './shared/prompts.js';
+import { bashAgentHooks } from './shared/observability.js';
 import { streamLastAssistantText } from './shared/query.js';
 import {
   TicketState,
@@ -165,6 +166,7 @@ export async function runDevelop({ key, sprint, profile }: DevelopArgs): Promise
       allowedTools: ['Read', 'Write', 'Edit', 'Glob', 'Grep', 'Bash'],
       permissionMode: 'bypassPermissions',
       allowDangerouslySkipPermissions: true,
+      hooks: bashAgentHooks(),
     },
   });
 

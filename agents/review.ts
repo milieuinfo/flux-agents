@@ -28,6 +28,7 @@ import {
   ticketWorktreePath,
 } from './shared/repo.js';
 import { loadPrompt } from './shared/prompts.js';
+import { bashAgentHooks } from './shared/observability.js';
 import { streamLastAssistantText } from './shared/query.js';
 import { TicketState, locateTicketSprint } from './shared/ticket.js';
 
@@ -124,6 +125,7 @@ export async function runReview({ key, profile }: ReviewArgs): Promise<void> {
       allowedTools: ['Read', 'Write', 'Edit', 'Glob', 'Grep', 'Bash'],
       permissionMode: 'bypassPermissions',
       allowDangerouslySkipPermissions: true,
+      hooks: bashAgentHooks(),
     },
   });
 

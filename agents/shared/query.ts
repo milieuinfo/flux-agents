@@ -1,4 +1,5 @@
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
+import { observeStream } from './observability.js';
 
 /**
  * Consume an SDK query stream and return the text of the LAST assistant
@@ -9,12 +10,16 @@ import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
  * want the model's final answer.
  *
  * Throws on a non-success result so callers can fail loudly.
+ *
+ * Loopt de input langs `observeStream` zodat elke tool-call en
+ * tool-result tijdens de run gelogd worden — onmisbaar voor het
+ * diagnosticeren van hangs.
  */
 export async function streamLastAssistantText(
   q: AsyncGenerator<SDKMessage> | AsyncIterable<SDKMessage>,
 ): Promise<string> {
   let lastAssistantText = '';
-  for await (const msg of q) {
+  for await (const msg of observeStream(q)) {
     if (msg.type === 'assistant') {
       const thisTurn: string[] = [];
       for (const block of msg.message.content) {
@@ -40,7 +45,7 @@ export async function streamAllAssistantText(
   q: AsyncGenerator<SDKMessage> | AsyncIterable<SDKMessage>,
 ): Promise<string> {
   const turns: string[] = [];
-  for await (const msg of q) {
+  for await (const msg of observeStream(q)) {
     if (msg.type === 'assistant') {
       const thisTurn: string[] = [];
       for (const block of msg.message.content) {
