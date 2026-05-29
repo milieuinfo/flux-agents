@@ -23,12 +23,15 @@ tool voor Kris om sprints efficiënter op te nemen.
 | 1 | refine | Claude Agent SDK (Node) | Opus + Sonnet | Analyseert Jira-tickets, schrijft uitgebreide refinement-markdown per ticket + (Sonnet) een beknopte Jira-comment-versie |
 | 2 | plan | Claude Agent SDK (Node) | Opus | Leest alle markdowns van een sprint, produceert volgorde + dependency graph |
 | 3 | develop | Claude Agent SDK (Node) | Sonnet | Per-ticket git worktree, implementeert op feature-branch, lokale commits |
-| 4 | review | Claude Agent SDK (Node) | Opus | Reviewt op dezelfde worktree, bij approval: squash + push + `gh pr create` |
+| 4 | review | Claude Agent SDK (Node) | Opus | Reviewt op dezelfde worktree, bij approval: lokale squash + schrijft PR-body-artifact (`_pr-body.md`). Pusht niet en maakt geen PR. |
 
-Daarnaast zijn er twee **publicatie-scripts** die direct naar Jira
-schrijven via REST-calls (geen LLM-oordeel nodig):
-- `scripts/publish.ts` — sprint-output van agents 1 + 2 (zie §9)
-- `scripts/publish-review.ts` — losse externe-review-md (zie zijtak hierboven)
+Daarnaast zijn er **deterministische scripts** (geen LLM-oordeel nodig):
+- `scripts/publish.ts` — sprint-output van agents 1 + 2 naar Jira (zie §9)
+- `scripts/publish-review.ts` — losse externe-review-md naar Jira (zie zijtak hierboven)
+- `scripts/push.ts` (`npm run push`) — pusht de feature-branch van een
+  goedgekeurd ticket naar origin (zie §11)
+- `scripts/pr.ts` (`npm run pr`) — maakt de draft-PR aan op basis van de
+  squash-commit-subject (titel) + `_pr-body.md` (body) (zie §11)
 
 Agents 3 en 4 hebben ook een **Claude Code subagent variant** in
 `agents/claude-code/.claude/agents/` (ticket-author.md, ticket-reviewer.md)
@@ -72,13 +75,17 @@ Jira sprint
 ┌─────────────┐   │
 │ agent 4     │───┘ CHANGES_REQUESTED → opnieuw npm run develop --
 │             │       (automatisch in address-modus via _status.json)
-│             │     APPROVED → squash + push + PR
+│             │     APPROVED → lokale squash + _pr-body.md (géén push, géén PR)
 │             │     ESCALATED → ronde 3 bereikt, Kris stapt in
 └─────────────┘
     │
-    ▼  PR op GitHub
+    ▼  npm run push -- FLUX-123      (git push -u origin <branch>)
     │
-    ▼  Kris merget zelf
+    ▼  npm run pr -- FLUX-123        (gh pr create --draft)
+    │
+    ▼  draft-PR op GitHub
+    │
+    ▼  Kris zet PR ready + merget zelf
 ```
 
 ## Zijtak: externe code review
@@ -135,28 +142,36 @@ in een disagreement. (b) Geeft Kris een duidelijk signaal dat menselijke
 interventie nodig is. (c) 3 rondes is genoeg ruimte voor één of twee
 legitieme feedback-cycli zonder eindeloos te worden.
 
-### 3. Nieuwe commits per ronde, squash bij PR-creatie
+### 3. Nieuwe commits per ronde, lokale squash bij APPROVED
 
 Tijdens iteraties committeert agent 3 elke ronde als aparte commit
 (`fix(x): address review ronde 2 (FLUX-123)`). Pas wanneer agent 4
 APPROVED geeft, doet die een `git reset --soft <base>` + één nette
-conventional commit + push + PR.
+conventional commit. Die squash blijft **lokaal** — agent 4 pusht niet
+en maakt geen PR. Het pushen en de PR-creatie zijn losgetrokken naar de
+deterministische scripts `npm run push` en `npm run pr` (zie §11).
 
 **Waarom:** (a) Lokaal is de iteratie-historie zichtbaar per ronde,
 handig voor debuggen van de pipeline zelf. (b) Op GitHub verschijnt
 één clean commit zodat collega's geen noise zien. (c) Geen `rebase -i`
 interactieve editors nodig (die werken slecht in niet-TTY contexten).
+(d) Kris kan tussen "review goedgekeurd" en "naar GitHub geduwd" gaan
+staan en de squash + `_pr-body.md` eerst lokaal nakijken.
 
-### 4. Geen GitHub-interactie behalve `gh pr create`
+### 4. Geen GitHub-interactie behalve één draft-PR via `npm run pr`
 
 Agents posten GEEN comments op PR's, updaten GEEN status, reageren
-NIET op review comments van mensen. De enige GitHub-schrijfactie in
-de hele pipeline is één `gh pr create` door agent 4.
+NIET op review comments van mensen. De enige GitHub-schrijfacties in
+de hele pipeline zijn (a) `git push` van één feature-branch via
+`scripts/push.ts` en (b) één `gh pr create --draft` via `scripts/pr.ts`.
+Beide zijn losse, deterministische scripts die Kris zelf draait op een
+ticket met status `approved` — geen LLM, geen agent 4.
 
 **Waarom:** (a) Tijdens de leerfase wil Kris geen noise op de
 VO-repo. (b) Formele review/approve in een VO-context hoort van een
 mens te komen. (c) Simpeler mentaal model: agents werken lokaal,
-GitHub is voor mensen.
+GitHub is voor mensen — en de netwerk-schrijfacties zitten in expliciete
+scripts, niet verstopt in een LLM-run.
 
 ### 5. Agent 1 gebruikt Jira MCP, herstart idempotent
 
@@ -403,11 +418,48 @@ implementeren.
 gebruikt enkel een read-only worktree op de base-branch en raakt geen
 profile-specifieke config; plan heeft geen worktree.
 
+### 11. Push en PR als aparte deterministische scripts
+
+Agent 4 (review) doet bij APPROVED enkel de **lokale** squash en schrijft
+de PR-body naar `_pr-body.md` in de ticket-state. Het pushen en de
+PR-creatie zijn losgetrokken naar twee deterministische scripts (geen LLM,
+zoals `publish.ts`):
+
+- `npm run push -- <KEY> [--profile <naam>]` (`scripts/push.ts`): `git push
+  -u origin <branch>` in de per-ticket worktree. Idempotent (already-up-to-date
+  = no-op).
+- `npm run pr -- <KEY> [--profile <naam>]` (`scripts/pr.ts`): `gh pr create
+  --draft --base <baseBranch>`. **PR-titel** = de squash-commit-subject
+  (`git log -1 --format=%s`) — niet apart opgeslagen, gegarandeerd identiek
+  aan de clean commit. **PR-body** = `_pr-body.md`. Schrijft de PR-URL naar
+  `_status.json.prUrl`. Idempotent: bestaat er al een PR voor de branch
+  (`gh pr view`), dan wordt enkel de URL bewaard, geen tweede PR.
+
+Beide scripts gebruiken exact hetzelfde `runPathLabel(profile, developModel())`
+als develop/review, zodat ze dezelfde worktree/branch/state vinden. Ze
+weigeren met een duidelijke melding als de status niet `approved` is, als
+`--profile` ontbreekt terwijl `_status.json` er één bevat, of (bij `pr`) als
+de branch nog niet gepusht is.
+
+`status === 'approved'` betekent voortaan "gereviewd OK + lokaal gesquasht,
+klaar om te pushen". Of de PR al bestaat blijkt uit `_status.json.prUrl`.
+Geen `_status.json` schema-wijziging — `prUrl` was al optioneel.
+
+`ship.ts` stopt bij APPROVED en print de push/pr-stappen; het pusht zelf niet.
+
+**Waarom:** Kris wil tussen "review goedgekeurd" en "naar GitHub geduwd"
+kunnen gaan staan (squash + `_pr-body.md` lokaal nakijken), en de enige
+netwerk-schrijfacties van de pipeline horen expliciet en deterministisch te
+zijn in plaats van verstopt in een LLM-run.
+
 ## Harde regels — agents mogen deze NOOIT overtreden
 
-- **Geen `git push` behalve** door agent 4 bij APPROVED, en alleen naar
-  de eigen feature-branch
+- **Geen `git push` behalve** via `scripts/push.ts` (`npm run push`) op een
+  ticket met status `approved`, en alleen naar de eigen feature-branch. De
+  review-agent zelf pusht NOOIT.
 - **Geen `git push --force`** ooit
+- **Geen PR aanmaken behalve** via `scripts/pr.ts` (`npm run pr`) — één
+  `gh pr create --draft`. De review-agent maakt zelf NOOIT een PR aan.
 - **Geen PR mergen** — dat doet Kris altijd zelf op GitHub
 - **Geen Jira workflow-transities** — niets in deze pipeline wijzigt
   ooit de status van een ticket (bv. To Do → In Progress → Done). Het
@@ -467,6 +519,8 @@ flux-agents/                      ← deze repo (tooling, code, prompts)
 └── scripts/
     ├── publish.ts                ← sprint-publicatie (directe Jira REST)
     ├── publish-review.ts         ← review-publicatie (1 ticket, 1 comment per run)
+    ├── push.ts                   ← push feature-branch van approved ticket (§11)
+    ├── pr.ts                     ← draft-PR aanmaken voor approved ticket (§11)
     ├── sync-cc-agents.sh         ← sync canonical → CC mirrors
     └── link-commands.sh          ← symlink flux-web-components/.claude
 
@@ -488,11 +542,13 @@ flux-agents-state/                ← aparte repo (STATE_DIR)
 │   ├── ticket.md                 ← kopie van refinement (zonder profile)
 │   ├── code-changes.md           ← agent 3 per ronde (zonder profile)
 │   ├── review-r<N>.md            ← agent 4 per ronde (zonder profile)
+│   ├── _pr-body.md               ← agent 4 bij APPROVED; body voor `npm run pr` (§11)
 │   ├── _status.json              ← round, status, baseBranch, branch, prUrl, profile?
 │   └── <profiel>-<code>/         ← mét --profile: eigen kopie per profiel+model (§10)
 │       ├── ticket.md
 │       ├── code-changes.md
 │       ├── review-r<N>.md
+│       ├── _pr-body.md
 │       └── _status.json
 └── reviews/<KEY>/                ← gecommit (externe code-reviews)
     ├── review-<timestamp>.md     ← review-external output (1 per run)

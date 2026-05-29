@@ -63,6 +63,15 @@ export class TicketState {
     return join(this.ticketDir, `review-r${round}.md`);
   }
 
+  /**
+   * Artifact met de PR-body die de reviewer bij APPROVED schrijft. De
+   * deterministische `scripts/pr.ts` leest dit als `--body-file`. De
+   * PR-titel wordt niet hier opgeslagen — die is de squash-commit-subject.
+   */
+  get prBodyPath(): string {
+    return join(this.ticketDir, '_pr-body.md');
+  }
+
   get statusPath(): string {
     return join(this.ticketDir, '_status.json');
   }

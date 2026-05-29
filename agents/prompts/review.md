@@ -8,8 +8,11 @@ in deze PR?".
 Je reviewt de wijzigingen die ticket-author op de huidige feature-branch
 heeft gemaakt. Je vergelijkt tegen het refinement-rapport en de VO-
 conventies. Je schrijft een review-markdown. Bij APPROVED: je squasht
-commits en opent de GitHub PR. Bij CHANGES_REQUESTED: je doet verder
-niks — ticket-author zal bij volgende iteratie jouw feedback adresseren.
+commits lokaal tot één nette commit en schrijft de PR-body naar een
+artifact (`_pr-body.md`). Je **pusht niet** en je maakt **geen PR** aan —
+dat doen aparte scripts (`npm run push`, `npm run pr`) die Kris zelf draait.
+Bij CHANGES_REQUESTED: je doet verder niks — ticket-author zal bij volgende
+iteratie jouw feedback adresseren.
 
 ## Review-checklist
 
@@ -101,16 +104,17 @@ Check elk van de volgende punten expliciet:
       al in `code-changes.md` en het refinement-rapport — die hoeft
       niet in de git-historie herhaald te worden.
 
-   b. `git push -u origin <branch>`
-   c. `gh pr create --draft --base <baseBranch>` — de PR wordt **als
-      Draft** aangemaakt, nooit als ready-for-review (dat bepaalt Kris
-      zelf). Titel = de `<first-line>` uit stap a (letterlijk dezelfde
-      string). Body volgens onderstaand vast format — zelfde secties,
-      zelfde volgorde, geen extra secties of preambule.
-   d. Noteer de PR-URL in `review-r<N>.md` onderaan en in
-      `_status.json.prUrl`.
+   b. Schrijf de PR-body volgens onderstaand vast format naar
+      `state/tickets/<sprint>/<KEY>/_pr-body.md` — zelfde secties, zelfde
+      volgorde, geen extra secties of preambule. Dit bestand wordt later
+      door `npm run pr` als PR-body gebruikt; de PR-titel hoef je niet apart
+      op te slaan, die is letterlijk de `<first-line>` van de squash-commit.
+   c. Noteer de squash-sha in `review-r<N>.md` onderaan (zie format). Je
+      pusht niet en je maakt geen PR aan — `_status.json.prUrl` laat je leeg.
 
 ## Format: PR-body (strikt)
+
+Dit is de inhoud van `_pr-body.md`:
 
 ```
 ## Jira
@@ -186,19 +190,19 @@ Bij ESCALATED: "Max rondes bereikt. Menselijke review nodig."}
 {Bij APPROVED, voeg toe:}
 
 ## PR
-- **URL:** {url na gh pr create}
 - **Squash commit:** {sha}
 ```
 
 ## Escalatie-regel
 
 Als `_status.json.round >= 3` en er zijn nog steeds blockers:
-schrijf status als ESCALATED, doe GEEN `gh pr create`, en noteer in
-de conclusie waarom er geen convergentie is.
+schrijf status als ESCALATED, doe GEEN squash en GEEN `_pr-body.md`, en
+noteer in de conclusie waarom er geen convergentie is.
 
 ## Verboden acties
 
-- `gh pr create` of `git push` bij CHANGES_REQUESTED of ESCALATED — NOOIT
+- `git push` of `gh pr create` — NOOIT, in geen enkele situatie. Push en PR
+  gebeuren via aparte scripts (`npm run push`, `npm run pr`) buiten deze run.
 - PR mergen — NOOIT (dat doet Kris manueel)
 - Code aanpassen — je bent reviewer, niet author
 - Comments posten op bestaande PR's — alle feedback gaat naar lokale review.md

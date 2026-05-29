@@ -6,8 +6,10 @@
  * per-ticket worktree that agent 3 (develop) created.
  *
  * Outcomes:
- *  - APPROVED: agent squashes commits against origin/develop-v2, pushes,
- *    opens a PR via `gh pr create --base develop-v2`.
+ *  - APPROVED: agent squashes commits against origin/<baseBranch> into one
+ *    clean local commit and writes the PR body to _pr-body.md. It does NOT
+ *    push and does NOT open a PR — that's done by the deterministic scripts
+ *    `npm run push` and `npm run pr`.
  *  - CHANGES_REQUESTED: agent writes review-r<N>.md + updates _status.
  *    Next call to `npm run develop` runs in address-mode (round+1).
  *  - ESCALATED: only possible at round 3 with unresolved blockers.
@@ -67,8 +69,11 @@ export async function runReview({ key, profile }: ReviewArgs): Promise<void> {
     throw new Error(`Geen _status.json voor ${key}. Draai eerst '${hint}'.`);
   }
   if (status.status === 'approved') {
+    const profileFlag = profile ? ` --profile ${profile}` : '';
     throw new Error(
-      `Ticket ${key} is al approved (PR: ${status.prUrl ?? '?'}). Niks te doen.`,
+      `Ticket ${key} is al gereviewd en goedgekeurd. Draai ` +
+        `'npm run push -- ${key}${profileFlag}' en daarna ` +
+        `'npm run pr -- ${key}${profileFlag}'.`,
     );
   }
   if (status.status === 'escalated') {
@@ -145,11 +150,15 @@ export async function runReview({ key, profile }: ReviewArgs): Promise<void> {
     return;
   }
   switch (after.status) {
-    case 'approved':
+    case 'approved': {
+      const profileFlag = profile ? ` --profile ${profile}` : '';
       log.info(
-        `APPROVED — PR: ${after.prUrl ?? 'URL niet opgeslagen'}. Merge zelf op GitHub.`,
+        `APPROVED — lokale squash + ${ticket.prBodyPath} geschreven. ` +
+          `Draai 'npm run push -- ${key}${profileFlag}' en daarna ` +
+          `'npm run pr -- ${key}${profileFlag}'.`,
       );
       break;
+    }
     case 'changes_requested': {
       const nextCmd = profile
         ? `npm run develop -- ${key} --profile ${profile}`
@@ -186,7 +195,8 @@ function buildPrompt(
     `\nJe cwd is de feature-branch worktree. Base branch is ${baseBranch} ` +
     `(zie _status.json). Schrijf ${ticket.reviewPath(round)} en werk ` +
     `${ticket.statusPath} bij volgens je system prompt. Bij APPROVED: ` +
-    `squash + push + gh pr create --base ${baseBranch}.\n\n` +
+    `squash de commits lokaal tegen origin/${baseBranch} en schrijf de ` +
+    `PR-body naar ${ticket.prBodyPath}. Je pusht NIET en maakt GEEN PR aan.\n\n` +
     `Jira ticket-URL voor de PR-body (gebruik exact deze, niet zelf ` +
     `samenstellen): ${jiraTicketUrl}`
   );

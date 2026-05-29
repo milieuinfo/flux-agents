@@ -3,7 +3,8 @@
  * Ship: per-ticket autopilot.
  *
  * Draait de develop → review lus voor één ticket, maximaal 3 rondes.
- * Stopt bij APPROVED (PR geopend), ESCALATED (mens nodig), of na ronde 3.
+ * Stopt bij APPROVED (lokale squash gedaan; push/PR doe je zelf met
+ * `npm run push` + `npm run pr`), ESCALATED (mens nodig), of na ronde 3.
  *
  * Dit is de "one-shot" variant: `npm run develop` en `npm run review`
  * handmatig na elkaar draaien werkt nog steeds en is nuttig als je per
@@ -96,10 +97,12 @@ async function main() {
     }
 
     if (status.status === 'approved') {
+      const profileFlag = profile ? ` --profile ${profile}` : '';
+      log.info(`\n✅ APPROVED na ronde ${status.round}. Lokale squash gedaan.`);
       log.info(
-        `\n✅ APPROVED na ronde ${status.round}. PR: ${status.prUrl ?? '(URL niet opgeslagen)'}.`,
+        `Draai 'npm run push -- ${key}${profileFlag}' en daarna ` +
+          `'npm run pr -- ${key}${profileFlag}' om naar GitHub te duwen.`,
       );
-      log.info('Review de PR op GitHub en merge zelf.');
       return;
     }
     if (status.status === 'escalated') {

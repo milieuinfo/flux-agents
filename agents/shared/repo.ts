@@ -162,6 +162,50 @@ function gitCapture(cwd: string, args: string[]): Promise<string> {
 }
 
 /**
+ * Push the current feature branch to origin (`git push -u origin <branch>`).
+ * Idempotent: a push of an already-up-to-date branch is a no-op for git.
+ *
+ * Used by the deterministic `scripts/push.ts` — de review-agent pusht zelf
+ * niet meer (zie CLAUDE.md harde regels). Draait in de per-ticket worktree
+ * zodat de juiste branch wordt geduwd.
+ */
+export async function pushBranch(opts: {
+  worktreePath: string;
+  branch: string;
+}): Promise<void> {
+  log.info(`Pushing ${opts.branch} to origin from ${opts.worktreePath}`);
+  await git(opts.worktreePath, ['push', '-u', 'origin', opts.branch]);
+}
+
+/**
+ * Read the subject (first line) of HEAD's commit in `worktreePath`
+ * (`git log -1 --format=%s`). Na de squash door de reviewer is dit exact
+ * de PR-titel — `scripts/pr.ts` leest hem hier zodat titel en
+ * squash-commit gegarandeerd identiek zijn.
+ */
+export async function commitSubject(worktreePath: string): Promise<string> {
+  const raw = await gitCapture(worktreePath, ['log', '-1', '--format=%s']);
+  return raw.trim();
+}
+
+/**
+ * Check whether `branch` exists on origin (`git ls-remote --heads`).
+ * `scripts/pr.ts` gebruikt dit om te weigeren een PR te maken vóór push.
+ */
+export async function remoteBranchExists(opts: {
+  worktreePath: string;
+  branch: string;
+}): Promise<boolean> {
+  const raw = await gitCapture(opts.worktreePath, [
+    'ls-remote',
+    '--heads',
+    'origin',
+    opts.branch,
+  ]);
+  return raw.trim().length > 0;
+}
+
+/**
  * Resolve the worktree path for the base-branch refinement checkout.
  * Lives under the state dir so it's naturally gitignored with the rest.
  */

@@ -1,7 +1,7 @@
 ---
-description: Review de huidige feature-branch tegen het refinement-rapport. Delegeert naar ticket-reviewer subagent. Bij approval wordt de PR geopend.
+description: Review de huidige feature-branch tegen het refinement-rapport. Delegeert naar ticket-reviewer subagent. Bij approval: lokale squash + _pr-body.md (push/PR doe je apart met npm run push / npm run pr).
 argument-hint: "<TICKET-KEY>"
-allowed-tools: Read, Write, Bash(git:*), Bash(gh:*), Bash(npm:*), Bash(test:*)
+allowed-tools: Read, Write, Bash(git:*), Bash(npm:*), Bash(test:*)
 ---
 
 Review de branch voor ticket `$1`.
@@ -31,8 +31,8 @@ Roep de `ticket-reviewer` subagent aan met deze instructie:
 > - Status: `state/tickets/<sprint>/$1/_status.json`
 >
 > Huidige ronde is {round uit _status.json}. Volg je werkwijze: schrijf
-> `review-r{round}.md`, update `_status.json`, en bij APPROVED: squash,
-> push, en open GitHub PR.
+> `review-r{round}.md`, update `_status.json`, en bij APPROVED: squash
+> lokaal en schrijf `_pr-body.md`. Je pusht NIET en maakt GEEN PR aan.
 
 ## Stap 4 — Samenvatting
 
@@ -40,6 +40,7 @@ Na de subagent terugkomt, lees `_status.json` en toon Kris:
 
 - Status: APPROVED / CHANGES_REQUESTED / ESCALATED
 - Pad naar review-r<N>.md
-- Als APPROVED: de PR URL en een reminder dat Kris zelf moet mergen
+- Als APPROVED: lokale squash gedaan + `_pr-body.md` geschreven; volgende
+  stappen zijn `npm run push -- $1` en daarna `npm run pr -- $1`
 - Als CHANGES_REQUESTED: volgende stap is `/address $1`
 - Als ESCALATED: uitleg dat max rondes bereikt is en Kris manueel moet bijspringen
