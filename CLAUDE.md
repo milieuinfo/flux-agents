@@ -445,7 +445,9 @@ de branch nog niet gepusht is.
 klaar om te pushen". Of de PR al bestaat blijkt uit `_status.json.prUrl`.
 Geen `_status.json` schema-wijziging — `prUrl` was al optioneel.
 
-`ship.ts` stopt bij APPROVED en print de push/pr-stappen; het pusht zelf niet.
+`ship.ts` draait bij APPROVED automatisch `runPush` (dezelfde logica als
+`npm run push`) zodat de branch op origin komt. De PR maakt ship **niet** aan
+— `gh pr create` blijft een bewuste manuele stap (`npm run pr`).
 
 **Waarom:** Kris wil tussen "review goedgekeurd" en "naar GitHub geduwd"
 kunnen gaan staan (squash + `_pr-body.md` lokaal nakijken), en de enige

@@ -3,8 +3,9 @@
  * Ship: per-ticket autopilot.
  *
  * Draait de develop → review lus voor één ticket, maximaal 3 rondes.
- * Stopt bij APPROVED (lokale squash gedaan; push/PR doe je zelf met
- * `npm run push` + `npm run pr`), ESCALATED (mens nodig), of na ronde 3.
+ * Bij APPROVED: lokale squash (review) + automatisch `git push` naar origin.
+ * De PR maak je bewust zelf aan met `npm run pr`. Stopt verder bij
+ * ESCALATED (mens nodig) of na ronde 3.
  *
  * Dit is de "one-shot" variant: `npm run develop` en `npm run review`
  * handmatig na elkaar draaien werkt nog steeds en is nuttig als je per
@@ -28,6 +29,7 @@ import {
 } from './shared/ticket.js';
 import { runDevelop } from './develop.js';
 import { runReview } from './review.js';
+import { runPush } from './shared/push.js';
 
 config();
 
@@ -99,9 +101,13 @@ async function main() {
     if (status.status === 'approved') {
       const profileFlag = profile ? ` --profile ${profile}` : '';
       log.info(`\n✅ APPROVED na ronde ${status.round}. Lokale squash gedaan.`);
+
+      log.info(`\n━━━ push ━━━`);
+      await runPush({ key, profile });
+
       log.info(
-        `Draai 'npm run push -- ${key}${profileFlag}' en daarna ` +
-          `'npm run pr -- ${key}${profileFlag}' om naar GitHub te duwen.`,
+        `\n🚀 Gepusht naar origin. Maak de PR zelf met ` +
+          `'npm run pr -- ${key}${profileFlag}' (bewust manueel).`,
       );
       return;
     }

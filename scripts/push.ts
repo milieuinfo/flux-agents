@@ -7,30 +7,18 @@
  * meer. Dit script doet enkel `git push -u origin <branch>` in de per-ticket
  * worktree. Daarna maak je de PR met `npm run pr`.
  *
- * Idempotent: een push van een already-up-to-date branch is een no-op.
+ * De orchestratie zit in agents/shared/push.ts zodat ship.ts ze kan
+ * hergebruiken; dit bestand is enkel de CLI-wrapper.
  *
  * Usage:
  *   npm run push -- <TICKET-KEY> [--profile <naam>]
  */
 
 import { config } from 'dotenv';
-import { access } from 'node:fs/promises';
-import { resolve } from 'node:path';
 import { log } from '../agents/shared/logger.js';
-import {
-  applyGitIdentityFromEnv,
-  pushBranch,
-  ticketWorktreePath,
-} from '../agents/shared/repo.js';
-import { developModel, runPathLabel } from '../agents/shared/model.js';
-import { TicketState, locateTicketSprint } from '../agents/shared/ticket.js';
+import { runPush, type PushArgs } from '../agents/shared/push.js';
 
 config();
-
-interface PushArgs {
-  key: string;
-  profile?: string;
-}
 
 function parseArgs(): PushArgs {
   const argv = process.argv.slice(2);
@@ -57,56 +45,7 @@ function parseArgs(): PushArgs {
   return { key, profile };
 }
 
-async function main() {
-  const { key, profile } = parseArgs();
-  const stateDir = resolve(process.env.STATE_DIR ?? './state');
-
-  // Label = profiel + develop-model-code, identiek aan review.ts zodat we
-  // dezelfde worktree/branch/state vinden (code uit AGENT3_MODEL).
-  const label = runPathLabel(profile, developModel());
-
-  const ticketSprint = await locateTicketSprint(stateDir, key, label);
-  const ticket = new TicketState(stateDir, ticketSprint, key, label);
-  const status = await ticket.readStatus();
-  if (!status) {
-    throw new Error(`Geen _status.json voor ${key}.`);
-  }
-
-  // Zelfde profile-mismatch-guard als review.ts: voorkomt stille mismatch
-  // tussen --profile en wat in _status.json staat.
-  if (!profile && status.profile) {
-    throw new Error(
-      `Ticket ${key} is opgestart met profile '${status.profile}'. ` +
-        `Gebruik 'npm run push -- ${key} --profile ${status.profile}'.`,
-    );
-  }
-
-  if (status.status !== 'approved') {
-    const profileFlag = profile ? ` --profile ${profile}` : '';
-    throw new Error(
-      `Ticket ${key} heeft status '${status.status}', niet 'approved'. ` +
-        `Draai eerst 'npm run review -- ${key}${profileFlag}'.`,
-    );
-  }
-
-  const worktree = ticketWorktreePath(stateDir, key, label);
-  try {
-    await access(worktree);
-  } catch {
-    throw new Error(`Worktree ontbreekt: ${worktree}.`);
-  }
-
-  applyGitIdentityFromEnv();
-  await pushBranch({ worktreePath: worktree, branch: status.branch });
-
-  const profileFlag = profile ? ` --profile ${profile}` : '';
-  log.info(
-    `Gepusht naar origin/${status.branch}. Maak de PR met ` +
-      `'npm run pr -- ${key}${profileFlag}'.`,
-  );
-}
-
-main().catch((err) => {
+runPush(parseArgs()).catch((err) => {
   log.error('Fatal:', err);
   process.exit(1);
 });
