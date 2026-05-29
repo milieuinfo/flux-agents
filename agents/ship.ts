@@ -19,6 +19,7 @@ import { config } from 'dotenv';
 import { resolve } from 'node:path';
 import { log } from './shared/logger.js';
 import { countCommitsAhead, ticketWorktreePath } from './shared/repo.js';
+import { developModel, runPathLabel } from './shared/model.js';
 import {
   TicketState,
   locateRefinement,
@@ -70,7 +71,10 @@ async function main() {
   // kunnen lezen vanaf ronde 1.
   const refinement = await locateRefinement(stateDir, key, sprint);
   await migrateLegacyTicketDir(stateDir, key);
-  const ticket = new TicketState(stateDir, refinement.sprint, key, profile);
+  // Label = profiel + develop-model-code; moet matchen met wat runDevelop/
+  // runReview intern berekenen (beide via developModel()).
+  const label = runPathLabel(profile, developModel());
+  const ticket = new TicketState(stateDir, refinement.sprint, key, label);
 
   log.info(
     `🚢 Ship starting — ticket: ${key} (max ${MAX_ROUNDS} rondes)` +
@@ -111,7 +115,7 @@ async function main() {
       // geen `## Keuze` in ticket.md). Nog een ronde lost dat niet op —
       // escaleer meteen i.p.v. turns verspillen.
       const commitsAhead = await countCommitsAhead({
-        worktreePath: ticketWorktreePath(stateDir, key, profile),
+        worktreePath: ticketWorktreePath(stateDir, key, label),
         baseBranch: status.baseBranch,
       });
       if (commitsAhead === 0) {

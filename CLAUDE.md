@@ -247,8 +247,9 @@ hier worktrees uit:
 - Agents 3/4: per-ticket worktree op een feature-branch
   (`state/worktrees/flux-web-components-<KEY>/`), afgesplitst van
   `origin/<FLUX_BASE_BRANCH>`. Bij een `--profile` (zie §10) zit het
-  profile in de mapnaam — `flux-web-components-<KEY>-<profile>/` —
-  zodat profile-runs niet botsen.
+  label `<profiel>-<modelcode>` in de mapnaam —
+  `flux-web-components-<KEY>-<profiel>-<code>/` (bv. `…-kris-O48/`) —
+  zodat profile- én model-runs niet botsen.
 
 **Waarom deze managed-clone-aanpak:** (a) Server-ready — fresh install
 heeft alleen `.env` nodig, de clone komt automatisch. (b) Volledige
@@ -345,22 +346,39 @@ De agents die in een worktree van flux-web-components draaien
 optionele `--profile <naam>` vlag. Default = geen profile → gedrag
 identiek aan vóór de feature (backwards compatible).
 
-Bij een profile-run gebeurt het volgende:
-- **Worktree-pad** krijgt het profile als suffix:
-  `state/worktrees/flux-web-components-<KEY>-<profile>/`
-  (extern: `flux-web-components-<KEY>-<profile>-external/`).
-- **Branch-naam** krijgt het profile als path-segment:
-  `feature-v2/<profile>/<KEY>-<slug>`. Het bestaande
+Het pad-segment is bij een profile-run niet het kale profiel maar een
+**label `<profiel>-<modelcode>`** (bv. `kris-O48`). De model-code komt uit
+het agent-model in `.env`: `claude-opus-4-8` → `O48`, `claude-sonnet-4-6`
+→ `S46`, `claude-haiku-4-5` → `H45` (zie `agents/shared/model.ts`,
+`modelCode`/`runPathLabel`). Voor `develop`/`review`/`ship` is dat het
+**develop-model `AGENT3_MODEL`** (review en ship aligneren op develops
+worktree, dus zij berekenen de code óók uit `AGENT3_MODEL`, niet uit hun
+eigen model); voor `review-external` is het `AGENT4_MODEL`. Een
+model-wissel in `.env` levert dus een nieuwe, niet-botsende run op naast de
+vorige. Zonder `--profile` is er geen label en geen model-code → exact het
+oude pad.
+
+Bij een profile-run gebeurt het volgende (`<label>` = `<profiel>-<code>`):
+- **Worktree-pad** krijgt het label als suffix:
+  `state/worktrees/flux-web-components-<KEY>-<label>/`
+  (extern: `flux-web-components-<KEY>-<label>-external/`).
+  Bv. `flux-web-components-FLUX-463-kris-O48/`.
+- **Branch-naam** krijgt het label als path-segment:
+  `feature-v2/<label>/<KEY>-<slug>` (bv.
+  `feature-v2/kris-O48/FLUX-463-popover-max-height-scroll`). Het bestaande
   `feature-v2/FLUX-*` pattern voor profile-loze runs verandert niet.
-- **Ticket-state** gaat in een subfolder per profile:
-  `state/tickets/<sprint>/<KEY>/<profile>/{ticket.md, code-changes.md,
-  review-r*.md, _status.json}`. `ticket.md` wordt per profile
-  gedupliceerd — bewust, zodat profile-runs mogen divergeren (eigen
-  `## Keuze` per profile).
-- **`_status.json`** krijgt een veld `profile: "<naam>"` zodat ship.ts
-  weet welk profile bij welke ronde hoort. `review.ts` weigert met een
-  duidelijke melding als `--profile` ontbreekt terwijl `_status.json`
-  er één bevat — voorkomt stille profile-mismatch.
+- **Ticket-state** gaat in een subfolder per label:
+  `state/tickets/<sprint>/<KEY>/<label>/{ticket.md, code-changes.md,
+  review-r*.md, _status.json}` (bv. `.../FLUX-463/kris-O48/`). `ticket.md`
+  wordt per label gedupliceerd — bewust, zodat runs mogen divergeren (eigen
+  `## Keuze` per profiel/model).
+- **`_status.json`** krijgt een veld `profile: "<naam>"` met het **kale**
+  profiel (bv. `kris`, niet het label) zodat ship.ts weet welk profile bij
+  welke ronde hoort. `review.ts` weigert met een duidelijke melding als
+  `--profile` ontbreekt terwijl `_status.json` er één bevat — voorkomt
+  stille profile-mismatch. De model-code zit niet in `_status.json`: review
+  en ship herberekenen het label uit `--profile` + `AGENT3_MODEL` (`.env`),
+  net zoals het profiel consistent meegegeven wordt.
 - **Profile-activatie** in de worktree gebeurt door
   `applyAiProfile(worktreePath, profile)` (in `agents/shared/repo.ts`),
   dat `./set-ai-profile.sh <profile>` in de worktree-cwd draait vóór de
@@ -459,7 +477,7 @@ flux-agents-state/                ← aparte repo (STATE_DIR)
 ├── worktrees/                    ← gitignored (per-ticket + base-branch worktrees)
 │   ├── flux-web-components-develop-v2/        ← agent 1 leest hieruit
 │   ├── flux-web-components-FLUX-<KEY>/        ← agents 3/4 werken hier (geen profile)
-│   └── flux-web-components-FLUX-<KEY>-<profile>/  ← idem mét --profile (§10)
+│   └── flux-web-components-FLUX-<KEY>-<profiel>-<code>/  ← mét --profile, code uit model (§10)
 ├── sprints/<SPRINT>/             ← gecommit (refinement-output)
 │   ├── _meta.json                ← agent 1 hashes
 │   ├── _order.md                 ← agent 2 output
@@ -471,7 +489,7 @@ flux-agents-state/                ← aparte repo (STATE_DIR)
 │   ├── code-changes.md           ← agent 3 per ronde (zonder profile)
 │   ├── review-r<N>.md            ← agent 4 per ronde (zonder profile)
 │   ├── _status.json              ← round, status, baseBranch, branch, prUrl, profile?
-│   └── <profile>/                ← mét --profile: eigen kopie per profile (§10)
+│   └── <profiel>-<code>/         ← mét --profile: eigen kopie per profiel+model (§10)
 │       ├── ticket.md
 │       ├── code-changes.md
 │       ├── review-r<N>.md

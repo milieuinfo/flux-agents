@@ -39,6 +39,10 @@ export class TicketState {
     private readonly stateDir: string,
     readonly sprint: string,
     readonly key: string,
+    // Pad-segment voor de run-subfolder. Zonder = profielloze run (oude
+    // layout). Callers geven doorgaans een samengesteld label
+    // `<profiel>-<modelcode>` (bv. `kris-O48`, zie shared/model.ts) zodat
+    // profile- én model-runs in eigen subfolders zitten.
     readonly profile?: string,
   ) {}
 
@@ -190,9 +194,11 @@ export function extractBranchSlug(ticketMd: string): string | null {
  * Migreert eerst stilletjes een eventuele legacy locatie
  * (`tickets/<KEY>/`) naar de geneste layout (`tickets/<sprint>/<KEY>/`).
  *
- * Met een `profile` zoeken we naar `tickets/<sprint>/<KEY>/<profile>/_status.json`
- * — profile-runs zitten in een subfolder zodat parallelle profile-runs niet
- * botsen. Zonder profile valt het scannen terug op het oude pad.
+ * Met een `profile`-segment zoeken we naar
+ * `tickets/<sprint>/<KEY>/<profile>/_status.json` — profile-runs zitten in
+ * een subfolder zodat parallelle runs niet botsen. Callers geven doorgaans
+ * een samengesteld label `<profiel>-<modelcode>` (zie shared/model.ts).
+ * Zonder profile valt het scannen terug op het oude pad.
  *
  * Gooit als het ticket nog niet bestaat (develop heeft nog niet gedraaid)
  * of als het in meerdere sprint-folders voorkomt.

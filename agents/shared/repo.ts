@@ -174,9 +174,12 @@ export function baseBranchWorktreePath(stateDir: string, baseBranch: string): st
  * so agents 3/4 (author/reviewer) can work in parallel without clobbering
  * each other's branches and working states.
  *
- * Met een `profile` wordt het profile als suffix in de mapnaam opgenomen,
- * zodat dezelfde ticket-actie parallel met verschillende AI-profiles kan
- * lopen zonder dat ze elkaars worktree raken.
+ * Met een `profile` wordt het profile-segment als suffix in de mapnaam
+ * opgenomen, zodat dezelfde ticket-actie parallel met verschillende
+ * AI-profiles kan lopen zonder dat ze elkaars worktree raken. Callers geven
+ * doorgaans een samengesteld label `<profiel>-<modelcode>` (bv. `kris-O48`,
+ * zie `runPathLabel` in shared/model.ts) zodat ook een model-wissel een
+ * aparte worktree krijgt.
  */
 export function ticketWorktreePath(
   stateDir: string,
@@ -193,10 +196,11 @@ export function ticketWorktreePath(
  * `ticketWorktreePath` zodat een externe review niet botst met een
  * eventuele develop/review-state voor hetzelfde ticket.
  *
- * Met een `profile` schuift het profile-segment tussen ticket-key en
- * `external` (`<KEY>-<profile>-external`), zodat de `-external` suffix
- * altijd het eindstuk blijft en bestaande paden zonder profile ongewijzigd
- * zijn.
+ * Met een `profile`-segment schuift dat tussen ticket-key en `external`
+ * (`<KEY>-<profile>-external`), zodat de `-external` suffix altijd het
+ * eindstuk blijft en bestaande paden zonder profile ongewijzigd zijn.
+ * Callers geven doorgaans een samengesteld label `<profiel>-<modelcode>`
+ * (zie `runPathLabel` in shared/model.ts).
  */
 export function externalReviewWorktreePath(
   stateDir: string,
@@ -339,11 +343,13 @@ export function slugifyTitle(title: string, maxWords = 4): string {
  * refinement markdown) and fall back to `slugifyTitle` on the title when
  * that section is absent.
  *
- * FLUX stays uppercase in the branch name. Een optioneel `profile` wordt
- * als path-segment tussen het `feature-v2`-prefix en de ticket-key gezet
- * (`feature-v2/<profile>/<KEY>-<slug>`), zodat profile-runs groeperen in
- * `git branch` en de bestaande pattern `feature-v2/FLUX-*` zonder profile
- * intact blijft.
+ * FLUX stays uppercase in the branch name. Een optioneel profile-segment
+ * wordt als path-segment tussen het `feature-v2`-prefix en de ticket-key
+ * gezet (`feature-v2/<profile>/<KEY>-<slug>`), zodat profile-runs groeperen
+ * in `git branch` en de bestaande pattern `feature-v2/FLUX-*` zonder profile
+ * intact blijft. Callers geven doorgaans een samengesteld label
+ * `<profiel>-<modelcode>` (bv. `kris-O48`, zie `runPathLabel` in
+ * shared/model.ts) → `feature-v2/kris-O48/<KEY>-<slug>`.
  */
 export function ticketBranchName(
   ticketKey: string,

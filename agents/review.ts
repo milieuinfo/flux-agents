@@ -28,6 +28,7 @@ import {
   ticketWorktreePath,
 } from './shared/repo.js';
 import { loadPrompt } from './shared/prompts.js';
+import { developModel, reviewModel, runPathLabel } from './shared/model.js';
 import { bashAgentHooks } from './shared/observability.js';
 import { streamLastAssistantText } from './shared/query.js';
 import { TicketState, locateTicketSprint } from './shared/ticket.js';
@@ -51,8 +52,13 @@ export async function runReview({ key, profile }: ReviewArgs): Promise<void> {
       (profile ? `, profile: ${profile}` : ''),
   );
 
-  const ticketSprint = await locateTicketSprint(stateDir, key, profile);
-  const ticket = new TicketState(stateDir, ticketSprint, key, profile);
+  // Label = profiel + develop-model-code. Review moet dezelfde
+  // worktree/branch/state als develop vinden, dus de code komt uit het
+  // DEVELOP-model (AGENT3_MODEL), niet uit reviews eigen AGENT4_MODEL.
+  const label = runPathLabel(profile, developModel());
+
+  const ticketSprint = await locateTicketSprint(stateDir, key, label);
+  const ticket = new TicketState(stateDir, ticketSprint, key, label);
   const status = await ticket.readStatus();
   if (!status) {
     const hint = profile
@@ -83,7 +89,7 @@ export async function runReview({ key, profile }: ReviewArgs): Promise<void> {
     );
   }
 
-  const worktree = ticketWorktreePath(stateDir, key, profile);
+  const worktree = ticketWorktreePath(stateDir, key, label);
   try {
     await access(worktree);
   } catch {
@@ -116,7 +122,7 @@ export async function runReview({ key, profile }: ReviewArgs): Promise<void> {
   const q = query({
     prompt: userPrompt,
     options: {
-      model: process.env.AGENT4_MODEL ?? 'claude-opus-4-7',
+      model: reviewModel(),
       maxTurns: Number(process.env.AGENT4_MAX_TURNS ?? 100),
       cwd: worktree,
       // Reviewer writes review-r<N>.md and _status.json in state/tickets/<KEY>/.

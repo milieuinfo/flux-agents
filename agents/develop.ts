@@ -35,6 +35,7 @@ import {
   ticketWorktreePath,
 } from './shared/repo.js';
 import { loadPrompt } from './shared/prompts.js';
+import { developModel, runPathLabel } from './shared/model.js';
 import { bashAgentHooks } from './shared/observability.js';
 import { streamLastAssistantText } from './shared/query.js';
 import {
@@ -80,8 +81,14 @@ export async function runDevelop({ key, sprint, profile }: DevelopArgs): Promise
   const refinement = await locateRefinement(stateDir, key, sprint);
   log.info(`Refinement: ${refinement.path} (sprint ${refinement.sprint})`);
 
+  // Pad-label = profiel + model-code (bv. `kris-O48`). Het ruwe `profile`
+  // blijft voor profile-activatie, _status.json en hints; het label bepaalt
+  // worktree-pad, branch-naam en ticket-state-pad zodat een model-wissel
+  // niet botst met een eerdere run.
+  const label = runPathLabel(profile, developModel());
+
   await migrateLegacyTicketDir(stateDir, key);
-  const ticket = new TicketState(stateDir, refinement.sprint, key, profile);
+  const ticket = new TicketState(stateDir, refinement.sprint, key, label);
   await ticket.ensureDir();
   await seedTicketMd(ticket, refinement.path);
 
@@ -90,7 +97,7 @@ export async function runDevelop({ key, sprint, profile }: DevelopArgs): Promise
   // Prefer the agent-1-chosen slug from "## Branch slug"; fall back to
   // mechanical slugification when that section is missing (older refinements).
   const slug = extractBranchSlug(ticketMd) ?? slugifyTitle(title);
-  const branch = ticketBranchName(key, slug, profile);
+  const branch = ticketBranchName(key, slug, label);
 
   // Derive round + mode from prior status.
   const prev = await ticket.readStatus();
@@ -121,7 +128,7 @@ export async function runDevelop({ key, sprint, profile }: DevelopArgs): Promise
     );
   }
 
-  const worktree = ticketWorktreePath(stateDir, key, profile);
+  const worktree = ticketWorktreePath(stateDir, key, label);
   const created = await ensureTicketWorktree({
     mainRepoDir,
     worktreePath: worktree,
@@ -157,7 +164,7 @@ export async function runDevelop({ key, sprint, profile }: DevelopArgs): Promise
   const q = query({
     prompt: userPrompt,
     options: {
-      model: process.env.AGENT3_MODEL ?? 'claude-sonnet-4-6',
+      model: developModel(),
       maxTurns: Number(process.env.AGENT3_MAX_TURNS ?? 100),
       cwd: worktree,
       // Agent writes code-changes.md in state/tickets/<KEY>/, outside cwd.
