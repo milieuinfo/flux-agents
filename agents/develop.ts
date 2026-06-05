@@ -34,7 +34,7 @@ import {
   ticketBranchName,
   ticketWorktreePath,
 } from './shared/repo.js';
-import { loadPrompt } from './shared/prompts.js';
+import { loadPrompt, commitConventions } from './shared/prompts.js';
 import { developModel, runPathLabel } from './shared/model.js';
 import { bashAgentHooks } from './shared/observability.js';
 import { streamLastAssistantText } from './shared/query.js';
@@ -155,7 +155,7 @@ export async function runDevelop({ key, sprint, profile }: DevelopArgs): Promise
     profile,
   });
 
-  const systemPrompt = await loadPrompt('develop');
+  const systemPrompt = (await loadPrompt('develop')) + commitConventions(developModel());
   const userPrompt = buildPrompt(key, round, mode, ticket);
 
   const identity = applyGitIdentityFromEnv();

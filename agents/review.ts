@@ -29,7 +29,7 @@ import {
   applyGitIdentityFromEnv,
   ticketWorktreePath,
 } from './shared/repo.js';
-import { loadPrompt } from './shared/prompts.js';
+import { loadPrompt, commitConventions } from './shared/prompts.js';
 import { developModel, reviewModel, runPathLabel } from './shared/model.js';
 import { bashAgentHooks } from './shared/observability.js';
 import { streamLastAssistantText } from './shared/query.js';
@@ -110,7 +110,7 @@ export async function runReview({ key, profile }: ReviewArgs): Promise<void> {
     await applyAiProfile(worktree, profile);
   }
 
-  const systemPrompt = await loadPrompt('review');
+  const systemPrompt = (await loadPrompt('review')) + commitConventions(reviewModel());
   const jiraUrl = (process.env.JIRA_URL ?? '').replace(/\/$/, '');
   const jiraTicketUrl = jiraUrl ? `${jiraUrl}/browse/${key}` : '';
   const userPrompt = buildPrompt(

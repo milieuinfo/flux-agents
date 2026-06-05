@@ -39,7 +39,7 @@ import {
   ticketBranchName,
   ticketWorktreePath,
 } from './shared/repo.js';
-import { loadPrompt } from './shared/prompts.js';
+import { loadPrompt, commitConventions } from './shared/prompts.js';
 import { convergeModel, developModel, runPathLabel } from './shared/model.js';
 import { bashAgentHooks } from './shared/observability.js';
 import { streamLastAssistantText } from './shared/query.js';
@@ -205,7 +205,7 @@ async function main() {
     // Bewust GEEN profile: de gecombineerde run is profielloos.
   });
 
-  const systemPrompt = await loadPrompt('converge');
+  const systemPrompt = (await loadPrompt('converge')) + commitConventions(convergeModel());
   const jiraUrl = (process.env.JIRA_URL ?? '').replace(/\/$/, '');
   const jiraTicketUrl = jiraUrl ? `${jiraUrl}/browse/${key}` : '';
   const userPrompt = buildPrompt({

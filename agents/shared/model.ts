@@ -27,6 +27,27 @@ export function modelCode(model: string): string {
   return sanitized.slice(0, 8) || 'MODEL';
 }
 
+/**
+ * Mensvriendelijke naam voor een Claude-model, bedoeld voor de
+ * `Co-Authored-By`-trailer in commits:
+ *   claude-opus-4-8            → "Claude Opus 4.8"
+ *   claude-sonnet-4-6          → "Claude Sonnet 4.6"
+ *   claude-haiku-4-5-20251001  → "Claude Haiku 4.5"  (datum-suffix genegeerd)
+ *
+ * Het model kan zichzelf niet betrouwbaar identificeren — zijn zelfkennis
+ * loopt achter op de actieve model-id (een opus-4-8-run noemt zichzelf
+ * "Opus 4.7"). Daarom leiden we de naam af uit de model-id en geven we die
+ * expliciet mee in de prompt. Onbekende string → "Claude" (geen versie).
+ */
+export function modelLabel(model: string): string {
+  const m = model.match(/(opus|sonnet|haiku)-(\d+)-(\d+)/i);
+  if (m) {
+    const tier = m[1][0].toUpperCase() + m[1].slice(1).toLowerCase();
+    return `Claude ${tier} ${m[2]}.${m[3]}`;
+  }
+  return 'Claude';
+}
+
 /** AGENT3_MODEL met dezelfde default als develop.ts gebruikt. */
 export function developModel(): string {
   return process.env.AGENT3_MODEL ?? 'claude-sonnet-4-6';
