@@ -219,6 +219,55 @@ export function bashTimeoutHook(
 }
 
 /**
+ * Detecteert een trailing `&` die het commando in de achtergrond zet —
+ * maar niet `&&` (logische AND). Match: een enkele `&` op het eind van het
+ * commando, optioneel gevolgd door whitespace.
+ */
+function endsWithBackgroundAmpersand(cmd: string): boolean {
+  return /(^|[^&])&\s*$/.test(cmd.trim());
+}
+
+/**
+ * PreToolUse-hook die élke achtergrond-Bash weigert: zowel de SDK-vlag
+ * `run_in_background: true` als een handmatige trailing `&`. De agent moet
+ * test-/lint-commando's synchroon op de voorgrond draaien en op de exit-code
+ * wachten.
+ *
+ * Reden: een achtergrondtaak (typisch een trage Cypress-run) overleeft het
+ * einde van de agent-turn. De SDK-subprocess sluit dan niet af zolang die
+ * child leeft, waardoor het hele develop/review-script eeuwig blijft hangen —
+ * mét een verweesde Cypress-run én niets gecommit. De prompt verbiedt dit al
+ * (`develop.md`), maar het model negeert die instructie soms; deze hook dwingt
+ * het deterministisch af.
+ */
+export function noBackgroundBashHook(): HookCallback {
+  return async (input): Promise<HookJSONOutput> => {
+    if (input.hook_event_name !== 'PreToolUse') return { continue: true };
+    const pretool = input as PreToolUseHookInput;
+    if (pretool.tool_name !== 'Bash') return { continue: true };
+
+    const ti = (pretool.tool_input ?? {}) as Record<string, unknown>;
+    const cmd = typeof ti.command === 'string' ? ti.command : '';
+    const wantsBackground = ti.run_in_background === true || endsWithBackgroundAmpersand(cmd);
+    if (!wantsBackground) return { continue: true };
+
+    return {
+      continue: true,
+      hookSpecificOutput: {
+        hookEventName: 'PreToolUse',
+        permissionDecision: 'deny',
+        permissionDecisionReason:
+          'Achtergrond-uitvoering is niet toegestaan. Draai dit commando ' +
+          'synchroon op de voorgrond (geen run_in_background, geen trailing ' +
+          '`&`) en wacht op de exit-code. Een achtergrondtaak overleeft het ' +
+          'einde van je turn en laat het script hangen met een verweesde run. ' +
+          'Geef trage commando’s (zoals Cypress) gerust een ruime timeout.',
+      },
+    };
+  };
+}
+
+/**
  * Standaard hook-configuratie voor agents die Bash mogen uitvoeren
  * (develop, review, review-external). Plug-and-play in de query-options.
  */
@@ -226,6 +275,8 @@ export function bashAgentHooks(): {
   PreToolUse: HookCallbackMatcher[];
 } {
   return {
-    PreToolUse: [{ matcher: 'Bash', hooks: [bashTimeoutHook()] }],
+    PreToolUse: [
+      { matcher: 'Bash', hooks: [bashTimeoutHook(), noBackgroundBashHook()] },
+    ],
   };
 }
