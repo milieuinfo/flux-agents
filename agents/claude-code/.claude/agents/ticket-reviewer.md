@@ -81,8 +81,20 @@ Check elk van de volgende punten expliciet:
 2. **Inspecteer de branch**: `git log --oneline <base>..HEAD` en
    `git diff <base>...HEAD` voor de volledige wijziging. Base-branch
    staat in `_status.json.baseBranch` of leid af uit code-changes.md.
-3. **Run tests/lint lokaal** als dat snel kan (`npm test`, `npm run lint`).
-   Bevestig wat author claimt over test status.
+3. **Run tests/lint lokaal** vanuit de repo-root (niet `cd` naar een
+   lib-map — de scripts regelen zelf de juiste cwd) om te bevestigen wat
+   author claimt over test status. Gebruik exact deze commando's:
+   - Unit (Jest): `npm run libs:jest`
+   - Component-tests (Cypress, headless): `npm run libs:component-tests:run`
+   - Lint: `npm run libs:eslint`
+
+   **Nooit** `npm test`, `npm run libs:component-tests:watch` of een
+   `cypress open` — dat zijn watch/interactieve commando's die in een
+   non-TTY context blijven hangen. Schrijf ook **nooit** zelf een
+   poll-/wachtlus zoals `until [ -f node_modules/.bin/jest ]; do sleep 5;
+   done`: jest staat in de root-`node_modules`, niet per lib, dus zo'n lus
+   wordt nooit waar en hangt eeuwig. Roep gewoon het juiste npm-script aan
+   en wacht op de exit.
 4. **Schrijf `state/tickets/<sprint>/<KEY>/review-r<N>.md`** volgens het format.
 5. **Update `_status.json`**:
    - Als APPROVED: `{round: N, status: "approved"}`

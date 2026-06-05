@@ -85,9 +85,23 @@ houd het bij één à twee zinnen per item.
 4. **Implementeer de wijzigingen** volgens het gekozen voorstel (zie
    stap 1). Wijk daar niet van af zonder concrete reden — en documenteer
    een afwijking altijd in code-changes.md.
-5. **Run tests en linter** lokaal. Los problemen op. Als een test faalt
-   die niets met jouw wijziging te maken heeft: noteer dat in
-   code-changes.md onder "Bestaande problemen".
+5. **Run tests en linter** lokaal vanuit de repo-root (niet `cd` naar een
+   lib-map — de scripts regelen zelf de juiste cwd). Gebruik exact deze
+   commando's:
+   - Unit (Jest): `npm run libs:jest`
+   - Component-tests (Cypress, headless): `npm run libs:component-tests:run`
+   - Lint: `npm run libs:eslint`
+
+   **Nooit** `npm test`, `npm run libs:component-tests:watch` of een
+   `cypress open` — dat zijn watch/interactieve commando's die in een
+   non-TTY context blijven hangen. Schrijf ook **nooit** zelf een
+   poll-/wachtlus zoals `until [ -f node_modules/.bin/jest ]; do sleep 5;
+   done`: jest staat in de root-`node_modules`, niet per lib, dus zo'n lus
+   wordt nooit waar en hangt eeuwig. Roep gewoon het juiste npm-script aan
+   en wacht op de exit.
+
+   Los problemen op. Als een test faalt die niets met jouw wijziging te
+   maken heeft: noteer dat in code-changes.md onder "Bestaande problemen".
 6. **Commit** met dezelfde first-line-conventie die de reviewer uiteindelijk
    hergebruikt voor de squash-commit:
    `<type>: <KEY> - <vl-component> - <korte omschrijving>`
