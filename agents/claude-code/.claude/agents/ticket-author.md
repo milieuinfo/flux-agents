@@ -95,12 +95,26 @@ houd het bij één à twee zinnen per item.
 4. **Implementeer de wijzigingen** volgens het gekozen voorstel (zie
    stap 1). Wijk daar niet van af zonder concrete reden — en documenteer
    een afwijking altijd in code-changes.md.
-5. **Run tests en linter** lokaal vanuit de repo-root (niet `cd` naar een
-   lib-map — de scripts regelen zelf de juiste cwd). Gebruik exact deze
-   commando's:
-   - Unit (Jest): `npm run libs:jest`
-   - Component-tests (Cypress, headless): `npm run libs:component-tests:run`
-   - Lint: `npm run libs:eslint`
+5. **Run tests en linter lokaal — alléén voor de code die je aanraakte.**
+   De volledige suite (Cypress = ~167 specs over de hele library) draait in
+   CI/CD. Lokaal beperk je je tot de component(en)/lib die je wijzigde, zodat
+   de run kort blijft.
+   - **Component-tests (Cypress, headless)** — scope op de spec(s) van de
+     geraakte component met `--spec`. De spec-paden zijn relatief t.o.v.
+     `resources/cypress-component` (daar cd't het script naartoe), dus begin
+     met `../../libs/`:
+     `npm run libs:component-tests:run -- --spec "../../libs/components/src/block/search-filter/**/*.cy.{ts,tsx}"`
+     Meerdere componenten? Geef meerdere globs komma-gescheiden aan één
+     `--spec`. Draai de **volle** suite (zonder `--spec`) alléén bij een
+     cross-cutting wijziging (gedeelde basis-component, global styles,
+     build-config) waar je niet kan voorspellen welke specs je raakt.
+   - **Unit (Jest)** — scope op de gewijzigde lib + pad. De `npm run libs:jest`
+     wrapper draait àlle libs zonder filter; om te scopen draai je jest
+     rechtstreeks in de geraakte lib (de enige toegestane uitzondering op
+     "niet `cd` naar een lib-map"), bv.
+     `cd ./libs/components && npx jest src/block/search-filter`. Geen
+     unit-tests in de geraakte lib? Sla Jest over en noteer dat.
+   - **Lint:** `npm run libs:eslint`
 
    **Nooit** `npm test`, `npm run libs:component-tests:watch` of een
    `cypress open` — dat zijn watch/interactieve commando's die in een

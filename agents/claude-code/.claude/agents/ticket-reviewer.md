@@ -81,12 +81,25 @@ Check elk van de volgende punten expliciet:
 2. **Inspecteer de branch**: `git log --oneline <base>..HEAD` en
    `git diff <base>...HEAD` voor de volledige wijziging. Base-branch
    staat in `_status.json.baseBranch` of leid af uit code-changes.md.
-3. **Run tests/lint lokaal** vanuit de repo-root (niet `cd` naar een
-   lib-map — de scripts regelen zelf de juiste cwd) om te bevestigen wat
-   author claimt over test status. Gebruik exact deze commando's:
-   - Unit (Jest): `npm run libs:jest`
-   - Component-tests (Cypress, headless): `npm run libs:component-tests:run`
-   - Lint: `npm run libs:eslint`
+3. **Run tests/lint lokaal — alléén voor de code die de branch aanraakte**
+   (leid de geraakte component(en)/lib af uit `git diff <base>...HEAD`) om te
+   bevestigen wat author claimt over test status. De volledige suite draait in
+   CI/CD; lokaal blijf je beperkt tot de wijziging zodat de run kort blijft.
+   - **Component-tests (Cypress, headless)** — scope op de spec(s) van de
+     geraakte component met `--spec`. De spec-paden zijn relatief t.o.v.
+     `resources/cypress-component` (daar cd't het script naartoe), dus begin
+     met `../../libs/`:
+     `npm run libs:component-tests:run -- --spec "../../libs/components/src/block/search-filter/**/*.cy.{ts,tsx}"`
+     Meerdere componenten? Geef meerdere globs komma-gescheiden aan één
+     `--spec`. Draai de **volle** suite (zonder `--spec`) alléén bij een
+     cross-cutting wijziging (gedeelde basis-component, global styles,
+     build-config).
+   - **Unit (Jest)** — scope op de gewijzigde lib + pad. De `npm run libs:jest`
+     wrapper draait àlle libs zonder filter; om te scopen draai je jest
+     rechtstreeks in de geraakte lib (de enige toegestane uitzondering op
+     "niet `cd` naar een lib-map"), bv.
+     `cd ./libs/components && npx jest src/block/search-filter`.
+   - **Lint:** `npm run libs:eslint`
 
    **Nooit** `npm test`, `npm run libs:component-tests:watch` of een
    `cypress open` — dat zijn watch/interactieve commando's die in een
