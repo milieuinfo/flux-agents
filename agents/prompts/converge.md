@@ -78,20 +78,68 @@ Lever één gecombineerde implementatie die:
 
 Als de gecombineerde implementatie klaar en geverifieerd is:
 
-1. **Eén nette commit.** Stage alles en maak precies één conventional commit
-   met de ticket-key in scope of suffix, bv.
-   `feat(vl-popover): max-height bij scroll (FLUX-620)`. Geen meerdere commits,
-   geen merge-commit. Deze commit-subject wordt de PR-titel — maak hem
-   accuraat en beknopt.
-2. **Schrijf de PR-body** naar het `_pr-body.md`-pad dat in je opdracht staat
-   (absoluut pad, buiten je cwd). De body moet **de gecombineerde branch**
-   beschrijven — wat er feitelijk in zit — niet "een mix van twee runs". Korte,
-   feitelijke samenvatting van de wijziging, hoe het de probleemstelling
-   oplost, en de Jira-ticket-URL die in je opdracht staat. Vermeld kort welke
-   verificatie je deed (en wat je niet kon draaien).
+1. **Eén nette commit.** Stage alles en maak precies één conventional commit.
+   Geen meerdere commits, geen merge-commit. Deze commit-subject wordt de
+   PR-titel.
+
+   **First line (strikt):** `<type>: <KEY> - <vl-component> - <korte omschrijving>`
+   - `<type>` is `feat` of `fix` (bij een bugfix: `fix`).
+   - `<KEY>` is de ticket-key (bv. `FLUX-620`).
+   - `<vl-component>` is de component-naam (bv. `vl-popover`). Als het ticket
+     niet over één specifieke component gaat (build, docs, cross-cutting
+     refactor): laat dit segment én de tweede dash weg →
+     `feat: FLUX-620 - korte omschrijving`.
+   - `<korte omschrijving>` is functioneel geformuleerd, niet technisch
+     (bv. "max-height bij scroll"), max ~60 tekens.
+
+   **Body:** kort en functioneel — wat verandert er voor de gebruiker of
+   consumer van de component, niet hoe of waarom. Een tot drie korte zinnen
+   of bullets is genoeg. Geen lange opsomming van implementatiekeuzes, geen
+   "why we did this"-paragrafen, geen bestand-voor-bestand changelog, en geen
+   "mix van twee runs"-uitleg. De body mag **niet leeg** zijn — vat de
+   functionele wijziging in minstens één zin samen.
+
+2. **Schrijf de PR-body** volgens onderstaand vast format naar het
+   `_pr-body.md`-pad dat in je opdracht staat (absoluut pad, buiten je cwd) —
+   zelfde secties, zelfde volgorde, geen extra secties of preambule. De body
+   beschrijft **de gecombineerde branch** — wat er feitelijk in zit — niet "een
+   mix van twee runs".
+
 3. **Push niet en maak geen PR aan.** Dat doet de orchestrator
    deterministisch nadat jij klaar bent. Jij stopt bij de lokale commit +
    `_pr-body.md`.
+
+## Format: PR-body (strikt)
+
+Dit is de inhoud van `_pr-body.md`:
+
+```
+## Jira
+{Letterlijke ticket-URL die in je opdracht is meegegeven. Niet zelf
+samenstellen, niet aanvullen met andere domeinen.}
+
+## Samenvatting
+{1-3 zinnen, functioneel: wat verandert er voor de gebruiker of consumer
+van de component. Geen implementatiedetails.}
+
+## Wijzigingen
+{Bullets per relevante wijziging, op functioneel niveau (niet
+bestand-voor-bestand). Een component-tweak, een nieuwe API, een
+gefixte bug — elk één bullet. 2-6 bullets is normaal.}
+
+## Backwards compatibility
+{Eén regel — kies één:
+- "Volledig backwards-compatible — geen breaking changes."
+- "Breaking change: <wat breekt> — <migratie-pad voor consumers>."
+- "Additieve wijziging met deprecated path: <wat is deprecated, wat is
+  het nieuwe alternatief, wanneer wordt deprecated verwijderd>."}
+
+## Succescriteria
+{Checklist per succescriterium uit het refinement-rapport. Format:
+- [x] {criterium} — {hoe geadresseerd, in 1 korte zin}
+- [ ] {criterium} — {waarom NIET aangepakt, of expliciet uit scope}
+Volgorde: zelfde als in `## Doel & succescriteria` van het rapport.}
+```
 
 Sluit af met een korte samenvatting (NL): welke aanpak je per onderdeel uit
 welke bron nam en waarom, en de verificatie-uitkomst.
