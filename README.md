@@ -1,29 +1,31 @@
 # flux-agents
 
 Lokale agent pipeline voor de flux-web-components ticket workflow. Vier
-agents, expliciet te starten. Niks draait automatisch op de achtergrond,
-niks wordt gepusht zonder review, en de finale merge doe je altijd zelf.
+agents (refine, plan, develop, review) plus een handvol deterministische
+scripts en orchestrators. Alles wordt expliciet gestart — niks draait
+automatisch op de achtergrond, niks wordt gepusht zonder dat jij dat
+triggert, en de finale merge doe je altijd zelf.
 
 ## Architectuur
 
 ```
 Jira sprint
     │
-    ▼
+    ▼  npm run refine -- <sprint>
 ┌─────────────┐   agent 1: SDK (Node) — leest Jira via MCP
-│ refine      │   per ticket een refinement-markdown
-│ (Opus)      │   idempotent; update-geschiedenis bij herstart
-└─────────────┘
+│ refine      │   per ticket FLUX-*.md (Opus, uitgebreid)
+│ (Opus+Son.) │   + FLUX-*.jira.md (Sonnet, beknopt voor Jira)
+└─────────────┘   idempotent; update-geschiedenis bij herstart
     │ state/sprints/<sprint>/FLUX-*.md
-    ▼
+    ▼  npm run plan -- <sprint>
 ┌─────────────┐   agent 2: SDK (Node) — leest markdowns
-│ plan        │   produceert _order.md met volgorde,
-│ (Opus)      │   dependency graph, inschattingen
+│ plan        │   produceert _order.md met volgorde +
+│ (Opus)      │   dependency graph
 └─────────────┘
     │ state/sprints/<sprint>/_order.md
-    ▼
+    ▼  npm run publish -- <sprint>   (optioneel, naar Jira)
     ┆  (jij kiest welk ticket je wil aanpakken)
-    ▼
+    ▼  npm run develop -- FLUX-123
 ┌─────────────┐   agent 3: SDK (Node) — Sonnet
 │ develop     │◀──┐ per-ticket git worktree, implementeert,
 │             │   │ lokale commits, géén push, géén PR
@@ -31,28 +33,39 @@ Jira sprint
     │             │ ronde 2+ (automatische address-modus
     ▼             │  op basis van _status.json)
 ┌─────────────┐   │   agent 4: SDK (Node) — Opus
-│ review      │───┘   review op dezelfde worktree
-│             │       bij APPROVED: squash + push + gh pr create
+│ review      │───┘   review op dezelfde worktree. Bij APPROVED:
+│ (Opus)      │       lokale squash + _pr-body.md. GÉÉN push, GÉÉN PR.
 └─────────────┘
     │
-    ▼  GitHub PR aangemaakt
+    ▼  npm run push -- FLUX-123      (git push -u origin <branch>)
+    ▼  npm run pr   -- FLUX-123      (gh pr create --draft)
     │
-    ┆  (jij reviewt de PR zelf en merget)
+    ▼  draft-PR op GitHub
+    ┆  (jij zet de PR ready en merget zelf)
 ```
+
+`ship` en `iterate` draaien de `develop → review` lus in één commando;
+`converge` combineert twee profielruns van hetzelfde ticket. Zie
+[Orchestrators](#orchestrators-ship--iterate--converge).
 
 ### Iteratie-logica agent 3 ↔ 4
 
-- Agent 3 schrijft `code-changes.md` en commit lokaal
+- Agent 3 schrijft `code-changes.md` en commit lokaal (één commit per ronde).
 - Agent 4 reviewt en schrijft `review-r<N>.md`. Status in `_status.json`.
 - Bij `CHANGES_REQUESTED`: jij triggert opnieuw `npm run develop`,
   agent 3 detecteert via `_status.json` dat het ronde N+1 is, leest
-  de vorige review, en maakt een nieuwe commit die de feedback adresseert
+  de vorige review, en maakt een nieuwe commit die de feedback adresseert.
 - Bij `APPROVED`: agent 4 squasht alle ronde-commits tot één conventional
-  commit, pusht, opent PR via `gh pr create`
-- Bij ronde 3 zonder approval: status wordt `ESCALATED`, geen PR, jij
-  moet zelf ingrijpen
+  commit **lokaal** en schrijft de PR-body naar `_pr-body.md`. Hij pusht
+  niet en maakt geen PR — dat doe je met `npm run push` + `npm run pr`.
+- Bij ronde 3 zonder approval: status wordt `ESCALATED`, geen squash, jij
+  moet zelf ingrijpen.
 
 ## State layout
+
+De work-product (refinements, plannen, code-changes, reviews) woont in een
+aparte `flux-agents-state` repo (zie [Setup](#2-state-repo-flux-agents-state-opzetten)).
+`STATE_DIR` wijst daarheen; default `../flux-agents-state`.
 
 ```
 state/
@@ -60,26 +73,34 @@ state/
 │   └── SPRINT-42/
 │       ├── _meta.json              ← agent 1: hashes/timestamps
 │       ├── _order.md               ← agent 2
-│       ├── FLUX-123.md             ← agent 1
-│       └── FLUX-124.md
-└── tickets/
-    └── SPRINT-42/
-        └── FLUX-123/
-            ├── ticket.md           ← kopie van refinement-rapport
-            ├── code-changes.md     ← agent 3 (groeit per ronde)
-            ├── review-r1.md        ← agent 4 ronde 1
-            ├── review-r2.md        ← agent 4 ronde 2 (indien)
-            ├── _status.json        ← round, status, baseBranch, profile?
-            └── <profile>/          ← mét --profile: eigen kopie per profile
-                ├── ticket.md
-                ├── code-changes.md
-                ├── review-r*.md
-                └── _status.json
+│       ├── _published.json         ← publish.ts: hashes per ticket + umbrella
+│       ├── FLUX-123.md             ← agent 1 (uitgebreid, Opus)
+│       └── FLUX-123.jira.md        ← agent 1 (beknopt, Sonnet — voor Jira)
+├── tickets/
+│   └── SPRINT-42/
+│       └── FLUX-123/
+│           ├── ticket.md           ← kopie van refinement-rapport
+│           ├── code-changes.md     ← agent 3 (groeit per ronde)
+│           ├── review-r1.md        ← agent 4 ronde 1
+│           ├── _pr-body.md         ← agent 4 bij APPROVED (body voor npm run pr)
+│           ├── _status.json        ← round, status, baseBranch, branch, prUrl?, profile?
+│           └── <profiel>-<code>/   ← mét --profile: eigen kopie per profiel+model
+│               ├── ticket.md
+│               ├── code-changes.md
+│               ├── review-r*.md
+│               ├── _pr-body.md
+│               └── _status.json
+└── reviews/
+    └── FLUX-595/                   ← externe code-reviews (review-external)
+        ├── review-<timestamp>.md
+        └── _published.json
 ```
 
-Zonder `--profile` blijft de layout op `<KEY>/`-niveau zoals altijd.
-Met `--profile <naam>` gaan alle per-ronde bestanden in een subfolder
-`<KEY>/<naam>/` — zie [AI-profiles](#ai-profiles-optioneel).
+Zonder `--profile` blijft de layout op `<KEY>/`-niveau. Met `--profile kris`
+gaan alle per-ronde bestanden in een subfolder `<KEY>/<profiel>-<code>/`,
+waarbij `<code>` de model-code is (`O48`/`S46`/`H45`) — zie
+[AI-profiles](#ai-profiles-optioneel). De gecombineerde output van
+`converge` is profielloos en gebruikt dus het kale `<KEY>/`-niveau.
 
 ## Setup
 
@@ -121,6 +142,10 @@ Vul minstens in:
 - `FLUX_BASE_BRANCH` (default `develop-v2`)
 - `STATE_DIR` — default `../flux-agents-state` als je de conventie volgt
 
+Voor `npm run publish` (publicatie naar Jira) zijn er extra env vars
+(`JIRA_SPRINT_FIELD`, `JIRA_STORYPOINTS_FIELD`, `JIRA_REALIZATION_LINK_TYPE`,
+`JIRA_UMBRELLA_EPIC`, …) — zie `.env.example` en §9 in `CLAUDE.md`.
+
 Bij de eerste run klont de pipeline flux-web-components automatisch
 onder `$STATE_DIR/repo/flux-web-components/` (gitignored in de
 state-repo). Volledig los van je eigen werkcopie — de agents raken die
@@ -144,7 +169,7 @@ credits, niet je MAX plan.
 
 ### 6. `gh` CLI geauthenticeerd
 
-Agent 4 gebruikt `gh pr create`. Check `gh auth status`.
+`npm run pr` (en `converge`) gebruiken `gh pr create`. Check `gh auth status`.
 
 ### 7. (optioneel) Claude Code commands linken naar flux-web-components
 
@@ -164,11 +189,14 @@ npm run link-commands -- /path/to/flux-web-components
 npm run refine -- SPRINT-42
 # of met JQL
 npm run refine -- --jql "sprint = openSprints() AND project = FLUX"
-# of met een expliciete lijst van tickets (label is de folder-naam onder state/sprints/)
+# of met een expliciete lijst van tickets (eerste positional = folder-naam onder state/sprints/)
 npm run refine -- hotfixes-april --tickets FLUX-123,FLUX-124,FLUX-125
+# droogtest (verifieert MCP-auth, schrijft niets blijvends)
+npm run refine:dry -- SPRINT-42
 ```
 
-Output: `state/sprints/SPRINT-42/FLUX-*.md` (één per ticket).
+Output per ticket: `FLUX-*.md` (uitgebreid, Opus) **en** `FLUX-*.jira.md`
+(beknopte Sonnet-versie voor de Jira-comment).
 
 Herstart is idempotent: ongewijzigde tickets worden overgeslagen.
 Bij wijziging: vorige analyse blijft bewaard, nieuwe `## Update
@@ -183,9 +211,24 @@ npm run plan -- SPRINT-42
 Output: `state/sprints/SPRINT-42/_order.md` met volgorde,
 dependency graph en aanbevelingen.
 
-### Stap 3: kies een ticket en start ontwikkeling
+### Stap 3 (optioneel): publiceer de analyse naar Jira
 
-Blijf gewoon in `flux-agents`:
+```bash
+npm run publish -- SPRINT-42
+# alleen per-ticket comments, geen umbrella-ticket
+npm run publish:ticket -- SPRINT-42
+# droogtest — schrijft _preview_*.md lokaal i.p.v. naar Jira
+npm run publish:dry -- SPRINT-42
+# selectie / deelpublicatie
+npm run publish -- SPRINT-42 --tickets FLUX-123,FLUX-124 --skip-overview
+```
+
+Schrijft per ticket een comment (`## Sprint-analyse - AI`, bij voorkeur de
+`.jira.md`-versie) en een umbrella-ticket met `_order.md` als description.
+Idempotent via `_published.json` — een tweede run zonder content-wijziging
+is een no-op. Wijzigt **nooit** een Jira workflow-status.
+
+### Stap 4: kies een ticket en start ontwikkeling
 
 ```bash
 npm run develop -- FLUX-123 SPRINT-42
@@ -195,63 +238,118 @@ npm run develop -- FLUX-123
 
 Wat dit doet:
 - Kopieert het refinement-rapport naar `state/tickets/<sprint>/FLUX-123/ticket.md`
-  (als dat er nog niet staat — eventuele `## Keuze` annotaties blijven
-  bewaard).
+  (als dat er nog niet staat — eventuele `## Keuze` annotaties blijven bewaard).
 - Maakt een per-ticket git worktree aan onder
   `state/worktrees/flux-web-components-FLUX-123/` vanaf
   `origin/<FLUX_BASE_BRANCH>` (default `develop-v2`).
-- Maakt een feature-branch `feature-v2/flux-123-<slug>`.
-- Roept de `ticket-author` subagent aan (Sonnet) om te implementeren.
-- Schrijft `state/tickets/<sprint>/FLUX-123/code-changes.md`.
+- Maakt een feature-branch `feature-v2/FLUX-123-<slug>`.
+- Implementeert via de develop-agent (Sonnet) en schrijft
+  `state/tickets/<sprint>/FLUX-123/code-changes.md`.
 - Géén push, géén PR.
 
-### Stap 4: review
+### Stap 5: review
 
 ```bash
 npm run review -- FLUX-123
 ```
 
-Roept `ticket-reviewer` aan (Opus) op dezelfde worktree. Drie uitkomsten:
+Reviewt (Opus) op dezelfde worktree. Drie uitkomsten:
 
-- **APPROVED** — commits worden gesquasht tegen `origin/develop-v2`,
-  feature-branch gepusht, PR geopend via `gh pr create --base develop-v2`.
+- **APPROVED** — commits worden lokaal gesquasht tegen `origin/<baseBranch>`
+  tot één conventional commit, en de PR-body wordt naar `_pr-body.md`
+  geschreven. Er wordt **niet** gepusht en **geen** PR gemaakt.
 - **CHANGES_REQUESTED** — lees `state/tickets/<sprint>/FLUX-123/review-r<N>.md`,
   dan opnieuw `npm run develop -- FLUX-123`. Dat detecteert automatisch
   dat het ronde N+1 is en schakelt naar address-modus.
-- **ESCALATED** — max 3 rondes bereikt; geen PR, jij beslist manueel.
+- **ESCALATED** — max 3 rondes bereikt; geen squash, jij beslist manueel.
 
-### Alternatief: ship (één commando, hele lus)
+### Stap 6: push + PR
 
-Als je het ticket gewoon wil laten afhandelen zonder tussenin mee te
-kijken:
+Na APPROVED breng je de branch zelf naar GitHub (twee deterministische
+scripts, geen LLM):
+
+```bash
+npm run push -- FLUX-123        # git push -u origin <branch>
+npm run pr   -- FLUX-123        # gh pr create --draft
+```
+
+`push` is idempotent (already-up-to-date = no-op). `pr` gebruikt de
+squash-commit-subject als titel en `_pr-body.md` als body, bewaart de
+PR-URL in `_status.json`, en maakt geen tweede PR als er al een bestaat.
+
+### Stap 7: merge
+
+Zodra de draft-PR er staat: **jij zet hem ready, reviewt op GitHub en
+merget zelf**. Geen automatisering in deze stap.
+
+## Orchestrators: ship / iterate / converge
+
+### ship — hele lus + push, in één commando
 
 ```bash
 npm run ship -- FLUX-123 backlog-20260422
 ```
 
-Dit draait de `develop → review` lus automatisch, tot maximaal 3 rondes.
-Bij APPROVED: lokale squash + automatisch `git push` naar origin (de PR
-maak je zelf met `npm run pr`). Stopt verder bij ESCALATED (mens nodig),
-of na ronde 3 als er nog wijzigingen gevraagd worden. Handmatig `develop`
-+ `review` na elkaar draaien blijft werken en is aangewezen wanneer je per
-stap wil verifiëren.
+Draait de `develop → review` lus automatisch, tot maximaal 3 rondes. Bij
+APPROVED: lokale squash + automatisch `git push` naar origin (de PR maak je
+zelf met `npm run pr`). Stopt bij ESCALATED of na ronde 3.
 
-### Alternatief: iterate (zelfde lus, puur lokaal)
-
-Identiek aan `ship`, maar **zonder push of PR** — het resultaat blijft
-volledig lokaal:
+### iterate — zelfde lus, puur lokaal
 
 ```bash
 npm run iterate -- FLUX-123 backlog-20260422
 ```
 
-Bij APPROVED stopt iterate met de lokale squash + `_pr-body.md`; er wordt
-**niets gepusht**. Push en PR doe je daarna bewust zelf met `npm run push`
-en `npm run pr`. Handig wanneer je de gesquashte branch en de PR-body eerst
-lokaal wil nakijken voor er iets op origin belandt. ESCALATED en de
-ronde-3-stop gedragen zich net als bij `ship`.
+Identiek aan `ship`, maar **zonder push of PR**. Bij APPROVED stopt iterate
+met de lokale squash + `_pr-body.md`. Push en PR doe je daarna bewust zelf.
+Handig wanneer je de gesquashte branch en de PR-body eerst lokaal wil
+nakijken.
 
-### AI-profiles (optioneel)
+### converge — twee profielruns combineren tot één branch
+
+Use case: hetzelfde ticket parallel onder twee profielen ontwikkelen en
+daarna het beste van beide samenvoegen.
+
+```bash
+npm run iterate  -- FLUX-620 --profile no
+npm run iterate  -- FLUX-620 --profile kris
+npm run converge -- FLUX-620 --profiles no,kris
+```
+
+`converge` valideert dat beide profielruns `approved` zijn, maakt een
+**profielloze** branch `feature-v2/FLUX-620-<slug>` (geen profiel, geen
+model-code in de naam), laat een Opus-agent de twee implementaties
+vergelijken en het beste combineren tot één coherente commit + `_pr-body.md`,
+en **pusht + maakt de draft-PR automatisch aan**. Het combineren minimaliseert
+nieuwe code-commentaren en respecteert de bestaande commentaarstijl per
+bestand. Zie §12 in `CLAUDE.md`.
+
+> `converge` is de enige orchestrator die de PR automatisch aanmaakt; voor
+> de gewone pipeline blijft de PR een bewuste manuele stap.
+
+## Zijtak: externe code review
+
+Een feature-branch van een andere developer reviewen, los van de sprint-flow:
+
+```bash
+npm run review-external -- FLUX-595 feature-v2/iemand-anders-zn-branch
+# met expliciete base-branch en/of profiel
+npm run review-external -- FLUX-595 feature-v2/branch --base develop-v3 --profile kris
+```
+
+Output: `state/reviews/FLUX-595/review-<timestamp>.md` (één per run, geen
+squash/push/PR). Publiceer naar Jira met:
+
+```bash
+npm run publish-review -- FLUX-595                    # laatste review-md
+npm run publish-review -- FLUX-595 --file <pad>       # specifiek bestand
+npm run publish-review:dry -- FLUX-595                # droogtest
+```
+
+Plaatst een comment `## Code review - AI` op het ticket. Idempotent via
+`_published.json` (hash per gepost bestand).
+
+## AI-profiles (optioneel)
 
 `flux-web-components` heeft `./set-ai-profile.sh <profile>` dat een
 AI-configuratie activeert (CLAUDE.local.md, `.claude/settings.local.json`,
@@ -260,7 +358,7 @@ AI-configuratie activeert (CLAUDE.local.md, `.claude/settings.local.json`,
 
 De agents die in een worktree draaien (`develop`, `review`, `ship`,
 `iterate`, `review-external`) ondersteunen een optionele `--profile <naam>`
-vlag:
+vlag; `converge` neemt `--profiles <a,b>`:
 
 ```bash
 npm run develop -- FLUX-123 --profile kris
@@ -268,42 +366,44 @@ npm run review  -- FLUX-123 --profile kris
 npm run ship    -- FLUX-123 --profile karim
 npm run iterate -- FLUX-123 --profile kris
 npm run review-external -- FLUX-595 feature-v2/iemand-anders --profile kris
+npm run converge -- FLUX-123 --profiles no,kris
 ```
 
-Wat er onder de motorkap gebeurt bij `--profile kris`:
+Wat er onder de motorkap gebeurt bij `--profile kris`. Het pad-segment is
+niet het kale profiel maar het label `<profiel>-<modelcode>`, waarbij de
+code uit het **develop-model** (`AGENT3_MODEL`) komt
+(`claude-opus-4-8` → `O48`, `claude-sonnet-4-6` → `S46`,
+`claude-haiku-4-5` → `H45`). Voorbeeld met `AGENT3_MODEL=claude-opus-4-8`
+→ label `kris-O48`:
 
-- Worktree: `state/worktrees/flux-web-components-FLUX-123-kris/`
-- Branch:   `feature-v2/kris/FLUX-123-<slug>`
-- State:    `state/tickets/<sprint>/FLUX-123/kris/{ticket.md, code-changes.md, review-r*.md, _status.json}`
+- Worktree: `state/worktrees/flux-web-components-FLUX-123-kris-O48/`
+- Branch:   `feature-v2/kris-O48/FLUX-123-<slug>`
+- State:    `state/tickets/<sprint>/FLUX-123/kris-O48/{ticket.md, code-changes.md, review-r*.md, _pr-body.md, _status.json}`
 - Voor de SDK-call wordt `./set-ai-profile.sh kris` in de worktree
   uitgevoerd, zodat de CLAUDE.local.md/settings/skills van dat profile
   meedraaien.
 
-Dezelfde ticket-actie kan zo parallel met verschillende profiles lopen
-zonder dat de runs elkaars worktree, branch of state raken. Geen
-`--profile` = exact gedrag van vóór de feature (volledig
+Een model-wissel in `.env` levert dus een nieuwe, niet-botsende run op naast
+de vorige. `push`, `pr` en `review` herberekenen hetzelfde label uit
+`--profile` + `AGENT3_MODEL`, dus geef je `--profile` daar consistent mee.
+Geen `--profile` = exact gedrag van vóór de feature (volledig
 backwards-compatible).
 
 **Foutpaden:**
 - `set-ai-profile.sh` ontbreekt in de gechecked-out branch → harde fout
   met duidelijke melding. Voorkomt stille profile-mismatch.
 - Onbekend profile → exit-code van het script wordt gepropageerd.
-- `review` zonder `--profile` op een ticket dat met profile is gestart
-  → fout die exact het juiste commando voorstelt.
+- `review`/`push`/`pr` zonder `--profile` op een ticket dat met profile is
+  gestart → fout die exact het juiste commando voorstelt.
 
-### Stap 5: merge
+## Interactief alternatief (debugging)
 
-Als agent 4 APPROVED heeft gemaakt en de PR geopend: **jij reviewt
-de PR op GitHub en merget zelf**. Geen automatisering in deze stap.
-
-### Interactief alternatief (debugging)
-
-De oorspronkelijke Claude Code subagents staan nog in
-`agents/claude-code/.claude/` en kunnen handmatig aangeroepen worden via
-`/develop` / `/review` / `/address` in een Claude Code sessie in
-`flux-web-components`. Handig als je stap-voor-stap wil meekijken of
-de prompts wil tunen. De SDK-flow is de autonome variant die op
-een server kan draaien.
+De Claude Code subagents staan in `agents/claude-code/.claude/` en kunnen
+handmatig aangeroepen worden via `/develop` / `/review` / `/address` in een
+Claude Code sessie in `flux-web-components`. Handig als je stap-voor-stap
+wil meekijken of de prompts wil tunen. De SDK-flow is de autonome variant
+die op een server kan draaien. Bij een prompt-wijziging: bewerk de canonical
+prompt onder `agents/prompts/` en draai `npm run sync-cc-agents`.
 
 ## Test-strategie voor de eerste keer
 
@@ -312,7 +412,7 @@ een server kan draaien.
 3. Lees de markdowns. Zijn ze bruikbaar? Stuur de prompt bij in
    `agents/prompts/refine.md`
 4. Run agent 1 opnieuw op dezelfde sprint → moet alle tickets overslaan
-5. `npm run plan -- <sprint>` — checks de volgorde
+5. `npm run plan -- <sprint>` — check de volgorde
 6. Kies het simpelste ticket. Probeer `npm run develop -- <KEY>` en
    daarna `npm run review -- <KEY>`. Begin met iets klein om de flow
    te leren.
@@ -321,25 +421,28 @@ een server kan draaien.
 
 Default setup:
 
-| Agent | Model | Waarom |
-|-------|-------|--------|
-| 1 refine | Opus | Diepgaande analyse van Jira-content |
+| Agent / stap | Model | Waarom |
+|--------------|-------|--------|
+| 1 refine | Opus + Sonnet | Opus voor de analyse, Sonnet voor de beknopte `.jira.md` |
 | 2 plan | Opus | Dependency-redeneren over vele tickets |
-| 3 author | Sonnet | Uitvoering, snel en goedkoper |
-| 4 reviewer | Opus | Kritische analyse, waar de kwaliteit zit |
+| 3 develop | Sonnet | Uitvoering, snel en goedkoper |
+| 4 review | Opus | Kritische analyse, waar de kwaliteit zit |
+| converge | Opus | Twee implementaties vergelijken en combineren |
 
-Override via env vars: `AGENT1_MODEL`, `AGENT2_MODEL`, `AGENT3_MODEL`,
-`AGENT4_MODEL`. Voor de interactieve CC-variant kan je ook de
-frontmatter van `agents/claude-code/.claude/agents/*.md` aanpassen (of
-de canonical prompt onder `agents/prompts/` en vervolgens
-`npm run sync-cc-agents`).
+Override via env vars: `AGENT1_MODEL`, `AGENT1_SUMMARY_MODEL`, `AGENT2_MODEL`,
+`AGENT3_MODEL`, `AGENT4_MODEL`, `AGENT_CONVERGE_MODEL`. Voor de interactieve
+CC-variant kan je ook de frontmatter van
+`agents/claude-code/.claude/agents/*.md` aanpassen (of de canonical prompt
+onder `agents/prompts/` en vervolgens `npm run sync-cc-agents`).
 
 ## Wat de agents NOOIT doen
 
 - PR's mergen — alleen jij
 - `git push --force` of history rewriten op remote
-- Bestaande PR's aanpassen of comments posten
-- Jira status updates of comments achterlaten
+- Pushen of een PR maken buiten de deterministische scripts
+  (`npm run push` / `npm run pr`) — de develop/review-agents doen dat zelf nooit
+- Bestaande PR's aanpassen of comments posten op GitHub
+- Jira workflow-status wijzigen (publish posts enkel comments + umbrella-ticket)
 - Dependencies installeren zonder te vragen
 - Credentials, tokens, of secrets ergens opslaan of loggen
 
@@ -348,5 +451,6 @@ de canonical prompt onder `agents/prompts/` en vervolgens
 Ideeën voor later:
 - Agent 2 output terug naar Jira (rank field) synchroniseren
 - Dashboard dat `_status.json` files aggregeert
-- Pre-commit hook die check dat geen agent per ongeluk iets pusht
+- Pre-commit hook die checkt dat geen agent per ongeluk iets pusht
 - Slack notificatie bij ESCALATED status
+```

@@ -40,6 +40,13 @@ Daarnaast zijn er **deterministische scripts** (geen LLM-oordeel nodig):
 - `scripts/pr.ts` (`npm run pr`) — maakt de draft-PR aan op basis van de
   squash-commit-subject (titel) + `_pr-body.md` (body) (zie §11)
 
+En er zijn **orchestrators** die de agents/scripts na elkaar draaien:
+- `agents/ship.ts` / `agents/iterate.ts` — develop→review-lus voor één ticket
+  (ship pusht bij APPROVED, iterate blijft lokaal)
+- `agents/converge.ts` (`npm run converge`) — combineert twee `approved`
+  profielruns van hetzelfde ticket tot één profielloze branch + push + draft-PR
+  (eigen Opus LLM-stap voor het combineren, zie §12)
+
 Agents 3 en 4 hebben ook een **Claude Code subagent variant** in
 `agents/claude-code/.claude/agents/` (ticket-author.md, ticket-reviewer.md)
 voor interactieve debugging. De SDK-scripts laden diezelfde markdowns
@@ -467,14 +474,85 @@ kunnen gaan staan (squash + `_pr-body.md` lokaal nakijken), en de enige
 netwerk-schrijfacties van de pipeline horen expliciet en deterministisch te
 zijn in plaats van verstopt in een LLM-run.
 
+### 12. Converge — twee profielruns combineren tot één branch (`npm run converge`)
+
+Use case: Kris draait hetzelfde ticket parallel onder twee profielen om de
+implementaties te vergelijken:
+
+```
+npm run iterate -- FLUX-620 --profile no
+npm run iterate -- FLUX-620 --profile kris
+npm run converge -- FLUX-620 --profiles no,kris
+```
+
+`converge` (`agents/converge.ts`, `npm run converge`) neemt de twee
+afgewerkte profielruns en levert één canonieke branch op GitHub. Het is een
+orchestrator zoals `ship`/`iterate`, maar met een eigen LLM-stap (Opus,
+`AGENT_CONVERGE_MODEL`, default = `reviewModel()`) die het combineren doet.
+
+Flow:
+
+1. **Validatie.** Voor elk meegegeven profiel wordt het label
+   `<profiel>-<modelcode>` berekend (uit `AGENT3_MODEL`, identiek aan
+   develop/review/push/pr) en de ticket-state opgezocht. Elke bron moet
+   status `approved` hebben — het natuurlijke eindpunt van `iterate` (lokale
+   squash gedaan, dus elke bronbranch draagt één nette commit). Minstens 2
+   profielen vereist; bij een niet-`approved` bron weigert converge.
+2. **Canonieke, profielloze slot.** De gecombineerde branch is
+   `feature-v2/<KEY>-<slug>` — **géén** profiel-segment en **géén** model-code
+   (er is geen profiel gebruikt voor het resultaat). De slug komt uit het
+   profielloze refinement-rapport (`sprints/<sprint>/<KEY>.md`), niet uit een
+   per-profiel `ticket.md`. Worktree (`flux-web-components-<KEY>`) en
+   ticket-state (`tickets/<sprint>/<KEY>/`, zonder label-subfolder) zijn dus
+   de profielloze paden — exact wat `npm run push`/`npm run pr` zonder
+   `--profile` verwachten. De gecombineerde run ís de canonieke ontwikkeling
+   van het ticket.
+3. **Combineren (LLM).** Een Opus-agent draait in de verse worktree (op de
+   gecombineerde branch, afgesplitst van `origin/<base>`, nog zonder commits).
+   De twee bronbranches zitten in dezelfde clone, dus de agent inspecteert ze
+   via git-refs (`git diff origin/<base>..<branch>`, `git show <branch>:pad`,
+   `git checkout <branch> -- pad`) — geen aparte worktrees nodig. Hij neemt
+   per onderdeel het beste van beide, houdt de probleemstelling opgelost,
+   **minimaliseert nieuwe commentaren en respecteert hoe elk bestand al met
+   commentaar omging**, maakt één conventional commit (subject = PR-titel) en
+   schrijft `_pr-body.md` die de gecombineerde branch beschrijft. Canonieke
+   prompt: `agents/prompts/converge.md`.
+4. **Guardrails + afronden (deterministisch).** Na de LLM-run checkt converge
+   dat er ≥1 commit op de branch staat en dat `_pr-body.md` bestaat — anders
+   harde fout, niets gepusht. Daarna zet het `_status.json` op `approved`
+   (profielloos) en draait het `runPush` + `runPr` (dezelfde logica als
+   `npm run push`/`npm run pr`). Resultaat: gepushte branch + draft-PR waarvan
+   de titel = de squash-commit-subject en de body = `_pr-body.md`.
+
+**Converge maakt de PR wél automatisch aan** — bewuste afwijking van de
+"PR blijft manueel"-conventie, op expliciete vraag. De netwerk-schrijfacties
+blijven deterministisch (`runPush`/`runPr`, geen LLM); de LLM-stap zelf pusht
+nooit en maakt nooit een PR. Mergen blijft menselijk.
+
+**Waarom profielloos als output:** Kris vroeg expliciet dat de gecombineerde
+branch rechtstreeks onder `feature-v2/` valt zonder profiel in de naam — er is
+immers geen profiel gebruikt om het te maken. Door de profielloze slot te
+hergebruiken is het resultaat niet te onderscheiden van een gewoon goedgekeurd
+ticket, en werken `push`/`pr` (en de rest van de downstream) ongewijzigd.
+
+**Niet in scope voor converge:** meer dan parallelle profielruns mengen (bv.
+verschillende sprints), of de PR mergen. `converge` weigert als een bron niet
+`approved` is — het is geen vervanger voor `iterate`, maar de stap erná.
+
 ## Harde regels — agents mogen deze NOOIT overtreden
 
 - **Geen `git push` behalve** via `scripts/push.ts` (`npm run push`) op een
-  ticket met status `approved`, en alleen naar de eigen feature-branch. De
-  review-agent zelf pusht NOOIT.
+  ticket met status `approved`, en alleen naar de eigen feature-branch. Ook
+  `ship` en `converge` pushen — maar enkel door diezelfde `runPush`-logica te
+  hergebruiken, nooit eigen git-push. De review-agent en de converge-agent
+  (de LLM-stap) pushen zelf NOOIT.
 - **Geen `git push --force`** ooit
-- **Geen PR aanmaken behalve** via `scripts/pr.ts` (`npm run pr`) — één
-  `gh pr create --draft`. De review-agent maakt zelf NOOIT een PR aan.
+- **Geen PR aanmaken behalve** via `scripts/pr.ts` (`npm run pr`) of via
+  `npm run converge` — beide doen één `gh pr create --draft` via dezelfde
+  `runPr`-logica. De review-agent en de converge-agent (de LLM-stap) maken
+  zelf NOOIT een PR aan. `converge` is de enige orchestrator die de PR
+  automatisch aanmaakt; voor de gewone pipeline blijft de PR een bewuste
+  manuele stap.
 - **Geen PR mergen** — dat doet Kris altijd zelf op GitHub
 - **Geen Jira workflow-transities** — niets in deze pipeline wijzigt
   ooit de status van een ticket (bv. To Do → In Progress → Done). Het
@@ -523,10 +601,11 @@ commits). `STATE_DIR` uit `.env` wijst naar de tweede; default
 flux-agents/                      ← deze repo (tooling, code, prompts)
 ├── agents/
 │   ├── refine.ts / plan.ts / develop.ts / review.ts / ship.ts / iterate.ts   ← agent-entrypoints (SDK)
+│   ├── converge.ts               ← combineert 2 profielruns → 1 branch + push + PR (§12)
 │   ├── review-external.ts        ← zijtak voor externe code-reviews
 │   ├── prompts/                  ← canonical system prompts per agent-rol
-│   │   └── refine.md / refine-summary.md / plan.md / develop.md / review.md / review-external.md
-│   ├── shared/                   ← gedeelde helpers (query, repo, state, ticket, jira, prompts, logger)
+│   │   └── refine.md / refine-summary.md / plan.md / develop.md / review.md / converge.md / review-external.md
+│   ├── shared/                   ← gedeelde helpers (query, repo, state, ticket, jira, prompts, logger, model, loop, push, pr, observability)
 │   └── claude-code/              ← interactieve CC-variant (optioneel)
 │       └── .claude/
 │           ├── agents/           ← mirrors van agents/prompts/ met YAML frontmatter

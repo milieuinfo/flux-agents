@@ -12,6 +12,7 @@
     "review-external": "tsx agents/review-external.ts",
     "ship": "tsx agents/ship.ts",
     "iterate": "tsx agents/iterate.ts",
+    "converge": "tsx agents/converge.ts",
     "push": "tsx scripts/push.ts",
     "pr": "tsx scripts/pr.ts",
     "publish": "tsx scripts/publish.ts",

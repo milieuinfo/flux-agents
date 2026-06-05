@@ -38,6 +38,16 @@ export function reviewModel(): string {
 }
 
 /**
+ * Model voor de converge-agent (combineren van twee profielruns). Oordeels-
+ * zwaar werk net als review, dus default = reviewModel(). Override via
+ * `AGENT_CONVERGE_MODEL` als je het apart wil tunen. Beïnvloedt geen paden:
+ * de gecombineerde run is profielloos, dus zijn label is altijd `undefined`.
+ */
+export function convergeModel(): string {
+  return process.env.AGENT_CONVERGE_MODEL ?? reviewModel();
+}
+
+/**
  * Bouw het pad-segment voor een ticket-run. Zonder profiel `undefined`,
  * zodat het pad exact als vóór de profile-feature blijft. Met profiel
  * `<profiel>-<modelcode>` (bv. `kris-O48`).
