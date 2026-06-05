@@ -16,6 +16,13 @@ zelf wanneer hij die nodig heeft.
 Dit is **geen** productie-systeem voor het team. Het is een persoonlijk
 tool voor Kris om sprints efficiënter op te nemen.
 
+## Commit-boodschappen
+
+Niet hard-wrappen op 72 tekens — laat regels gewoon doorlopen en de
+terminal soft-wrappen. Hou de boodschap beknopt. Meerdere regels typen mag,
+en lege regels als witruimte voor duidelijkheid mag ook. Eindig nog steeds
+met de `Co-Authored-By`-trailer.
+
 ## De vier agents en hun rollen
 
 | # | Naam | Runtime | Model | Rol |
