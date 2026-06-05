@@ -230,10 +230,26 @@ npm run ship -- FLUX-123 backlog-20260422
 ```
 
 Dit draait de `develop → review` lus automatisch, tot maximaal 3 rondes.
-Stopt bij APPROVED (PR geopend), ESCALATED (mens nodig), of na ronde 3
-als er nog wijzigingen gevraagd worden. Handmatig `develop` + `review`
-na elkaar draaien blijft werken en is aangewezen wanneer je per stap
-wil verifiëren.
+Bij APPROVED: lokale squash + automatisch `git push` naar origin (de PR
+maak je zelf met `npm run pr`). Stopt verder bij ESCALATED (mens nodig),
+of na ronde 3 als er nog wijzigingen gevraagd worden. Handmatig `develop`
++ `review` na elkaar draaien blijft werken en is aangewezen wanneer je per
+stap wil verifiëren.
+
+### Alternatief: iterate (zelfde lus, puur lokaal)
+
+Identiek aan `ship`, maar **zonder push of PR** — het resultaat blijft
+volledig lokaal:
+
+```bash
+npm run iterate -- FLUX-123 backlog-20260422
+```
+
+Bij APPROVED stopt iterate met de lokale squash + `_pr-body.md`; er wordt
+**niets gepusht**. Push en PR doe je daarna bewust zelf met `npm run push`
+en `npm run pr`. Handig wanneer je de gesquashte branch en de PR-body eerst
+lokaal wil nakijken voor er iets op origin belandt. ESCALATED en de
+ronde-3-stop gedragen zich net als bij `ship`.
 
 ### AI-profiles (optioneel)
 
@@ -243,12 +259,14 @@ AI-configuratie activeert (CLAUDE.local.md, `.claude/settings.local.json`,
 `ai/profiles/` in die repo — bijvoorbeeld `kris`, `karim` of `no` (opt-out).
 
 De agents die in een worktree draaien (`develop`, `review`, `ship`,
-`review-external`) ondersteunen een optionele `--profile <naam>` vlag:
+`iterate`, `review-external`) ondersteunen een optionele `--profile <naam>`
+vlag:
 
 ```bash
 npm run develop -- FLUX-123 --profile kris
 npm run review  -- FLUX-123 --profile kris
 npm run ship    -- FLUX-123 --profile karim
+npm run iterate -- FLUX-123 --profile kris
 npm run review-external -- FLUX-595 feature-v2/iemand-anders --profile kris
 ```
 

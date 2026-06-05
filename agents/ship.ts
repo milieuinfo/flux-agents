@@ -1,11 +1,14 @@
 #!/usr/bin/env tsx
 /**
- * Ship: per-ticket autopilot.
+ * Ship: per-ticket autopilot mét push.
  *
- * Draait de develop → review lus voor één ticket, maximaal 3 rondes.
- * Bij APPROVED: lokale squash (review) + automatisch `git push` naar origin.
- * De PR maak je bewust zelf aan met `npm run pr`. Stopt verder bij
- * ESCALATED (mens nodig) of na ronde 3.
+ * Draait de develop → review lus voor één ticket, maximaal 3 rondes (de
+ * gedeelde lus zit in agents/shared/loop.ts). Bij APPROVED: lokale squash
+ * (review) + automatisch `git push` naar origin. De PR maak je bewust zelf
+ * aan met `npm run pr`. Stopt verder bij ESCALATED (mens nodig) of na ronde 3.
+ *
+ * Wil je het resultaat puur lokaal houden (géén push), gebruik dan
+ * `npm run iterate` — zelfde lus, maar stopt bij APPROVED zonder te pushen.
  *
  * Dit is de "one-shot" variant: `npm run develop` en `npm run review`
  * handmatig na elkaar draaien werkt nog steeds en is nuttig als je per
@@ -18,22 +21,11 @@
  */
 
 import { config } from 'dotenv';
-import { resolve } from 'node:path';
 import { log } from './shared/logger.js';
-import { countCommitsAhead, ticketWorktreePath } from './shared/repo.js';
-import { developModel, runPathLabel } from './shared/model.js';
-import {
-  TicketState,
-  locateRefinement,
-  migrateLegacyTicketDir,
-} from './shared/ticket.js';
-import { runDevelop } from './develop.js';
-import { runReview } from './review.js';
+import { runDevelopReviewLoop } from './shared/loop.js';
 import { runPush } from './shared/push.js';
 
 config();
-
-const MAX_ROUNDS = 3;
 
 interface ShipArgs {
   key: string;
@@ -68,90 +60,26 @@ function parseArgs(): ShipArgs {
 
 async function main() {
   const { key, sprint, profile } = parseArgs();
-  const stateDir = resolve(process.env.STATE_DIR ?? './state');
-
-  // Sprint vooraf opzoeken zodat we ticket-state in de geneste layout
-  // kunnen lezen vanaf ronde 1.
-  const refinement = await locateRefinement(stateDir, key, sprint);
-  await migrateLegacyTicketDir(stateDir, key);
-  // Label = profiel + develop-model-code; moet matchen met wat runDevelop/
-  // runReview intern berekenen (beide via developModel()).
-  const label = runPathLabel(profile, developModel());
-  const ticket = new TicketState(stateDir, refinement.sprint, key, label);
+  const profileFlag = profile ? ` --profile ${profile}` : '';
 
   log.info(
-    `🚢 Ship starting — ticket: ${key} (max ${MAX_ROUNDS} rondes)` +
-      (profile ? `, profile: ${profile}` : ''),
+    `🚢 Ship starting — ticket: ${key}` + (profile ? `, profile: ${profile}` : ''),
   );
 
-  for (let round = 1; round <= MAX_ROUNDS; round++) {
-    log.info(`\n━━━ Ronde ${round} — develop ━━━`);
-    await runDevelop({ key, sprint, profile });
+  const result = await runDevelopReviewLoop({ key, sprint, profile });
 
-    log.info(`\n━━━ Ronde ${round} — review ━━━`);
-    await runReview({ key, profile });
+  if (result.outcome === 'approved') {
+    log.info(`\n✅ APPROVED na ronde ${result.round}. Lokale squash gedaan.`);
 
-    const status = await ticket.readStatus();
-    if (!status) {
-      throw new Error(
-        `_status.json ontbreekt na review van ${key} — onverwachte state.`,
-      );
-    }
+    log.info(`\n━━━ push ━━━`);
+    await runPush({ key, profile });
 
-    if (status.status === 'approved') {
-      const profileFlag = profile ? ` --profile ${profile}` : '';
-      log.info(`\n✅ APPROVED na ronde ${status.round}. Lokale squash gedaan.`);
-
-      log.info(`\n━━━ push ━━━`);
-      await runPush({ key, profile });
-
-      log.info(
-        `\n🚀 Gepusht naar origin. Maak de PR zelf met ` +
-          `'npm run pr -- ${key}${profileFlag}' (bewust manueel).`,
-      );
-      return;
-    }
-    if (status.status === 'escalated') {
-      log.warn(
-        `\n⚠️  ESCALATED na ronde ${status.round}. Menselijke interventie nodig.`,
-      );
-      log.warn(`Lees: ${ticket.reviewPath(status.round)}`);
-      return;
-    }
-    if (status.status === 'changes_requested') {
-      // Deadlock-detectie: als deze ronde 0 commits op de feature-branch
-      // opleverde, is de author geblokkeerd op ontbrekende input (bv.
-      // geen `## Keuze` in ticket.md). Nog een ronde lost dat niet op —
-      // escaleer meteen i.p.v. turns verspillen.
-      const commitsAhead = await countCommitsAhead({
-        worktreePath: ticketWorktreePath(stateDir, key, label),
-        baseBranch: status.baseBranch,
-      });
-      if (commitsAhead === 0) {
-        await ticket.writeStatus({ ...status, status: 'escalated' });
-        log.warn(
-          `\n⚠️  Ronde ${status.round}: 0 commits op de branch. ` +
-            `Author is waarschijnlijk geblokkeerd op ontbrekende input ` +
-            `(bv. '## Keuze' in ticket.md). Escalatie — verdere rondes zijn zinloos.`,
-        );
-        log.warn(`Lees: ${ticket.reviewPath(status.round)}`);
-        return;
-      }
-      if (round >= MAX_ROUNDS) {
-        log.warn(
-          `\n⚠️  ${MAX_ROUNDS} rondes gedaan, reviewer vraagt nog wijzigingen. Stop.`,
-        );
-        log.warn(`Lees: ${ticket.reviewPath(status.round)}`);
-        return;
-      }
-      log.info(
-        `\n🔄 CHANGES_REQUESTED na ronde ${status.round}. Door naar ronde ${round + 1}…`,
-      );
-      continue;
-    }
-
-    throw new Error(`Onverwachte status na review: ${status.status}`);
+    log.info(
+      `\n🚀 Gepusht naar origin. Maak de PR zelf met ` +
+        `'npm run pr -- ${key}${profileFlag}' (bewust manueel).`,
+    );
   }
+  // escalated / changes_requested: de lus heeft de reden al gelogd.
 }
 
 main().catch((err) => {

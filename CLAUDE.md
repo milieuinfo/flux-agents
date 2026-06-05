@@ -357,7 +357,7 @@ optioneel `AGENTS.md`/`SKILLS.md`. Profiles staan onder
 `ai/profiles/<naam>/` in de checkout (bv. `kris`, `karim`, `no`).
 
 De agents die in een worktree van flux-web-components draaien
-(`develop`, `review`, `ship`, `review-external`) accepteren een
+(`develop`, `review`, `ship`, `iterate`, `review-external`) accepteren een
 optionele `--profile <naam>` vlag. Default = geen profile → gedrag
 identiek aan vóór de feature (backwards compatible).
 
@@ -365,10 +365,10 @@ Het pad-segment is bij een profile-run niet het kale profiel maar een
 **label `<profiel>-<modelcode>`** (bv. `kris-O48`). De model-code komt uit
 het agent-model in `.env`: `claude-opus-4-8` → `O48`, `claude-sonnet-4-6`
 → `S46`, `claude-haiku-4-5` → `H45` (zie `agents/shared/model.ts`,
-`modelCode`/`runPathLabel`). Voor `develop`/`review`/`ship` is dat het
-**develop-model `AGENT3_MODEL`** (review en ship aligneren op develops
-worktree, dus zij berekenen de code óók uit `AGENT3_MODEL`, niet uit hun
-eigen model); voor `review-external` is het `AGENT4_MODEL`. Een
+`modelCode`/`runPathLabel`). Voor `develop`/`review`/`ship`/`iterate` is dat
+het **develop-model `AGENT3_MODEL`** (review, ship en iterate aligneren op
+develops worktree, dus zij berekenen de code óók uit `AGENT3_MODEL`, niet uit
+hun eigen model); voor `review-external` is het `AGENT4_MODEL`. Een
 model-wissel in `.env` levert dus een nieuwe, niet-botsende run op naast de
 vorige. Zonder `--profile` is er geen label en geen model-code → exact het
 oude pad.
@@ -449,6 +449,12 @@ Geen `_status.json` schema-wijziging — `prUrl` was al optioneel.
 `npm run push`) zodat de branch op origin komt. De PR maakt ship **niet** aan
 — `gh pr create` blijft een bewuste manuele stap (`npm run pr`).
 
+`iterate.ts` draait exact dezelfde develop→review-lus als ship (gedeeld in
+`agents/shared/loop.ts`), maar pusht **niet**: bij APPROVED stopt het lokaal
+met de squash + `_pr-body.md`. Push én PR blijven dan manueel (`npm run push`
++ `npm run pr`). Gebruik iterate wanneer je het resultaat eerst lokaal wil
+nakijken voor er iets op origin belandt.
+
 **Waarom:** Kris wil tussen "review goedgekeurd" en "naar GitHub geduwd"
 kunnen gaan staan (squash + `_pr-body.md` lokaal nakijken), en de enige
 netwerk-schrijfacties van de pipeline horen expliciet en deterministisch te
@@ -509,7 +515,7 @@ commits). `STATE_DIR` uit `.env` wijst naar de tweede; default
 ```
 flux-agents/                      ← deze repo (tooling, code, prompts)
 ├── agents/
-│   ├── refine.ts / plan.ts / develop.ts / review.ts / ship.ts   ← agent-entrypoints (SDK)
+│   ├── refine.ts / plan.ts / develop.ts / review.ts / ship.ts / iterate.ts   ← agent-entrypoints (SDK)
 │   ├── review-external.ts        ← zijtak voor externe code-reviews
 │   ├── prompts/                  ← canonical system prompts per agent-rol
 │   │   └── refine.md / refine-summary.md / plan.md / develop.md / review.md / review-external.md
