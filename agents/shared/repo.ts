@@ -320,6 +320,27 @@ export async function countCommitsAhead(opts: {
 }
 
 /**
+ * Whether the worktree has uncommitted changes to *tracked* files
+ * (`git status --porcelain --untracked-files=no`). Untracked files worden
+ * bewust genegeerd: test-runners laten artefacten achter (bv.
+ * `buffer-stdout.txt`, `public/`) die geen onafgemaakt werk zijn.
+ *
+ * De develop→review-lus gebruikt dit om de twee "0 commits"-toestanden uit
+ * elkaar te houden: een schone tree betekent dat develop bewust niets heeft
+ * geïmplementeerd (bv. geblokkeerd op een ontbrekende '## Keuze'); een vuile
+ * tree zonder commit betekent dat develop wél werkte maar het niet committe —
+ * typisch een afgebroken of gehangen run.
+ */
+export async function worktreeHasTrackedChanges(worktreePath: string): Promise<boolean> {
+  const raw = await gitCapture(worktreePath, [
+    'status',
+    '--porcelain',
+    '--untracked-files=no',
+  ]);
+  return raw.trim().length > 0;
+}
+
+/**
  * Small stopword list (NL + EN) — only the very common fillers we don't
  * want in branch slugs. Intentionally minimal to avoid dropping domain
  * terms that happen to look like filler.

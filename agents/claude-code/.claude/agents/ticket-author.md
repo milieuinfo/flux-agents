@@ -110,6 +110,18 @@ houd het bij één à twee zinnen per item.
    wordt nooit waar en hangt eeuwig. Roep gewoon het juiste npm-script aan
    en wacht op de exit.
 
+   **Draai elk testcommando synchroon op de voorgrond — nooit in de
+   achtergrond.** Gebruik geen background-uitvoering (`run_in_background`,
+   trailing `&`) voor jest, cypress of lint, en bouw géén flow waarin je een
+   commit "afwacht" tot een achtergrondtaak een afrondingsnotificatie geeft.
+   Reden: jouw agent-turn kan eindigen vóór die achtergrondtaak klaar is —
+   dan blijft er een verweesde Cypress-run hangen én is er níéts gecommit.
+   De Cypress-suite mag traag zijn; geef het Bash-commando gerust een ruime
+   timeout (tot ~10 min) en wacht gewoon op de exit-code. Committen doe je
+   pas nadat je de exit-code van de test- en lint-commando's zélf hebt
+   gezien — nooit op basis van een notificatie of de aanname dat het "wel
+   groen zal zijn".
+
    Los problemen op. Als een test faalt die niets met jouw wijziging te
    maken heeft: noteer dat in code-changes.md onder "Bestaande problemen".
 6. **Commit** met dezelfde first-line-conventie die de reviewer uiteindelijk

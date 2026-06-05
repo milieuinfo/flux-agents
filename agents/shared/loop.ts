@@ -10,7 +10,11 @@
 
 import { resolve } from 'node:path';
 import { log } from './logger.js';
-import { countCommitsAhead, ticketWorktreePath } from './repo.js';
+import {
+  countCommitsAhead,
+  ticketWorktreePath,
+  worktreeHasTrackedChanges,
+} from './repo.js';
 import { developModel, runPathLabel } from './model.js';
 import {
   TicketState,
@@ -63,6 +67,37 @@ export async function runDevelopReviewLoop({
   for (let round = 1; round <= MAX_ROUNDS; round++) {
     log.info(`\n━━━ Ronde ${round} — develop ━━━`);
     await runDevelop({ key, sprint, profile });
+
+    // Guard: develop moet zijn werk als commit op de feature-branch hebben
+    // gezet vóór review begint. Een afgebroken of gehangen develop-run (bv.
+    // een achtergrond-testtaak die de agent-turn overleefde) laat ongecommitte
+    // wijzigingen achter zónder commit — dan heeft review niets zinnigs om te
+    // beoordelen en zou de lus op een lege branch verder draaien. Hard falen,
+    // mét behoud van het werk in de worktree.
+    //
+    // We onderscheiden bewust van de blocked-on-Keuze-flow: dáár implementeert
+    // develop niets (schone tree, 0 commits) en moet review het kunnen
+    // vaststellen zodat de post-review deadlock-detectie netjes escaleert.
+    // Alleen 0 commits MÉT ongecommitte tracked-wijzigingen is de kapotte
+    // toestand die we hier afvangen.
+    const worktreePath = ticketWorktreePath(stateDir, key, label);
+    const postDev = await ticket.readStatus();
+    if (postDev) {
+      const commitsAhead = await countCommitsAhead({
+        worktreePath,
+        baseBranch: postDev.baseBranch,
+      });
+      if (commitsAhead === 0 && (await worktreeHasTrackedChanges(worktreePath))) {
+        throw new Error(
+          `Develop voor ${key} (ronde ${round}) zette geen commit op ` +
+            `${postDev.branch}, maar liet wél ongecommitte wijzigingen achter. ` +
+            `Waarschijnlijk een afgebroken of gehangen develop-run (bv. een ` +
+            `achtergrond-testtaak die de agent-turn overleefde). Review wordt ` +
+            `niet gestart — je werk staat nog in de worktree:\n  ${worktreePath}\n` +
+            `Commit het handmatig of start de run opnieuw.`,
+        );
+      }
+    }
 
     log.info(`\n━━━ Ronde ${round} — review ━━━`);
     await runReview({ key, profile });
