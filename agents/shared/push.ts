@@ -12,6 +12,7 @@ import { resolve } from 'node:path';
 import { log } from './logger.js';
 import {
   applyGitIdentityFromEnv,
+  enforceCommitIdentity,
   pushBranch,
   ticketWorktreePath,
 } from './repo.js';
@@ -65,7 +66,16 @@ export async function runPush({ key, profile }: PushArgs): Promise<void> {
     throw new Error(`Worktree ontbreekt: ${worktree}.`);
   }
 
-  applyGitIdentityFromEnv();
+  const identity = applyGitIdentityFromEnv();
+  // Sluit het 'committed by …'-lek: de squash-/combineer-commit kan door een
+  // LLM-agent met een afwijkende committer gemaakt zijn. Forceer canonieke
+  // author + committer op de nog-ongepushte commits vóór ze naar origin gaan.
+  await enforceCommitIdentity({
+    worktreePath: worktree,
+    baseBranch: status.baseBranch,
+    name: identity.name,
+    email: identity.email,
+  });
   await pushBranch({ worktreePath: worktree, branch: status.branch });
 
   const profileFlag = profile ? ` --profile ${profile}` : '';

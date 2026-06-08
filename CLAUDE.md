@@ -459,6 +459,21 @@ de branch nog niet gepusht is.
 klaar om te pushen". Of de PR al bestaat blijkt uit `_status.json.prUrl`.
 Geen `_status.json` schema-wijziging — `prUrl` was al optioneel.
 
+**Committer-identiteit afgedwongen vóór de push.** `runPush` draait —
+ná `applyGitIdentityFromEnv()`, vóór `git push` — `enforceCommitIdentity`
+(in `shared/repo.ts`): elke nog-ongepushte commit tussen `origin/<base>` en
+HEAD krijgt zowel als author áls committer de canonieke identiteit
+(`Kris Speltincx <kris.speltincx@vlaanderen.be>`, te overriden via
+`FLUX_GIT_AUTHOR_*`). Dit sluit het lek waarbij de squash-/combineer-commit
+door een LLM-agent (review, converge) met een afwijkende committer wordt
+gemaakt — bv. via `git cherry-pick`/`git commit -C`, die de author overnemen
+maar de committer uit de lokale git-config halen, zodat er een ongewenste
+`committed by …`-regel op de commit komt. De stap is **idempotent en
+force-push-vrij**: dragen alle commits al de canonieke identiteit, dan wordt
+er niets herschreven en is een her-push een gewone no-op. Omdat álle
+push-paden (`npm run push`, `ship`, `converge`) door `runPush` lopen, geldt
+dit overal.
+
 `ship.ts` draait bij APPROVED automatisch `runPush` (dezelfde logica als
 `npm run push`) zodat de branch op origin komt. De PR maakt ship **niet** aan
 — `gh pr create` blijft een bewuste manuele stap (`npm run pr`).

@@ -178,6 +178,76 @@ export async function pushBranch(opts: {
 }
 
 /**
+ * Forceer dat élke lokale commit tussen `origin/<baseBranch>` en HEAD zowel
+ * als author áls committer de canonieke identiteit (`name`/`email`) draagt,
+ * vóór er ook maar iets naar origin gaat.
+ *
+ * **Waarom deterministisch en niet via env vars alleen:** de squash-/combineer-
+ * commit wordt door een LLM-agent (review, converge) gemaakt. Die kan een
+ * git-commando kiezen dat de author overneemt maar de committer uit de lokale
+ * git-config haalt (`git cherry-pick`, `git commit -C/--author`) — dan staat er
+ * een ongewenste `committed by …`-regel op de commit, zelfs al zijn
+ * `GIT_COMMITTER_*` env vars gezet. Deze stap, gedraaid door de deterministische
+ * push-orchestrator vóór de push, sluit dat lek af ongeacht welk git-commando
+ * de agent koos.
+ *
+ * **Idempotent en force-push-vrij:** als alle commits in de range al de
+ * canonieke identiteit dragen, wordt er niets herschreven (return false). Een
+ * her-push van een al-gepushte, correcte branch veroorzaakt dus geen divergentie
+ * — we herschrijven alleen ongepushte, nog-afwijkende commits.
+ *
+ * Returnt true als er herschreven is.
+ */
+export async function enforceCommitIdentity(opts: {
+  worktreePath: string;
+  baseBranch: string;
+  name: string;
+  email: string;
+}): Promise<boolean> {
+  const { worktreePath, baseBranch, name, email } = opts;
+  const range = `origin/${baseBranch}..HEAD`;
+
+  // Eén regel per commit; velden gescheiden door unit-separator (%x1f), die
+  // niet in namen of e-mails voorkomt: an, ae, cn, ce.
+  const raw = await gitCapture(worktreePath, [
+    'log',
+    range,
+    '--format=%an%x1f%ae%x1f%cn%x1f%ce',
+  ]);
+  const lines = raw.split('\n').filter((l) => l.length > 0);
+  if (lines.length === 0) return false;
+
+  const allCanonical = lines.every((line) => {
+    const [an, ae, cn, ce] = line.split('\x1f');
+    return an === name && ae === email && cn === name && ce === email;
+  });
+  if (allCanonical) return false;
+
+  log.info(
+    `Identiteit op commits ${range} herschrijven naar ${name} <${email}> ` +
+      `(author + committer) vóór de push.`,
+  );
+
+  const q = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
+  const envFilter =
+    `export GIT_AUTHOR_NAME=${q(name)}\n` +
+    `export GIT_AUTHOR_EMAIL=${q(email)}\n` +
+    `export GIT_COMMITTER_NAME=${q(name)}\n` +
+    `export GIT_COMMITTER_EMAIL=${q(email)}\n`;
+
+  // filter-branch schreeuwt anders een deprecation-waarschuwing; squelch.
+  process.env.FILTER_BRANCH_SQUELCH_WARNING = '1';
+  await git(worktreePath, [
+    'filter-branch',
+    '-f',
+    '--env-filter',
+    envFilter,
+    range,
+  ]);
+  return true;
+}
+
+/**
  * Read the subject (first line) of HEAD's commit in `worktreePath`
  * (`git log -1 --format=%s`). Na de squash door de reviewer is dit exact
  * de PR-titel — `scripts/pr.ts` leest hem hier zodat titel en
