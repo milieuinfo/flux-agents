@@ -529,12 +529,15 @@ Flow:
    `git checkout <branch> -- pad`) — geen aparte worktrees nodig. Hij neemt
    per onderdeel het beste van beide, houdt de probleemstelling opgelost,
    **minimaliseert nieuwe commentaren en respecteert hoe elk bestand al met
-   commentaar omging**, maakt één conventional commit (subject = PR-titel) en
-   schrijft `_pr-body.md` die de gecombineerde branch beschrijft. Canonieke
-   prompt: `agents/prompts/converge.md`.
+   commentaar omging**, maakt één conventional commit (subject = PR-titel),
+   schrijft `_pr-body.md` (strikt functioneel, voor GitHub) die de
+   gecombineerde branch beschrijft, én een vrije-vorm `_converge.md` waarin
+   hij voor Kris uitschrijft wat hij in elke bron vond en welke keuzes hij
+   maakte om de gecombineerde versie te bouwen. Canonieke prompt:
+   `agents/prompts/converge.md`.
 4. **Guardrails + afronden (deterministisch).** Na de LLM-run checkt converge
-   dat er ≥1 commit op de branch staat en dat `_pr-body.md` bestaat — anders
-   harde fout, niets gepusht. Daarna zet het `_status.json` op `approved`
+   dat er ≥1 commit op de branch staat en dat zowel `_pr-body.md` als
+   `_converge.md` bestaan — anders harde fout, niets gepusht. Daarna zet het `_status.json` op `approved`
    (profielloos) en draait het `runPush` + `runPr` (dezelfde logica als
    `npm run push`/`npm run pr`). Resultaat: gepushte branch + draft-PR waarvan
    de titel = de squash-commit-subject en de body = `_pr-body.md`.
@@ -652,6 +655,7 @@ flux-agents-state/                ← aparte repo (STATE_DIR)
 │   ├── code-changes.md           ← agent 3 per ronde (zonder profile)
 │   ├── review-r<N>.md            ← agent 4 per ronde (zonder profile)
 │   ├── _pr-body.md               ← agent 4 bij APPROVED; body voor `npm run pr` (§11)
+│   ├── _converge.md              ← converge: verslag van bronnen + keuzes (§12)
 │   ├── _status.json              ← round, status, baseBranch, branch, prUrl, profile?
 │   └── <profiel>-<code>/         ← mét --profile: eigen kopie per profiel+model (§10)
 │       ├── ticket.md

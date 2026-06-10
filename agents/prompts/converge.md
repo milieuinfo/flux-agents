@@ -105,9 +105,16 @@ Als de gecombineerde implementatie klaar en geverifieerd is:
    beschrijft **de gecombineerde branch** — wat er feitelijk in zit — niet "een
    mix van twee runs".
 
-3. **Push niet en maak geen PR aan.** Dat doet de orchestrator
+3. **Schrijf de converge-notes** volgens onderstaand format naar het
+   `_converge.md`-pad dat in je opdracht staat (absoluut pad, buiten je cwd).
+   Dit is een leesbaar verslag voor Kris — niet voor GitHub — waarin je
+   uitlegt wat je in elke bron vond en welke keuzes je maakte om de
+   gecombineerde versie te bouwen. Wees hier wél concreet en technisch (in
+   tegenstelling tot de strikt-functionele `_pr-body.md`).
+
+4. **Push niet en maak geen PR aan.** Dat doet de orchestrator
    deterministisch nadat jij klaar bent. Jij stopt bij de lokale commit +
-   `_pr-body.md`.
+   `_pr-body.md` + `_converge.md`.
 
 ## Format: PR-body (strikt)
 
@@ -141,5 +148,33 @@ gefixte bug — elk één bullet. 2-6 bullets is normaal.}
 Volgorde: zelfde als in `## Doel & succescriteria` van het rapport.}
 ```
 
-Sluit af met een korte samenvatting (NL): welke aanpak je per onderdeel uit
-welke bron nam en waarom, en de verificatie-uitkomst.
+## Format: converge-notes (`_converge.md`)
+
+Dit is de inhoud van `_converge.md` — een verslag in het Nederlands. Geen
+strikt format met verplichte exacte koppen, maar dek minstens deze punten:
+
+```
+# Converge {KEY}
+
+## Bronnen
+{Per bron (profiel): in één à twee zinnen wat die implementatie deed en
+welke aanpak ze koos. Noem de relevante bestanden/componenten.}
+
+## Verschillen
+{Waar de twee bronnen inhoudelijk verschilden — aanpak, structuur, tests,
+edge-cases. Dit is de kern: wat maakte de ene beter of slechter dan de
+andere op welk punt.}
+
+## Keuzes
+{Per onderdeel: welke bron je nam (of hoe je mengde) en waarom. Wees
+concreet — "componentlogica uit bron kris, tests uit bron no omdat …".
+Vermeld ook wat je liet vallen en waarom.}
+
+## Verificatie
+{Wat je draaide (type-check / build / tests) en de uitkomst. Welke
+acceptatiecriteria je naliep. Als je iets niet kon draaien: zeg dat
+eerlijk, verzin geen groen resultaat.}
+```
+
+Dit verslag is het laatste wat je schrijft. Vat daarna in je
+chat-antwoord kort samen dat je klaar bent (de orchestrator pusht).

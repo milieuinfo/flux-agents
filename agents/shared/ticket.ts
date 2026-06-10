@@ -72,6 +72,16 @@ export class TicketState {
     return join(this.ticketDir, '_pr-body.md');
   }
 
+  /**
+   * Artifact met de converge-notes: wat de converge-agent in beide bronnen
+   * vond en welke keuzes hij maakte om de gecombineerde versie te bouwen.
+   * Vrije-vorm samenvatting (géén strikt format zoals `_pr-body.md`) — een
+   * leesbaar verslag voor Kris, niet voor GitHub.
+   */
+  get convergeNotesPath(): string {
+    return join(this.ticketDir, '_converge.md');
+  }
+
   get statusPath(): string {
     return join(this.ticketDir, '_status.json');
   }

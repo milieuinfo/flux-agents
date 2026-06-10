@@ -262,6 +262,13 @@ async function main() {
       `Converge-agent schreef geen ${combined.prBodyPath}. Niet gepusht.`,
     );
   }
+  try {
+    await access(combined.convergeNotesPath);
+  } catch {
+    throw new Error(
+      `Converge-agent schreef geen ${combined.convergeNotesPath}. Niet gepusht.`,
+    );
+  }
 
   const after = await combined.readStatus();
   await combined.writeStatus({
@@ -330,7 +337,10 @@ function buildPrompt(opts: {
     `minimaliseer nieuwe commentaren en respecteer hoe elk bestand met ` +
     `commentaar omging. Maak precies één nette conventional commit (subject = ` +
     `PR-titel) en schrijf de PR-body naar ${combined.prBodyPath} (absoluut pad, ` +
-    `buiten je cwd). Push NIET en maak GEEN PR — dat doet de orchestrator.\n\n` +
+    `buiten je cwd). Schrijf daarnaast je converge-notes (wat je in elke bron ` +
+    `vond + welke keuzes je maakte) naar ${combined.convergeNotesPath} ` +
+    `(absoluut pad, buiten je cwd). Push NIET en maak GEEN PR — dat doet de ` +
+    `orchestrator.\n\n` +
     `Jira ticket-URL voor de PR-body (gebruik exact deze): ${jiraTicketUrl}`
   );
 }
