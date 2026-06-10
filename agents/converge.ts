@@ -294,15 +294,35 @@ async function main() {
   });
   log.info(`✅ Gecombineerd op ${combinedBranch}. Lokale commit + _pr-body.md klaar.`);
 
-  log.info(`\n━━━ push ━━━`);
-  await runPush({ key });
+  // De combineer-stap (de dure LLM-run) is nu gecommit en op disk. Push en PR
+  // zijn deterministisch en goedkoop; faalt er een — typisch een gh/git auth-
+  // blip op de laatste stap — dan mag dat niet als een kale crash overkomen.
+  // De gecombineerde commit is veilig en de run staat op 'approved', dus we
+  // geven een duidelijke hervat-instructie (push/pr zijn idempotent en
+  // re-runnable) in plaats van de stacktrace.
+  try {
+    log.info(`\n━━━ push ━━━`);
+    await runPush({ key });
 
-  log.info(`\n━━━ pr ━━━`);
-  const url = await runPr({ key });
-  if (url) {
-    log.info(`\n🚀 Klaar. Draft-PR: ${url}. Zet hem ready + merge zelf op GitHub.`);
-  } else {
-    log.info(`\n🚀 Gepusht. PR aangemaakt maar geen URL teruggekregen — check GitHub.`);
+    log.info(`\n━━━ pr ━━━`);
+    const url = await runPr({ key });
+    if (url) {
+      log.info(`\n🚀 Klaar. Draft-PR: ${url}. Zet hem ready + merge zelf op GitHub.`);
+    } else {
+      log.info(`\n🚀 Gepusht. PR aangemaakt maar geen URL teruggekregen — check GitHub.`);
+    }
+  } catch (err) {
+    log.error(
+      `\n⚠️  Combineren lukte (commit + _pr-body.md staan op ${combinedBranch}, ` +
+        `status 'approved'), maar push/PR faalde:\n  ${
+          err instanceof Error ? err.message : String(err)
+        }\n\n` +
+        `Geen werk verloren. Los de oorzaak op (vaak 'gh auth login' of git-` +
+        `credentials) en hervat met de idempotente stappen:\n` +
+        `  npm run push -- ${key}\n` +
+        `  npm run pr   -- ${key}`,
+    );
+    process.exit(1);
   }
 }
 
