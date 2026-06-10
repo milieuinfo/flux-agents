@@ -56,7 +56,7 @@ export async function runReview({ key, profile }: ReviewArgs): Promise<void> {
 
   // Label = profiel + develop-model-code. Review moet dezelfde
   // worktree/branch/state als develop vinden, dus de code komt uit het
-  // DEVELOP-model (AGENT3_MODEL), niet uit reviews eigen AGENT4_MODEL.
+  // DEVELOP-model (AGENT_DEVELOP_MODEL), niet uit reviews eigen AGENT_REVIEW_MODEL.
   const label = runPathLabel(profile, developModel());
 
   const ticketSprint = await locateTicketSprint(stateDir, key, label);
@@ -128,7 +128,9 @@ export async function runReview({ key, profile }: ReviewArgs): Promise<void> {
     prompt: userPrompt,
     options: {
       model: reviewModel(),
-      maxTurns: Number(process.env.AGENT4_MAX_TURNS ?? 100),
+      maxTurns: Number(
+        process.env.AGENT_REVIEW_MAX_TURNS ?? process.env.AGENT4_MAX_TURNS ?? 100,
+      ),
       cwd: worktree,
       // Reviewer writes review-r<N>.md and _status.json in state/tickets/<KEY>/.
       additionalDirectories: [stateDir],

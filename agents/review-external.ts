@@ -26,7 +26,7 @@ import {
   prepareWorktree,
 } from './shared/repo.js';
 import { loadPrompt } from './shared/prompts.js';
-import { reviewModel, runPathLabel } from './shared/model.js';
+import { reviewExternalModel, runPathLabel } from './shared/model.js';
 import { bashAgentHooks } from './shared/observability.js';
 import { streamLastAssistantText } from './shared/query.js';
 import { locateRefinement } from './shared/ticket.js';
@@ -58,9 +58,10 @@ async function runReviewExternal(args: ReviewExternalArgs): Promise<void> {
   );
   await ensureRepoClone({ repoUrl, cloneDir });
 
-  // Label = profiel + reviewer-model-code (AGENT4_MODEL): externe review is
-  // een zelfstandige run met de reviewer als enige agent.
-  const label = runPathLabel(profile, reviewModel());
+  // Label = profiel + reviewer-model-code (AGENT_REVIEW_EXTERNAL_MODEL,
+  // default = review-model): externe review is een zelfstandige run met de
+  // reviewer als enige agent.
+  const label = runPathLabel(profile, reviewExternalModel());
   const worktree = externalReviewWorktreePath(stateDir, key, label);
   await prepareWorktree({
     mainRepoDir: cloneDir,
@@ -105,8 +106,12 @@ async function runReviewExternal(args: ReviewExternalArgs): Promise<void> {
   const q = query({
     prompt: userPrompt,
     options: {
-      model: reviewModel(),
-      maxTurns: Number(process.env.AGENT4_MAX_TURNS ?? 100),
+      model: reviewExternalModel(),
+      maxTurns: Number(
+        process.env.AGENT_REVIEW_EXTERNAL_MAX_TURNS ??
+          process.env.AGENT4_MAX_TURNS ??
+          100,
+      ),
       cwd: worktree,
       // Reviewer schrijft de review-md in state/reviews/<KEY>/.
       additionalDirectories: [stateDir],

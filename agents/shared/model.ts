@@ -79,14 +79,48 @@ export function modelLabel(model: string): string {
   return 'Claude';
 }
 
-/** AGENT3_MODEL met dezelfde default als develop.ts gebruikt. */
-export function developModel(): string {
-  return process.env.AGENT3_MODEL ?? 'claude-sonnet-4-6';
+/*
+ * Model per agent-rol. De canonieke env vars dragen de rolnaam
+ * (`AGENT_REFINE_MODEL`, `AGENT_DEVELOP_MODEL`, …); de oude genummerde
+ * varianten (`AGENT1_MODEL`–`AGENT4_MODEL`) blijven als fallback werken
+ * zodat een bestaande `.env` niets breekt.
+ */
+
+/** Model voor agent 1 (refine). */
+export function refineModel(): string {
+  return (
+    process.env.AGENT_REFINE_MODEL ?? process.env.AGENT1_MODEL ?? 'claude-opus-4-7'
+  );
 }
 
-/** AGENT4_MODEL met dezelfde default als review.ts gebruikt. */
+/** Model voor de beknopte Jira-samenvatting van agent 1 (§5b). */
+export function refineSummaryModel(): string {
+  return (
+    process.env.AGENT_REFINE_SUMMARY_MODEL ??
+    process.env.AGENT1_SUMMARY_MODEL ??
+    'claude-sonnet-4-6'
+  );
+}
+
+/** Model voor agent 2 (plan). */
+export function planModel(): string {
+  return (
+    process.env.AGENT_PLAN_MODEL ?? process.env.AGENT2_MODEL ?? 'claude-opus-4-7'
+  );
+}
+
+/** Model voor agent 3 (develop). Bepaalt ook de model-code in run-paden (§10). */
+export function developModel(): string {
+  return (
+    process.env.AGENT_DEVELOP_MODEL ?? process.env.AGENT3_MODEL ?? 'claude-sonnet-4-6'
+  );
+}
+
+/** Model voor agent 4 (review). */
 export function reviewModel(): string {
-  return process.env.AGENT4_MODEL ?? 'claude-opus-4-7';
+  return (
+    process.env.AGENT_REVIEW_MODEL ?? process.env.AGENT4_MODEL ?? 'claude-opus-4-7'
+  );
 }
 
 /**
@@ -97,6 +131,14 @@ export function reviewModel(): string {
  */
 export function convergeModel(): string {
   return process.env.AGENT_CONVERGE_MODEL ?? reviewModel();
+}
+
+/**
+ * Model voor de externe-review-zijtak. Zelfde rol als review, dus default =
+ * reviewModel(). Bepaalt óók de model-code in het externe worktree-pad.
+ */
+export function reviewExternalModel(): string {
+  return process.env.AGENT_REVIEW_EXTERNAL_MODEL ?? reviewModel();
 }
 
 /**

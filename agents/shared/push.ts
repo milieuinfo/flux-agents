@@ -32,7 +32,7 @@ export async function runPush({ key, profile }: PushArgs): Promise<void> {
   const stateDir = resolve(process.env.STATE_DIR ?? './state');
 
   // Label = profiel + develop-model-code, identiek aan review.ts zodat we
-  // dezelfde worktree/branch/state vinden (code uit AGENT3_MODEL).
+  // dezelfde worktree/branch/state vinden (code uit AGENT_DEVELOP_MODEL).
   const label = runPathLabel(profile, developModel());
 
   const ticketSprint = await locateTicketSprint(stateDir, key, label);

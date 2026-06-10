@@ -232,7 +232,7 @@ keuze toelicht in een comment) hoort de volgende analyse te beïnvloeden
 ### 5b. Twee outputs per ticket: uitgebreid + beknopt
 
 Direct na de Opus-refinement doet agent 1 een tweede LLM-call (Sonnet,
-override via `AGENT1_SUMMARY_MODEL`) die het uitgebreide rapport inkort
+override via `AGENT_REFINE_SUMMARY_MODEL`) die het uitgebreide rapport inkort
 tot een Jira-comment-vriendelijke versie. De Sonnet-call krijgt enkel
 de tekst van de `.md` mee — geen tools, geen MCP. Output:
 `FLUX-XXX.jira.md` naast de bestaande `FLUX-XXX.md`. Canonical prompt
@@ -380,9 +380,10 @@ Het pad-segment is bij een profile-run niet het kale profiel maar een
 het agent-model in `.env`: `claude-opus-4-8` → `O48`, `claude-sonnet-4-6`
 → `S46`, `claude-haiku-4-5` → `H45` (zie `agents/shared/model.ts`,
 `modelCode`/`runPathLabel`). Voor `develop`/`review`/`ship`/`iterate` is dat
-het **develop-model `AGENT3_MODEL`** (review, ship en iterate aligneren op
-develops worktree, dus zij berekenen de code óók uit `AGENT3_MODEL`, niet uit
-hun eigen model); voor `review-external` is het `AGENT4_MODEL`. Een
+het **develop-model `AGENT_DEVELOP_MODEL`** (review, ship en iterate aligneren
+op develops worktree, dus zij berekenen de code óók uit `AGENT_DEVELOP_MODEL`,
+niet uit hun eigen model); voor `review-external` is het
+`AGENT_REVIEW_EXTERNAL_MODEL` (default = het review-model). Een
 model-wissel in `.env` levert dus een nieuwe, niet-botsende run op naast de
 vorige. Zonder `--profile` is er geen label en geen model-code → exact het
 oude pad.
@@ -406,7 +407,7 @@ Bij een profile-run gebeurt het volgende (`<label>` = `<profiel>-<code>`):
   welke ronde hoort. `review.ts` weigert met een duidelijke melding als
   `--profile` ontbreekt terwijl `_status.json` er één bevat — voorkomt
   stille profile-mismatch. De model-code zit niet in `_status.json`: review
-  en ship herberekenen het label uit `--profile` + `AGENT3_MODEL` (`.env`),
+  en ship herberekenen het label uit `--profile` + `AGENT_DEVELOP_MODEL` (`.env`),
   net zoals het profiel consistent meegegeven wordt.
 - **Profile-activatie** in de worktree gebeurt door
   `applyAiProfile(worktreePath, profile)` (in `agents/shared/repo.ts`),
@@ -508,7 +509,7 @@ orchestrator zoals `ship`/`iterate`, maar met een eigen LLM-stap (Opus,
 Flow:
 
 1. **Validatie.** Voor elk meegegeven profiel wordt het label
-   `<profiel>-<modelcode>` berekend (uit `AGENT3_MODEL`, identiek aan
+   `<profiel>-<modelcode>` berekend (uit `AGENT_DEVELOP_MODEL`, identiek aan
    develop/review/push/pr) en de ticket-state opgezocht. Elke bron moet
    status `approved` hebben — het natuurlijke eindpunt van `iterate` (lokale
    squash gedaan, dus elke bronbranch draagt één nette commit). Minstens 2

@@ -371,10 +371,10 @@ npm run converge -- FLUX-123 --profiles no,kris
 
 Wat er onder de motorkap gebeurt bij `--profile kris`. Het pad-segment is
 niet het kale profiel maar het label `<profiel>-<modelcode>`, waarbij de
-code uit het **develop-model** (`AGENT3_MODEL`) komt
+code uit het **develop-model** (`AGENT_DEVELOP_MODEL`) komt
 (`claude-opus-4-8` → `O48`, `claude-sonnet-4-6` → `S46`,
-`claude-haiku-4-5` → `H45`). Voorbeeld met `AGENT3_MODEL=claude-opus-4-8`
-→ label `kris-O48`:
+`claude-haiku-4-5` → `H45`). Voorbeeld met
+`AGENT_DEVELOP_MODEL=claude-opus-4-8` → label `kris-O48`:
 
 - Worktree: `state/worktrees/flux-web-components-FLUX-123-kris-O48/`
 - Branch:   `feature-v2/kris-O48/FLUX-123-<slug>`
@@ -385,7 +385,8 @@ code uit het **develop-model** (`AGENT3_MODEL`) komt
 
 Een model-wissel in `.env` levert dus een nieuwe, niet-botsende run op naast
 de vorige. `push`, `pr` en `review` herberekenen hetzelfde label uit
-`--profile` + `AGENT3_MODEL`, dus geef je `--profile` daar consistent mee.
+`--profile` + `AGENT_DEVELOP_MODEL`, dus geef je `--profile` daar consistent
+mee.
 Geen `--profile` = exact gedrag van vóór de feature (volledig
 backwards-compatible).
 
@@ -429,8 +430,11 @@ Default setup:
 | 4 review | Opus | Kritische analyse, waar de kwaliteit zit |
 | converge | Opus | Twee implementaties vergelijken en combineren |
 
-Override via env vars: `AGENT1_MODEL`, `AGENT1_SUMMARY_MODEL`, `AGENT2_MODEL`,
-`AGENT3_MODEL`, `AGENT4_MODEL`, `AGENT_CONVERGE_MODEL`. Voor de interactieve
+Override via env vars — één per agent-rol: `AGENT_REFINE_MODEL`,
+`AGENT_REFINE_SUMMARY_MODEL`, `AGENT_PLAN_MODEL`, `AGENT_DEVELOP_MODEL`,
+`AGENT_REVIEW_MODEL`, `AGENT_CONVERGE_MODEL`, `AGENT_REVIEW_EXTERNAL_MODEL`.
+De oude genummerde namen (`AGENT1_MODEL`–`AGENT4_MODEL`,
+`AGENT1_SUMMARY_MODEL`) blijven als fallback werken. Voor de interactieve
 CC-variant kan je ook de frontmatter van
 `agents/claude-code/.claude/agents/*.md` aanpassen (of de canonical prompt
 onder `agents/prompts/` en vervolgens `npm run sync-cc-agents`).

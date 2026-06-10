@@ -25,6 +25,7 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { log } from './shared/logger.js';
+import { refineModel, refineSummaryModel } from './shared/model.js';
 import { loadPrompt } from './shared/prompts.js';
 import { SprintState, hashTicketContent, type SprintMeta } from './shared/state.js';
 import {
@@ -312,8 +313,10 @@ async function refineTicket(
   const response = await runQuery(prompt, {
     systemPrompt,
     // Code exploration (Glob → Read → Grep → Read…) eet snel beurten op.
-    // Override via AGENT1_MAX_TURNS als een ticket telkens tegen de limiet loopt.
-    maxTurns: Number(process.env.AGENT1_MAX_TURNS ?? 30),
+    // Override via AGENT_REFINE_MAX_TURNS als een ticket telkens tegen de limiet loopt.
+    maxTurns: Number(
+      process.env.AGENT_REFINE_MAX_TURNS ?? process.env.AGENT1_MAX_TURNS ?? 30,
+    ),
     cwd: worktreeDir,
     allowedTools: ['mcp__mcp-atlassian', 'Read', 'Glob', 'Grep'],
     collectAllTurns: true,
@@ -348,7 +351,7 @@ async function summarizeRefinement(
     `beknopte Jira-comment-versie volgens je system prompt.\n\n` +
     `--- RAPPORT ---\n${fullMarkdown}\n--- EINDE RAPPORT ---`;
 
-  const model = process.env.AGENT1_SUMMARY_MODEL ?? 'claude-sonnet-4-6';
+  const model = refineSummaryModel();
 
   const q = query({
     prompt,
@@ -486,7 +489,7 @@ async function runQuery(
     images?: ImagePayload[];
   } = {},
 ): Promise<string> {
-  const model = process.env.AGENT1_MODEL ?? 'claude-opus-4-7';
+  const model = refineModel();
 
   // String-prompt is de gewone weg. Alleen wanneer er images zijn,
   // schakelen we naar de AsyncIterable-vorm: de SDK ondersteunt image

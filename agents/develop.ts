@@ -165,7 +165,9 @@ export async function runDevelop({ key, sprint, profile }: DevelopArgs): Promise
     prompt: userPrompt,
     options: {
       model: developModel(),
-      maxTurns: Number(process.env.AGENT3_MAX_TURNS ?? 100),
+      maxTurns: Number(
+        process.env.AGENT_DEVELOP_MAX_TURNS ?? process.env.AGENT3_MAX_TURNS ?? 100,
+      ),
       cwd: worktree,
       // Agent writes code-changes.md in state/tickets/<KEY>/, outside cwd.
       additionalDirectories: [stateDir],

@@ -18,6 +18,7 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 import { readFile, readdir, writeFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { log } from './shared/logger.js';
+import { planModel } from './shared/model.js';
 import { loadPrompt } from './shared/prompts.js';
 import {
   extractAnchoredDocument,
@@ -56,7 +57,7 @@ async function loadSprintMarkdowns(sprintDir: string): Promise<string> {
 }
 
 async function runQuery(prompt: string, systemPrompt: string): Promise<string> {
-  const model = process.env.AGENT2_MODEL ?? 'claude-opus-4-7';
+  const model = planModel();
 
   const q = query({
     prompt,
