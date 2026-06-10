@@ -275,6 +275,121 @@ export async function locateTicketSprint(
 }
 
 /**
+ * Vind de run-subfolder van een profielrun op disk, op basis van enkel
+ * ticket + kaal profiel. Het label (`<profiel>-<modelcode>`) wordt NIET
+ * herberekend uit het huidige `AGENT_DEVELOP_MODEL` — de model-code in de
+ * foldernaam zegt alleen met welk model er destijds ontwikkeld is, en mag
+ * een latere model-wissel in `.env` niet breken (converge op een `no-F5`-run
+ * moet ook werken als develop intussen op Sonnet staat).
+ *
+ * Een kandidaat telt alleen mee als zijn `_status.json` het kale profiel
+ * draagt (`status.profile === profile`) — dat onderscheidt profiel `no`
+ * van een hypothetisch profiel `no-x`, wiens labels ook met `no-` beginnen.
+ *
+ * Disambiguatie wanneer hetzelfde profiel meerdere runs heeft (zelfde
+ * ticket, verschillende modellen):
+ *   1. precies één kandidaat → die;
+ *   2. precies één kandidaat met status 'approved' → die (het natuurlijke
+ *      converge-doelwit);
+ *   3. anders wint `preferredLabel` (doorgaans het label volgens de huidige
+ *      `.env`) als die tussen de kandidaten zit;
+ *   4. anders een fout die de labels opsomt.
+ */
+export async function locateProfileRun(
+  stateDir: string,
+  key: string,
+  profile: string,
+  opts: { sprint?: string; preferredLabel?: string } = {},
+): Promise<{ sprint: string; label: string }> {
+  const ticketsRoot = resolve(stateDir, 'tickets');
+
+  let sprints: string[];
+  if (opts.sprint) {
+    sprints = [opts.sprint];
+  } else {
+    try {
+      const entries = await readdir(ticketsRoot, { withFileTypes: true });
+      sprints = entries.filter((e) => e.isDirectory()).map((e) => e.name);
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+        throw new Error(`Geen tickets-folder onder ${stateDir}.`);
+      }
+      throw err;
+    }
+  }
+
+  const candidates: Array<{
+    sprint: string;
+    label: string;
+    status: TicketStateJson;
+  }> = [];
+  for (const sprint of sprints) {
+    const ticketDir = join(ticketsRoot, sprint, key);
+    let entries;
+    try {
+      entries = await readdir(ticketDir, { withFileTypes: true });
+    } catch {
+      continue; // ticket niet in deze sprint
+    }
+    for (const entry of entries) {
+      if (!entry.isDirectory() || !entry.name.startsWith(`${profile}-`)) continue;
+      let status: TicketStateJson;
+      try {
+        const raw = await readFile(
+          join(ticketDir, entry.name, '_status.json'),
+          'utf-8',
+        );
+        status = JSON.parse(raw) as TicketStateJson;
+      } catch {
+        continue; // geen leesbare _status.json → geen run
+      }
+      if (status.profile !== profile) continue;
+      candidates.push({ sprint, label: entry.name, status });
+    }
+  }
+
+  if (candidates.length === 0) {
+    throw new Error(
+      `Geen profielrun voor ${key} met profiel '${profile}' gevonden onder ` +
+        `${ticketsRoot}/${opts.sprint ?? '<sprint>'}/${key}/${profile}-*/. ` +
+        `Draai eerst 'npm run iterate -- ${key} --profile ${profile}'.`,
+    );
+  }
+
+  const sprintsFound = [...new Set(candidates.map((c) => c.sprint))];
+  if (sprintsFound.length > 1) {
+    throw new Error(
+      `Ticket ${key} (profiel ${profile}) bestaat in meerdere sprint-folders ` +
+        `(${sprintsFound.join(', ')}). Geef de sprint expliciet mee.`,
+    );
+  }
+
+  if (candidates.length === 1) {
+    return { sprint: candidates[0].sprint, label: candidates[0].label };
+  }
+
+  const approved = candidates.filter((c) => c.status.status === 'approved');
+  if (approved.length === 1) {
+    return { sprint: approved[0].sprint, label: approved[0].label };
+  }
+  const pool = approved.length > 1 ? approved : candidates;
+  const preferred = pool.find((c) => c.label === opts.preferredLabel);
+  if (preferred) {
+    return { sprint: preferred.sprint, label: preferred.label };
+  }
+
+  throw new Error(
+    `Meerdere runs voor ${key} met profiel '${profile}': ` +
+      candidates
+        .map((c) => `${c.label} (status ${c.status.status})`)
+        .join(', ') +
+      `. Ruim de overbodige run-folders op onder ` +
+      `${ticketsRoot}/${candidates[0].sprint}/${key}/, of zet ` +
+      `AGENT_DEVELOP_MODEL op het model van de bedoelde run.`,
+  );
+}
+
+/**
  * Verplaats `tickets/<KEY>/` naar `tickets/<sprint>/<KEY>/` op basis van
  * de `sprint`-veld in `_status.json`. No-op als de legacy folder niet
  * bestaat of geen `_status.json` heeft.

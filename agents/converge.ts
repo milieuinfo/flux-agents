@@ -47,8 +47,8 @@ import {
   TicketState,
   extractBranchSlug,
   extractTitle,
+  locateProfileRun,
   locateRefinement,
-  locateTicketSprint,
   migrateLegacyTicketDir,
 } from './shared/ticket.js';
 import { runPush } from './shared/push.js';
@@ -118,17 +118,26 @@ function parseArgs(): ConvergeArgs {
  * Lokaliseer en valideer één bron-profielrun. Vereist status 'approved' —
  * dat is het natuurlijke eindpunt van iterate (lokale squash gedaan, dus de
  * bronbranch draagt één nette commit om uit te combineren.
+ *
+ * Het run-label wordt op disk ontdekt (ticket + profiel volstaan): de
+ * model-code in de foldernaam zegt alleen met welk model er destijds
+ * ontwikkeld is, en een latere model-wissel in `.env` mag converge niet
+ * breken. Het label volgens de huidige `.env` dient enkel als tiebreaker
+ * wanneer hetzelfde profiel meerdere runs heeft.
  */
 async function loadSource(
   stateDir: string,
   key: string,
   profile: string,
+  sprintArg?: string,
 ): Promise<Source> {
-  const label = runPathLabel(profile, developModel());
-  if (!label) {
+  if (!profile) {
     throw new Error(`Leeg profiel meegegeven aan converge.`);
   }
-  const sprint = await locateTicketSprint(stateDir, key, label);
+  const { sprint, label } = await locateProfileRun(stateDir, key, profile, {
+    sprint: sprintArg,
+    preferredLabel: runPathLabel(profile, developModel()),
+  });
   const ticket = new TicketState(stateDir, sprint, key, label);
   const status = await ticket.readStatus();
   if (!status) {
@@ -164,7 +173,7 @@ async function main() {
   // Bronnen valideren (allemaal 'approved') vóór we iets aanmaken.
   const sources: Source[] = [];
   for (const profile of profiles) {
-    sources.push(await loadSource(stateDir, key, profile));
+    sources.push(await loadSource(stateDir, key, profile, sprint));
   }
   log.info(
     `Bronnen klaar:\n` +

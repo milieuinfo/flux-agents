@@ -508,9 +508,15 @@ orchestrator zoals `ship`/`iterate`, maar met een eigen LLM-stap (Opus,
 
 Flow:
 
-1. **Validatie.** Voor elk meegegeven profiel wordt het label
-   `<profiel>-<modelcode>` berekend (uit `AGENT_DEVELOP_MODEL`, identiek aan
-   develop/review/push/pr) en de ticket-state opgezocht. Elke bron moet
+1. **Validatie.** Voor elk meegegeven profiel wordt de run-subfolder
+   (`<profiel>-<modelcode>`) **op disk ontdekt** via ticket + kaal profiel
+   (`locateProfileRun` in `shared/ticket.ts`) — converge herberekent het label
+   bewust níét uit `AGENT_DEVELOP_MODEL`: de model-code in de foldernaam zegt
+   alleen met welk model er destijds ontwikkeld is, en een latere model-wissel
+   in `.env` mag een afgewerkte run niet onvindbaar maken. Heeft hetzelfde
+   profiel meerdere runs (verschillende modellen), dan wint de enige
+   `approved`; daarna het label volgens de huidige `.env`; anders een fout die
+   de kandidaten opsomt. Elke bron moet
    status `approved` hebben — het natuurlijke eindpunt van `iterate` (lokale
    squash gedaan, dus elke bronbranch draagt één nette commit). Minstens 2
    profielen vereist; bij een niet-`approved` bron weigert converge.
