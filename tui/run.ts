@@ -3,7 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as p from '@clack/prompts';
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+export const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const tsxBin = resolve(repoRoot, 'node_modules', '.bin', 'tsx');
 
 /**
