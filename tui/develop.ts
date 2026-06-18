@@ -1,0 +1,32 @@
+import * as p from '@clack/prompts';
+import { runDevelop } from '../agents/develop.js';
+import { promptTicketAndProfile } from './prompts.js';
+
+/**
+ * TUI-actie 'ontwikkel': vraagt een ticket-sleutel en profiel en draait dan één
+ * develop-ronde, exact zoals `npm run develop -- <KEY> --profile <naam>`. Geen
+ * review, geen push. Keert na afloop terug naar het submenu.
+ */
+export async function developAction(): Promise<void> {
+  const sel = await promptTicketAndProfile();
+  if (!sel) return;
+  const { key, profile } = sel;
+
+  const confirmed = await p.confirm({
+    message: `Ontwikkelen op ${key} met profiel '${profile}'?`,
+  });
+  if (p.isCancel(confirmed) || !confirmed) return;
+
+  // Vanaf hier neemt de agent het over; die logt zelf uitgebreid naar stdout.
+  p.log.step(`Ontwikkelen op ${key} (profiel: ${profile})…`);
+  try {
+    await runDevelop({ key, profile });
+    p.log.success(
+      `Ontwikkeling klaar voor ${key}. Bekijk code-changes.md; review met 'review'.`,
+    );
+  } catch (err) {
+    p.log.error(
+      `Ontwikkeling faalde: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+}

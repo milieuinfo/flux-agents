@@ -5,6 +5,8 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "start": "tsx tui/index.ts",
+    "tui": "tsx tui/index.ts",
     "refine": "tsx agents/refine.ts",
     "plan": "tsx agents/plan.ts",
     "develop": "tsx agents/develop.ts",
@@ -26,6 +28,7 @@
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.117",
+    "@clack/prompts": "^1.5.1",
     "dotenv": "^16.4.5"
   },
   "devDependencies": {

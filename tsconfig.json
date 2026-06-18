@@ -10,8 +10,8 @@
     "resolveJsonModule": true,
     "types": ["node"],
     "outDir": "./dist",
-    "rootDir": "./agents"
+    "rootDir": "."
   },
-  "include": ["agents/**/*.ts"],
+  "include": ["agents/**/*.ts", "tui/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }
