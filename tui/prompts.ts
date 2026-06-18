@@ -119,17 +119,19 @@ async function discoverSprints(): Promise<string[]> {
 }
 
 /** Vraagt een sprint (select uit ontdekte sprints, anders vrije tekst). */
-export async function promptSprint(): Promise<string | undefined> {
+export async function promptSprint(
+  message = 'Welke sprint?',
+): Promise<string | undefined> {
   const sprints = await discoverSprints();
   if (sprints.length > 0) {
     const sel = await p.select({
-      message: 'Welke sprint?',
+      message,
       options: sprints.map((name) => ({ value: name, label: name })),
     });
     return p.isCancel(sel) ? undefined : sel;
   }
   const typed = await p.text({
-    message: 'Welke sprint?',
+    message,
     placeholder: 'backlog-20260422',
     validate: (v) => (v?.trim() ? undefined : 'Geef een sprint op.'),
   });
