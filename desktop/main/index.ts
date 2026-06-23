@@ -124,20 +124,26 @@ function createWindow(): void {
   }
 }
 
+// Veilig naar de renderer sturen: tijdens afsluiten kan een pty-event nog
+// vuren nadat het venster vernietigd is — send() zou dan gooien.
+function send(channel: string, payload: unknown): void {
+  if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
+}
+
 function handlePtyData(id: number, data: string): void {
   if (id !== tuiPtyId) {
-    win?.webContents.send(IPC.ptyData, { id, data });
+    send(IPC.ptyData, { id, data });
     return;
   }
   // TUI-stream: control-signalen eruit knippen, rest doorsturen.
   const { clean, messages } = tuiParser.push(data);
-  for (const msg of messages) win?.webContents.send(IPC.controlOpenTab, msg);
-  if (clean) win?.webContents.send(IPC.ptyData, { id, data: clean });
+  for (const msg of messages) send(IPC.controlOpenTab, msg);
+  if (clean) send(IPC.ptyData, { id, data: clean });
 }
 
 function registerIpc(): void {
   ptys = new PtyManager(handlePtyData, (id, exitCode, signal) =>
-    win?.webContents.send(IPC.ptyExit, { id, exitCode, signal }),
+    send(IPC.ptyExit, { id, exitCode, signal }),
   );
 
   ipcMain.handle(IPC.ptyCreate, (_e, req: PtyCreateRequest) => {
