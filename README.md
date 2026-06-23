@@ -12,7 +12,7 @@ triggert, en de finale merge doe je altijd zelf.
 Jira sprint
     │
     ▼  npm run refine -- <sprint>
-┌─────────────┐   agent 1: SDK (Node) — leest Jira via MCP
+┌─────────────┐   agent 1: SDK (Node) — leest Jira via REST
 │ refine      │   per ticket FLUX-*.md (Opus, uitgebreid)
 │ (Opus+Son.) │   + FLUX-*.jira.md (Sonnet, beknopt voor Jira)
 └─────────────┘   idempotent; update-geschiedenis bij herstart
@@ -151,13 +151,7 @@ onder `$STATE_DIR/repo/flux-web-components/` (gitignored in de
 state-repo). Volledig los van je eigen werkcopie — de agents raken die
 nooit aan.
 
-### 4. MCP Atlassian Docker image
-
-```bash
-docker pull ghcr.io/sooperset/mcp-atlassian:latest
-```
-
-### 5. Claude Code authenticatie
+### 4. Claude Code authenticatie
 
 Twee opties:
 
@@ -167,11 +161,11 @@ je terminal, de SDK gebruikt die sessie.
 **Optie B:** Zet `ANTHROPIC_API_KEY` in `.env`. Dit verbruikt pay-per-use
 credits, niet je MAX plan.
 
-### 6. `gh` CLI geauthenticeerd
+### 5. `gh` CLI geauthenticeerd
 
 `npm run pr` (en `converge`) gebruiken `gh pr create`. Check `gh auth status`.
 
-### 7. (optioneel) Claude Code commands linken naar flux-web-components
+### 6. (optioneel) Claude Code commands linken naar flux-web-components
 
 Alleen nodig als je agent 3/4 interactief via de Claude Code CLI wil
 kunnen draaien (bv. voor debugging). Voor de normale SDK-flow hoef je
@@ -191,7 +185,7 @@ npm run refine -- SPRINT-42
 npm run refine -- --jql "sprint = openSprints() AND project = FLUX"
 # of met een expliciete lijst van tickets (eerste positional = folder-naam onder state/sprints/)
 npm run refine -- hotfixes-april --tickets FLUX-123,FLUX-124,FLUX-125
-# droogtest (verifieert MCP-auth, schrijft niets blijvends)
+# droogtest (verifieert Jira REST-auth, schrijft niets blijvends)
 npm run refine:dry -- SPRINT-42
 ```
 
@@ -408,7 +402,7 @@ prompt onder `agents/prompts/` en draai `npm run sync-cc-agents`.
 
 ## Test-strategie voor de eerste keer
 
-1. `npm run refine:dry -- <oude-sprint>` — verifieer MCP auth
+1. `npm run refine:dry -- <oude-sprint>` — verifieer Jira REST-auth
 2. `npm run refine -- <oude-sprint>` op een kleine sprint (2-3 tickets)
 3. Lees de markdowns. Zijn ze bruikbaar? Stuur de prompt bij in
    `agents/prompts/refine.md`

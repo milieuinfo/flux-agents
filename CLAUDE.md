@@ -187,7 +187,7 @@ mens te komen. (c) Simpeler mentaal model: agents werken lokaal,
 GitHub is voor mensen — en de netwerk-schrijfacties zitten in expliciete
 scripts, niet verstopt in een LLM-run.
 
-### 5. Agent 1 gebruikt Jira MCP, herstart idempotent
+### 5. Agent 1 leest Jira via REST, herstart idempotent
 
 Agent 1 hasht de inhoudelijke velden van elk Jira-ticket (`summary`,
 `description`, `acceptance criteria`, `status`, menselijke `comments`,
@@ -204,10 +204,14 @@ volgende run automatisch een re-refine. AI-gegenereerde comments
 anders zou de pipeline zichzelf eindeloos triggeren. Het filter staat in
 `agents/shared/jira.ts` (`isAiGeneratedComment`/`humanComments`).
 
-De fetch-prompt vraagt expliciet om alle comments en het system prompt
-(`agents/prompts/refine.md`) instrueert het model expliciet hoe ze te
-behandelen — recente comments hebben voorrang op stale description-tekst
-als die tegenstrijdig zijn, en AI-comments worden genegeerd als input.
+Agent 1 haalt de ticket-velden (description, AC, status, labels, links,
+comments) via Jira REST op (`getFullIssueDetails` in
+`agents/shared/jira.ts`) en injecteert ze rechtstreeks in de user-prompt —
+géén interactieve MCP tool-call meer. Comments worden vóór injectie op
+menselijke gefilterd (`humanComments`), zodat AI-comments van de pipeline
+zelf nooit als input dienen. Het system prompt (`agents/prompts/refine.md`)
+instrueert het model hoe ze te wegen — recente comments hebben voorrang op
+stale description-tekst als die tegenstrijdig zijn.
 
 **Images wegen ook mee:** image-attachments van het ticket
 (jpeg/png/gif/webp) worden via Jira REST gedownload en als vision
@@ -293,18 +297,22 @@ canonical prompt uit `agents/prompts/`. De SDK-scripts laden direct uit
 `agents/prompts/<role>.md`. Bij een prompt-wijziging: canonical bewerken,
 dan `npm run sync-cc-agents` om de CC-mirror bij te werken.
 
-### 8. MCP Atlassian via Docker per run
+### 8. Jira lezen via directe REST (geen Docker/MCP)
 
-Agent 1 leest Jira via `ghcr.io/sooperset/mcp-atlassian:latest`, gestart
-per run. Configuratie via env vars (geen token in Docker image).
+Agent 1 leest Jira via directe REST-calls met het Personal Access Token
+(`searchJql` voor de sprint-lookup, `getFullIssueDetails` per ticket, beide
+in `agents/shared/jira.ts`). De opgehaalde velden worden in de user-prompt
+geïnjecteerd; het LLM-werk blijft de analyse, niet het ophalen. Er is dus
+**geen Docker en geen MCP-server** meer nodig.
 
 **Waarom:** Jira instance is on-premise Data Center
-(`jira.omgeving.vlaanderen.be`), geen OAuth zoals Cloud. Kris heeft
-al een Personal Access Token voor zijn IntelliJ MCP integratie.
-Sooperset is de standaard community MCP server die zowel Cloud als
-Data Center ondersteunt. Refine heeft een LLM nodig om tickets te
-analyseren — vandaar de route via MCP. Publicatie naar Jira heeft géén
-LLM-oordeel nodig en gebruikt daarom directe REST-calls (zie §9).
+(`jira.omgeving.vlaanderen.be`), geen OAuth zoals Cloud — een PAT volstaat
+voor REST. De vroegere route liep via `ghcr.io/sooperset/mcp-atlassian` in
+Docker, maar dat (a) maakte Docker een harde prerequisite (blokkerend voor
+het uitdelen van een desktop-app aan teamleden, zie `analyse/desktop-app.md`),
+(b) kostte LLM-beurten aan een puur deterministische lookup, en (c) was
+trager door de Docker-startup per run. REST is sneller, deterministischer en
+dependency-vrij. Publicatie naar Jira gebruikt al langer directe REST (zie §9).
 
 ### 9. Publicatie naar Jira via `scripts/publish.ts`
 
@@ -703,8 +711,8 @@ visibility (tool mag publiek, state bevat interne ticket-details).
   via proactive triggers)
 
 ### External tools
-- **`sooperset/mcp-atlassian`** Docker image voor Jira MCP — gebruikt door agent 1
-- **Jira Data Center REST API v2** — direct vanuit `scripts/publish.ts` met `fetch`
+- **Jira Data Center REST API v2** — direct vanuit agent 1 (`agents/shared/jira.ts`)
+  én `scripts/publish.ts`/`publish-review.ts` met `fetch`. Geen Docker/MCP meer.
 - **`gh` CLI** voor de ene GitHub-actie (PR aanmaken)
 - **`git`** — vereist minstens 2.23+ voor `switch`
 
@@ -719,9 +727,9 @@ Als je (Claude in een toekomstige sessie) iets aanpast, valideer:
    migratie-strategie.
 3. **Idempotentie agent 1** — herstart blijft non-destructief?
 4. **Max rondes** — blijft escalatie-logica intact?
-5. **Geen nieuwe netwerk-endpoints** — we praten alleen met Jira MCP
-   (agent 1), Jira REST direct (publish.ts en publish-review.ts),
-   Anthropic API (via SDK), GitHub (via gh CLI)
+5. **Geen nieuwe netwerk-endpoints** — we praten alleen met Jira REST
+   direct (agent 1, publish.ts en publish-review.ts), Anthropic API
+   (via SDK), GitHub (via gh CLI)
 6. **Profile-paden** — als je helpers in `shared/repo.ts` of
    `shared/ticket.ts` wijzigt die het worktree-pad, branch-naam of
    ticket-state-pad bouwen, behoud dan de optionele `profile`-parameter
@@ -762,8 +770,12 @@ Kris er zelf om vraagt:
 
 Veel waarschijnlijke foutmodes:
 
-- **MCP Atlassian auth faalt** → check dat `JIRA_PERSONAL_TOKEN` geldig
-  is en dat `JIRA_SSL_VERIFY` past bij de certificaat-situatie
+- **Jira REST auth/verbinding faalt** → check dat `JIRA_URL` en
+  `JIRA_PERSONAL_TOKEN` geldig zijn en dat `JIRA_SSL_VERIFY` past bij de
+  certificaat-situatie (self-signed cert → `false`)
+- **Sprint-lookup geeft geen tickets** → de `sprint = "<naam>"` JQL-clause
+  matcht op exacte sprintnaam; quote multi-word namen en controleer of de
+  naam klopt, of gebruik `--jql`/`--tickets`
 - **Agent 1 vindt geen acceptance criteria** → VO Jira heeft mogelijk
   een custom field voor AC (e.g. `customfield_10xxx`). De prompt is
   generiek; als dit structureel fout gaat, introduceer een

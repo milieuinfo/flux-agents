@@ -2,8 +2,8 @@
 /**
  * Agent 1: Refine
  *
- * Leest alle tickets van een sprint via Jira MCP en produceert een markdown-
- * bestand per ticket met een refinement analyse.
+ * Leest alle tickets van een sprint via de Jira REST API en produceert een
+ * markdown-bestand per ticket met een refinement analyse.
  *
  * Usage:
  *   npm run refine -- <sprintName> [folderName]
@@ -22,8 +22,8 @@
 
 import { config } from 'dotenv';
 import { query } from '@anthropic-ai/claude-agent-sdk';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { log } from './shared/logger.js';
 import { refineModel, refineSummaryModel } from './shared/model.js';
 import { loadPrompt } from './shared/prompts.js';
@@ -38,13 +38,18 @@ import {
   applyJiraSslConfig,
   createJiraClient,
   downloadAttachmentAsBase64,
+  getFullIssueDetails,
   getIssueAttachments,
   getIssueComments,
   getIssueFields,
   humanComments,
   isVisionSupportedImage,
+  searchJql,
   type JiraAttachment,
   type JiraClient,
+  type JiraComment,
+  type JiraFullIssue,
+  type JiraTicketSummary,
 } from './shared/jira.js';
 import {
   extractMarkdown,
@@ -133,123 +138,89 @@ function requireEnv(name: string): string {
 }
 
 /**
- * Build the MCP server config for the Jira Data Center.
- * This reuses the same `sooperset/mcp-atlassian` server you already run
- * for IntelliJ, just started fresh per agent run.
+ * Build a JQL query from the CLI args. `--tickets` becomes `key in (...)`,
+ * `--jql` is passed through verbatim, en sprint-modus gebruikt de `sprint`
+ * JQL-clause op naam (zoals een gebruiker in de Jira-UI zou typen).
  */
-function jiraMcpConfig() {
-  const jiraUrl = requireEnv('JIRA_URL');
-  const jiraToken = requireEnv('JIRA_PERSONAL_TOKEN');
-  const sslVerify = process.env.JIRA_SSL_VERIFY ?? 'true';
-
-  return {
-    'mcp-atlassian': {
-      type: 'stdio' as const,
-      command: 'docker',
-      args: [
-        'run', '--rm', '-i',
-        '-e', 'JIRA_URL',
-        '-e', 'JIRA_PERSONAL_TOKEN',
-        '-e', 'JIRA_SSL_VERIFY',
-        'ghcr.io/sooperset/mcp-atlassian:latest',
-      ],
-      env: {
-        JIRA_URL: jiraUrl,
-        JIRA_PERSONAL_TOKEN: jiraToken,
-        JIRA_SSL_VERIFY: sslVerify,
-      },
-    },
-  };
-}
-
-/**
- * Build a JQL query from the CLI args, or return null if the sprint-ID path is used.
- * `--tickets` becomes `key in (...)`; `--jql` is passed through verbatim.
- */
-function buildJql(args: CliArgs): string | null {
+function buildJql(args: CliArgs): string {
   if (args.jql) return args.jql;
   if (args.tickets && args.tickets.length > 0) {
     const keys = args.tickets.map((k) => `"${k}"`).join(', ');
     return `key in (${keys})`;
   }
-  return null;
+  const projectKey = process.env.JIRA_PROJECT_KEY ?? 'FLUX';
+  return `sprint = "${args.sprintName}" AND project = ${projectKey}`;
 }
 
 /**
- * Ask the agent to list ticket keys for the sprint.
- * We do this as a separate, cheap call so we can do per-ticket
- * idempotency checks BEFORE spending tokens on full refinement.
- *
- * This call does NOT need code access — it's a pure Jira lookup —
- * so we leave `cwd` undefined and limit tools to the Jira MCP.
+ * Lijst de tickets van de sprint via een directe JQL REST-call. Apart en
+ * goedkoop zodat we per-ticket idempotency-checks kunnen doen VÓÓR we tokens
+ * uitgeven aan een volledige refinement. Geen LLM, geen MCP.
  */
 async function listSprintTickets(
   args: CliArgs,
-  stateDir: string,
-): Promise<Array<{
-  key: string;
-  summary: string;
-  status: string;
-  updated: string;
-}>> {
+  jira: JiraClient,
+): Promise<JiraTicketSummary[]> {
   const jql = buildJql(args);
-  const prompt = jql
-    ? `Use the Jira MCP to search with this JQL: ${jql}. Return ONLY a JSON array of objects with fields: key, summary, status, updated (ISO timestamp). No prose.`
-    : `Use the Jira MCP to find all tickets in sprint "${args.sprintName}" for project ${process.env.JIRA_PROJECT_KEY ?? 'FLUX'}. Return ONLY a JSON array of objects with fields: key, summary, status, updated (ISO timestamp). No prose.`;
-
-  log.info('Listing sprint tickets...');
-  const response = await runQuery(prompt, {
-    maxTurns: 5,
-    allowedTools: ['mcp__mcp-atlassian'],
-  });
-
-  let json: unknown;
-  try {
-    json = extractJson(response);
-  } catch (err) {
-    const dumpPath = await dumpRawResponse(stateDir, 'refine-list-tickets', response);
-    throw new Error(
-      `Could not extract JSON from list-tickets response: ${(err as Error).message}. ` +
-        `Raw response written to ${dumpPath}.`,
-    );
-  }
-  if (!Array.isArray(json)) {
-    const dumpPath = await dumpRawResponse(stateDir, 'refine-list-tickets', response);
-    throw new Error(
-      `Expected array of tickets, got ${typeof json} (${truncate(JSON.stringify(json), 120)}). ` +
-        `Raw response written to ${dumpPath}.`,
-    );
-  }
-  return json as Array<{ key: string; summary: string; status: string; updated: string }>;
+  log.info(`Listing sprint tickets (JQL: ${jql})...`);
+  return searchJql(jira, jql);
 }
 
 /**
- * Persist a raw model response under `<stateDir>/logs/` so we can inspect what
- * the model actually returned when parsing failed. Returns the absolute path.
- * Failure to write is logged but not re-thrown — we don't want a logging issue
- * to mask the original parse error.
+ * Render de via REST opgehaalde ticket-velden als markdown-blok dat we in de
+ * user-prompt injecteren. Comments zijn al gefilterd op menselijke (AI-comments
+ * van de pipeline zelf worden door `humanComments` weggelaten) en chronologisch
+ * gesorteerd. Vervangt de vroegere MCP-fetch-tool: het model krijgt de data nu
+ * kant-en-klaar i.p.v. ze interactief op te vragen.
  */
-async function dumpRawResponse(
-  stateDir: string,
-  label: string,
-  body: string,
-): Promise<string> {
-  const logsDir = join(stateDir, 'logs');
-  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const path = join(logsDir, `${label}-${stamp}.txt`);
-  try {
-    await mkdir(logsDir, { recursive: true });
-    await writeFile(path, body, 'utf-8');
-  } catch (err) {
-    log.warn(`Failed to write debug dump to ${path}:`, err);
+function formatTicketForPrompt(
+  details: JiraFullIssue,
+  comments: JiraComment[],
+): string {
+  const parts: string[] = [];
+  parts.push(`### Ticket ${details.key} (opgehaald via Jira REST)`);
+  parts.push(`**Summary:** ${details.summary || '(geen)'}`);
+  parts.push(`**Status:** ${details.status || '(onbekend)'}`);
+  parts.push(`**Labels:** ${details.labels.length ? details.labels.join(', ') : '(geen)'}`);
+
+  parts.push(`\n#### Description\n${details.description?.trim() || '(geen description)'}`);
+
+  if (details.acceptanceCriteria?.trim()) {
+    parts.push(`\n#### Acceptance criteria\n${details.acceptanceCriteria.trim()}`);
   }
-  return path;
+
+  if (details.issuelinks.length) {
+    const links = details.issuelinks
+      .map((l) => {
+        const other = l.outwardIssue?.key ?? l.inwardIssue?.key;
+        const rel = l.outwardIssue ? l.type.outward : l.type.inward;
+        return other ? `- ${rel} ${other}` : null;
+      })
+      .filter(Boolean)
+      .join('\n');
+    if (links) parts.push(`\n#### Links\n${links}`);
+  }
+
+  if (comments.length) {
+    const rendered = comments
+      .map((c) => {
+        const author = c.author?.displayName ?? c.author?.name ?? 'onbekend';
+        const when = (c.created ?? '').slice(0, 10);
+        return `**${author}${when ? ` (${when})` : ''}:**\n${c.body}`;
+      })
+      .join('\n\n');
+    parts.push(`\n#### Comments (menselijk, oudste eerst)\n${rendered}`);
+  } else {
+    parts.push(`\n#### Comments\n(geen menselijke comments)`);
+  }
+
+  return parts.join('\n');
 }
 
 /**
- * Fetch full ticket content and have the agent produce the refinement markdown.
- * The agent runs with `cwd` = read-only develop-v2 worktree so it can
- * consult the flux-web-components source when relevant (see prompt).
+ * Fetch full ticket content (via Jira REST) and have the agent produce the
+ * refinement markdown. The agent runs with `cwd` = read-only develop-v2
+ * worktree so it can consult the flux-web-components source when relevant.
  */
 async function refineTicket(
   key: string,
@@ -257,6 +228,7 @@ async function refineTicket(
   systemPrompt: string,
   worktreeDir: string,
   jira: JiraClient,
+  acFieldId: string | undefined,
 ): Promise<string> {
   const updateInstruction = existingMarkdown
     ? `\n\nEr bestaat al een vorige analyse van dit ticket (zie hieronder). ` +
@@ -285,19 +257,23 @@ async function refineTicket(
         `visuele bugs is de screenshot vaak de primaire bron van waarheid.`
       : '';
 
+  // Ticket-data via REST ophalen en in de prompt injecteren (was vroeger een
+  // MCP tool-call). Comments filteren we op menselijke — AI-comments van de
+  // pipeline zelf worden weggelaten zodat ze geen feedback-loop voeden.
+  const details = await getFullIssueDetails(jira, key, acFieldId);
+  const comments = humanComments(details.comments);
+  const ticketBlock = formatTicketForPrompt(details, comments);
+
   const prompt =
-    `Haal ticket ${key} op via de Jira MCP (inclusief description, ` +
-    `acceptance criteria custom field indien aanwezig, status, labels, ` +
-    `links, en ALLE comments). Comments tellen mee bij je analyse — een ` +
-    `collega heeft daar mogelijk context, beslissingen of follow-up-vragen ` +
-    `geplaatst die niet in description staan. Negeer comments waarvan de ` +
-    `body begint met \`h2. Sprint-analyse - AI\` of \`h2. Code review - AI\` ` +
-    `(of de markdown-equivalenten met \`## …\`) — die zijn door deze ` +
-    `pipeline zelf gepost en mogen niet als input dienen. ` +
-    `Je werkdirectory is de develop-v2 worktree van flux-web-components — ` +
-    `gebruik Read/Glob/Grep om de relevante component-code te consulteren ` +
-    `volgens de instructies in je system prompt. ` +
-    `Produceer dan de refinement markdown volgens het format in je system prompt.` +
+    `Hieronder staan de volledige gegevens van ticket ${key}, opgehaald via ` +
+    `Jira REST. Comments tellen mee bij je analyse — een collega heeft daar ` +
+    `mogelijk context, beslissingen of follow-up-vragen geplaatst die niet in ` +
+    `de description staan; recente comments hebben voorrang op tegenstrijdige ` +
+    `description-tekst. Je werkdirectory is de develop-v2 worktree van ` +
+    `flux-web-components — gebruik Read/Glob/Grep om de relevante component-code ` +
+    `te consulteren volgens de instructies in je system prompt. Produceer dan ` +
+    `de refinement markdown volgens het format in je system prompt.\n\n` +
+    ticketBlock +
     imagesContext +
     updateInstruction;
 
@@ -318,7 +294,7 @@ async function refineTicket(
       process.env.AGENT_REFINE_MAX_TURNS ?? process.env.AGENT1_MAX_TURNS ?? 30,
     ),
     cwd: worktreeDir,
-    allowedTools: ['mcp__mcp-atlassian', 'Read', 'Glob', 'Grep'],
+    allowedTools: ['Read', 'Glob', 'Grep'],
     collectAllTurns: true,
     images: imagePayloads,
   });
@@ -507,64 +483,14 @@ async function runQuery(
       systemPrompt: opts.systemPrompt
         ? { type: 'preset', preset: 'claude_code', append: opts.systemPrompt }
         : undefined,
-      mcpServers: jiraMcpConfig(),
       cwd: opts.cwd,
-      allowedTools: opts.allowedTools ?? ['mcp__mcp-atlassian'],
+      // Ticket-data komt nu via REST in de prompt; het model heeft enkel
+      // code-lees-tools nodig om de flux-web-components source te consulteren.
+      allowedTools: opts.allowedTools ?? ['Read', 'Glob', 'Grep'],
     },
   });
 
   return opts.collectAllTurns ? streamAllAssistantText(q) : streamLastAssistantText(q);
-}
-
-/**
- * Extract the first parseable JSON value from a text response.
- *
- * The model can wrap JSON in ```json fences, prefix it with prose, intermix
- * unrelated brace-using text ("the {tickets} are below"), or close with a
- * trailing comment. We try multiple strategies in order of likelihood and
- * accept the first candidate that parses.
- *
- * Strategy:
- *  1. Each fenced code block (```json or plain ```), in order.
- *  2. Each `[...]` slice — for every `[` position, try shrinking from the
- *     last matching `]`. We prefer arrays because every caller asks for one.
- *  3. Each `{...}` slice as a fallback, same shrink-from-the-right approach.
- *
- * Throws with a snippet of the raw text if nothing parses, so the dump file
- * referenced in the wrapping error is the one to inspect.
- */
-function extractJson(text: string): unknown {
-  const fenceRe = /```(?:json)?\s*\n([\s\S]*?)\n```/g;
-  let m: RegExpExecArray | null;
-  while ((m = fenceRe.exec(text)) !== null) {
-    const parsed = tryParseJson(m[1].trim());
-    if (parsed !== undefined) return parsed;
-  }
-
-  for (const [openCh, closeCh] of [
-    ['[', ']'],
-    ['{', '}'],
-  ] as const) {
-    let openIdx = -1;
-    while ((openIdx = text.indexOf(openCh, openIdx + 1)) !== -1) {
-      let closeIdx = text.lastIndexOf(closeCh);
-      while (closeIdx > openIdx) {
-        const parsed = tryParseJson(text.slice(openIdx, closeIdx + 1));
-        if (parsed !== undefined) return parsed;
-        closeIdx = text.lastIndexOf(closeCh, closeIdx - 1);
-      }
-    }
-  }
-
-  throw new Error(`No parseable JSON found. First 200 chars: ${truncate(text, 200)}`);
-}
-
-function tryParseJson(s: string): unknown {
-  try {
-    return JSON.parse(s);
-  } catch {
-    return undefined;
-  }
 }
 
 /**
@@ -740,7 +666,7 @@ async function main() {
 
   const existingMeta = await state.readMeta();
   const overviewKey = await readOverviewKey(state);
-  const allTickets = await listSprintTickets(args, stateDir);
+  const allTickets = await listSprintTickets(args, jira);
   const tickets = filterUmbrella(allTickets, overviewKey);
   log.info(`Found ${allTickets.length} tickets (${tickets.length} after filter)`);
 
@@ -806,7 +732,7 @@ async function main() {
 
     const existing = markdownExists ? await state.readTicketMarkdown(t.key) : null;
     try {
-      const md = await refineTicket(t.key, existing, systemPrompt, worktreeDir, jira);
+      const md = await refineTicket(t.key, existing, systemPrompt, worktreeDir, jira, acFieldId);
       await state.writeTicketMarkdown(t.key, md);
       newMeta.tickets[t.key] = {
         key: t.key,

@@ -112,6 +112,63 @@ export async function getIssueFields(
   return issue.fields ?? {};
 }
 
+// --- Search (JQL) ---------------------------------------------------------
+
+export interface JiraTicketSummary {
+  key: string;
+  summary: string;
+  status: string;
+  updated: string;
+}
+
+interface JiraSearchResponse {
+  issues?: Array<{ key: string; fields?: Record<string, unknown> }>;
+  total?: number;
+}
+
+/**
+ * Zoek tickets via JQL en geef per issue de lichte velden terug die agent 1
+ * nodig heeft voor de idempotency-pass (key, summary, status, updated). Vervangt
+ * de vroegere MCP-lookup — een directe REST-call is sneller, deterministisch en
+ * kost geen LLM-beurten. Pagineert zodat sprints met >50 tickets volledig
+ * teruggegeven worden.
+ */
+export async function searchJql(
+  client: JiraClient,
+  jql: string,
+): Promise<JiraTicketSummary[]> {
+  const out: JiraTicketSummary[] = [];
+  const pageSize = 100;
+  let startAt = 0;
+  for (;;) {
+    const params = new URLSearchParams({
+      jql,
+      fields: 'summary,status,updated',
+      startAt: String(startAt),
+      maxResults: String(pageSize),
+    });
+    const res = await jiraFetch<JiraSearchResponse>(
+      client,
+      'GET',
+      `/rest/api/2/search?${params.toString()}`,
+    );
+    const issues = res.issues ?? [];
+    for (const issue of issues) {
+      const f = issue.fields ?? {};
+      const status = f.status as { name?: string } | null;
+      out.push({
+        key: issue.key,
+        summary: String(f.summary ?? ''),
+        status: status?.name ?? '',
+        updated: String(f.updated ?? ''),
+      });
+    }
+    startAt += issues.length;
+    if (issues.length === 0 || startAt >= (res.total ?? out.length)) break;
+  }
+  return out;
+}
+
 // --- Comments -------------------------------------------------------------
 
 export interface JiraComment {
@@ -163,6 +220,52 @@ export function humanComments(comments: JiraComment[]): JiraComment[] {
   return comments
     .filter((c) => !isAiGeneratedComment(c.body))
     .sort((a, b) => a.created.localeCompare(b.created));
+}
+
+// --- Full issue ------------------------------------------------------------
+
+export interface JiraFullIssue {
+  key: string;
+  summary: string;
+  description: string | null;
+  acceptanceCriteria: string | null;
+  status: string;
+  labels: string[];
+  issuelinks: JiraIssueLink[];
+  comments: JiraComment[];
+}
+
+/**
+ * Haal in één REST-call de volledige inhoudelijke velden van een ticket op die
+ * agent 1 nodig heeft om de refinement te schrijven: description, acceptance
+ * criteria (custom field, optioneel via `acFieldId`), status, labels, links en
+ * alle comments. Vervangt de vroegere MCP-fetch waarbij het model interactief
+ * `jira_get_issue` aanriep; nu injecteren we de data rechtstreeks in de prompt.
+ *
+ * Comment-filtering (AI vs mens) blijft de verantwoordelijkheid van de caller
+ * via `humanComments` — net als bij `getIssueComments`.
+ */
+export async function getFullIssueDetails(
+  client: JiraClient,
+  key: string,
+  acFieldId?: string,
+): Promise<JiraFullIssue> {
+  const fields = ['summary', 'description', 'status', 'labels', 'issuelinks', 'comment'];
+  if (acFieldId) fields.push(acFieldId);
+  const f = await getIssueFields(client, key, fields);
+  const status = f.status as { name?: string } | null;
+  const commentBlock = f.comment as JiraCommentBlock | undefined;
+  return {
+    key,
+    summary: String(f.summary ?? ''),
+    description: f.description == null ? null : String(f.description),
+    acceptanceCriteria:
+      acFieldId && f[acFieldId] != null ? String(f[acFieldId]) : null,
+    status: status?.name ?? '',
+    labels: Array.isArray(f.labels) ? (f.labels as string[]) : [],
+    issuelinks: Array.isArray(f.issuelinks) ? (f.issuelinks as JiraIssueLink[]) : [],
+    comments: commentBlock?.comments ?? [],
+  };
 }
 
 // --- Attachments ----------------------------------------------------------
