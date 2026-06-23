@@ -12,7 +12,21 @@ export const IPC = {
   ptyData: 'pty:data', // main → renderer (send)
   ptyExit: 'pty:exit', // main → renderer (send)
   controlOpenTab: 'control:open-tab', // main → renderer (send)
+  configGet: 'config:get', // renderer → main (invoke)
+  configSave: 'config:save', // renderer → main (invoke)
+  configTestJira: 'config:test-jira', // renderer → main (invoke)
 } as const;
+
+export interface ConfigForRenderer {
+  values: Record<string, string>;
+  secretsSet: Record<string, boolean>;
+}
+
+export interface TestJiraResult {
+  ok: boolean;
+  user?: string;
+  error?: string;
+}
 
 /**
  * Welk soort pty de renderer wil. `tui` draait de @clack-TUI links, `shell`
@@ -83,4 +97,13 @@ export interface FluxDesktopApi {
   };
   /** Main vraagt de renderer een command-tab te openen (control-protocol). */
   onOpenTab(cb: (msg: OpenTabMsg) => void): () => void;
+  config: {
+    get(): Promise<ConfigForRenderer>;
+    save(values: Record<string, string>): Promise<void>;
+    testJira(input: {
+      url?: string;
+      token?: string;
+      sslVerify?: string;
+    }): Promise<TestJiraResult>;
+  };
 }

@@ -6,6 +6,7 @@
 import './styles.css';
 import { TerminalView } from './terminal-view';
 import { TabManager } from './tabs';
+import { SettingsPanel } from './settings';
 
 function el(id: string): HTMLElement {
   const node = document.getElementById(id);
@@ -33,6 +34,11 @@ async function main(): Promise<void> {
 
   // Control-protocol: een TUI-actie links opent hier een eigen tab rechts.
   window.fluxDesktop.onOpenTab((msg) => void tabs.openCommand(msg.title, msg.command));
+
+  // Settings-overlay (⚙).
+  const settings = new SettingsPanel();
+  document.body.appendChild(settings.element);
+  el('settings-btn').addEventListener('click', () => void settings.show());
 }
 
 void main();

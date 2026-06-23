@@ -36,6 +36,11 @@ const api: FluxDesktopApi = {
     ipcRenderer.on(IPC.controlOpenTab, handler);
     return () => ipcRenderer.removeListener(IPC.controlOpenTab, handler);
   },
+  config: {
+    get: () => ipcRenderer.invoke(IPC.configGet),
+    save: (values) => ipcRenderer.invoke(IPC.configSave, values),
+    testJira: (input) => ipcRenderer.invoke(IPC.configTestJira, input),
+  },
 };
 
 contextBridge.exposeInMainWorld('fluxDesktop', api);

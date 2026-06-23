@@ -17,6 +17,12 @@ import {
 } from '../shared/ipc';
 import type { SpawnSpec } from './pty-manager';
 import { ControlParser } from '../shared/control';
+import {
+  getConfigForRenderer,
+  loadEffectiveConfig,
+  saveConfig,
+  testJira,
+} from './config-store';
 
 const SMOKE = process.env.FLUX_SMOKE === '1';
 
@@ -28,6 +34,11 @@ const userShell = process.env.SHELL || '/bin/zsh';
 let win: BrowserWindow | null = null;
 let ptys: PtyManager;
 
+// Effectieve config (defaults < .env < JSON < secrets). Wordt als env aan elke
+// pty meegegeven zodat de agents gewoon process.env.* lezen. Bij een save in het
+// settings-scherm wordt dit herladen.
+let effectiveConfig: Record<string, string> = {};
+
 // De TUI-pty wordt apart behandeld: zijn stdout loopt door de ControlParser
 // zodat "open tab"-signalen eruit geknipt worden vóór ze xterm bereiken.
 let tuiPtyId: number | null = null;
@@ -35,7 +46,11 @@ const tuiParser = new ControlParser();
 
 /** Bouw de spawn-spec voor een gevraagd pty-soort. */
 function buildSpec(req: PtyCreateRequest): SpawnSpec {
-  const env = { ...process.env, TERM: 'xterm-256color' } as NodeJS.ProcessEnv;
+  const env = {
+    ...process.env,
+    ...effectiveConfig,
+    TERM: 'xterm-256color',
+  } as NodeJS.ProcessEnv;
   const base = { cwd: repoRoot, cols: req.cols, rows: req.rows, env };
 
   if (req.kind === 'tui') {
@@ -105,9 +120,30 @@ function registerIpc(): void {
     ptys.resize(m.id, m.cols, m.rows),
   );
   ipcMain.on(IPC.ptyKill, (_e, m: PtyKillMsg) => ptys.kill(m.id));
+
+  ipcMain.handle(IPC.configGet, () => getConfigForRenderer(repoRoot));
+  ipcMain.handle(IPC.configSave, (_e, values: Record<string, string>) => {
+    saveConfig(values);
+    effectiveConfig = loadEffectiveConfig(repoRoot); // direct van kracht voor nieuwe tabs
+  });
+  ipcMain.handle(
+    IPC.configTestJira,
+    (_e, input: { url?: string; token?: string; sslVerify?: string }) =>
+      testJira(repoRoot, input),
+  );
 }
 
 void app.whenReady().then(() => {
+  effectiveConfig = loadEffectiveConfig(repoRoot);
+  if (SMOKE) {
+    const cfg = getConfigForRenderer(repoRoot);
+    console.log(
+      `[smoke] config keys=${Object.keys(effectiveConfig).length}`,
+      `stateDir=${effectiveConfig.STATE_DIR}`,
+      `jiraUrlSet=${Boolean(effectiveConfig.JIRA_URL)}`,
+      `patSet=${cfg.secretsSet.JIRA_PERSONAL_TOKEN}`,
+    );
+  }
   registerIpc();
   createWindow();
   app.on('activate', () => {

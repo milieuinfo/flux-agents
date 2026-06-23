@@ -1,0 +1,161 @@
+/**
+ * Settings-overlay: rendert een formulier uit het centrale ENV_SCHEMA,
+ * gegroepeerd per sectie. Prefilled via de config-bridge; secrets worden niet
+ * teruggehaald (enkel of ze gezet zijn). Opslaan schrijft naar userData +
+ * keychain (main); "Test Jira" valideert de verbinding.
+ */
+import {
+  CONFIG_GROUPS,
+  ENV_SCHEMA,
+  type EnvField,
+} from '../../agents/shared/config';
+
+export class SettingsPanel {
+  readonly element = document.createElement('div');
+  private readonly inputs = new Map<string, HTMLInputElement>();
+  private readonly status = document.createElement('div');
+  private readonly api = window.fluxDesktop;
+
+  constructor() {
+    this.element.className = 'settings-overlay';
+    this.element.hidden = true;
+    this.build();
+  }
+
+  private build(): void {
+    const panel = document.createElement('div');
+    panel.className = 'settings-panel';
+
+    const header = document.createElement('div');
+    header.className = 'settings-header';
+    const title = document.createElement('h2');
+    title.textContent = 'Instellingen';
+    const close = document.createElement('button');
+    close.className = 'settings-close';
+    close.textContent = '×';
+    close.title = 'Sluiten';
+    close.addEventListener('click', () => this.hide());
+    header.append(title, close);
+
+    const body = document.createElement('div');
+    body.className = 'settings-body';
+    for (const group of CONFIG_GROUPS) {
+      const fields = ENV_SCHEMA.filter((f) => f.group === group);
+      if (!fields.length) continue;
+      body.appendChild(this.renderGroup(group, fields));
+    }
+
+    const footer = document.createElement('div');
+    footer.className = 'settings-footer';
+    this.status.className = 'settings-status';
+    const testBtn = document.createElement('button');
+    testBtn.className = 'btn';
+    testBtn.textContent = 'Test Jira-verbinding';
+    testBtn.addEventListener('click', () => void this.testJira());
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'btn btn-primary';
+    saveBtn.textContent = 'Opslaan';
+    saveBtn.addEventListener('click', () => void this.save());
+    footer.append(this.status, testBtn, saveBtn);
+
+    panel.append(header, body, footer);
+    this.element.appendChild(panel);
+
+    // Klik op de achtergrond (buiten het paneel) sluit.
+    this.element.addEventListener('click', (e) => {
+      if (e.target === this.element) this.hide();
+    });
+  }
+
+  private renderGroup(group: string, fields: EnvField[]): HTMLElement {
+    const section = document.createElement('section');
+    section.className = 'settings-group';
+    const h = document.createElement('h3');
+    h.textContent = group;
+    section.appendChild(h);
+
+    for (const f of fields) {
+      const row = document.createElement('label');
+      row.className = 'settings-row';
+
+      const labelText = document.createElement('span');
+      labelText.className = 'settings-label';
+      labelText.textContent = f.required ? `${f.label} *` : f.label;
+
+      const input = document.createElement('input');
+      input.type = f.secret ? 'password' : 'text';
+      input.className = 'settings-input';
+      input.placeholder = f.placeholder ?? '';
+      input.autocomplete = 'off';
+      this.inputs.set(f.key, input);
+
+      row.append(labelText, input);
+      if (f.description) {
+        const desc = document.createElement('span');
+        desc.className = 'settings-desc';
+        desc.textContent = f.description;
+        row.appendChild(desc);
+      }
+      section.appendChild(row);
+    }
+    return section;
+  }
+
+  async show(): Promise<void> {
+    this.status.textContent = '';
+    this.status.className = 'settings-status';
+    const { values, secretsSet } = await this.api.config.get();
+    for (const f of ENV_SCHEMA) {
+      const input = this.inputs.get(f.key);
+      if (!input) continue;
+      if (f.secret) {
+        input.value = '';
+        input.placeholder = secretsSet[f.key]
+          ? '•••••••• (ingesteld — leeg laten om te behouden)'
+          : (f.placeholder ?? '');
+      } else {
+        input.value = values[f.key] ?? '';
+      }
+    }
+    this.element.hidden = false;
+  }
+
+  hide(): void {
+    this.element.hidden = true;
+  }
+
+  private collect(): Record<string, string> {
+    const out: Record<string, string> = {};
+    for (const [key, input] of this.inputs) out[key] = input.value;
+    return out;
+  }
+
+  private async save(): Promise<void> {
+    const values = this.collect();
+    const missing = ENV_SCHEMA.filter(
+      (f) => f.required && !f.secret && !values[f.key]?.trim(),
+    ).map((f) => f.label);
+    if (missing.length) {
+      this.setStatus(`Verplicht: ${missing.join(', ')}`, 'err');
+      return;
+    }
+    await this.api.config.save(values);
+    this.setStatus('Opgeslagen. Geldt voor nieuwe tabs.', 'ok');
+  }
+
+  private async testJira(): Promise<void> {
+    this.setStatus('Testen…', '');
+    const res = await this.api.config.testJira({
+      url: this.inputs.get('JIRA_URL')?.value || undefined,
+      token: this.inputs.get('JIRA_PERSONAL_TOKEN')?.value || undefined,
+      sslVerify: this.inputs.get('JIRA_SSL_VERIFY')?.value || undefined,
+    });
+    if (res.ok) this.setStatus(`Verbonden als ${res.user}.`, 'ok');
+    else this.setStatus(`Mislukt: ${res.error}`, 'err');
+  }
+
+  private setStatus(text: string, kind: '' | 'ok' | 'err'): void {
+    this.status.textContent = text;
+    this.status.className = `settings-status${kind ? ` ${kind}` : ''}`;
+  }
+}

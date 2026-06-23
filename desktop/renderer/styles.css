@@ -141,3 +141,153 @@ body {
 .tab-add:hover {
   color: #ffffff;
 }
+
+/* Settings-overlay. */
+.settings-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.settings-overlay[hidden] {
+  display: none;
+}
+
+.settings-panel {
+  width: min(720px, 92vw);
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  background: #232323;
+  border: 1px solid #3a3a3a;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid #3a3a3a;
+}
+
+.settings-header h2 {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.settings-close {
+  background: none;
+  border: none;
+  color: #aaaaaa;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.settings-close:hover {
+  color: #ffffff;
+}
+
+.settings-body {
+  overflow-y: auto;
+  padding: 8px 16px 16px;
+}
+
+.settings-group {
+  margin-top: 16px;
+}
+
+.settings-group h3 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #8a9bb0;
+  margin-bottom: 8px;
+  border-bottom: 1px solid #303030;
+  padding-bottom: 4px;
+}
+
+.settings-row {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 8px 12px;
+  align-items: center;
+  padding: 5px 0;
+}
+
+.settings-label {
+  font-size: 13px;
+  color: #cccccc;
+}
+
+.settings-input {
+  background: #1a1a1a;
+  border: 1px solid #3a3a3a;
+  border-radius: 4px;
+  color: #eeeeee;
+  font-size: 13px;
+  padding: 6px 8px;
+  width: 100%;
+}
+
+.settings-input:focus {
+  outline: none;
+  border-color: #5a7da0;
+}
+
+.settings-desc {
+  grid-column: 2;
+  font-size: 11px;
+  color: #777777;
+}
+
+.settings-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-top: 1px solid #3a3a3a;
+}
+
+.settings-status {
+  flex: 1 1 auto;
+  font-size: 12px;
+  color: #999999;
+}
+
+.settings-status.ok {
+  color: #6a9955;
+}
+
+.settings-status.err {
+  color: #d16969;
+}
+
+.btn {
+  background: #2f2f2f;
+  border: 1px solid #444444;
+  border-radius: 4px;
+  color: #dddddd;
+  font-size: 13px;
+  padding: 7px 14px;
+  cursor: pointer;
+}
+
+.btn:hover {
+  background: #383838;
+}
+
+.btn-primary {
+  background: #345b8a;
+  border-color: #3f6ea3;
+  color: #ffffff;
+}
+
+.btn-primary:hover {
+  background: #3f6ea3;
+}
