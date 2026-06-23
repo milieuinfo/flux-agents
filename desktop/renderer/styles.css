@@ -17,11 +17,32 @@ body {
   overflow: hidden;
 }
 
-/* 25/75 split: links de TUI, rechts de consoles. */
+/* Split: links de TUI (default 25%), een versleepbare splitter, rechts de
+   consoles. --left-width wordt door de splitter-drag gezet. */
 .app {
   display: grid;
-  grid-template-columns: 1fr 3fr;
+  grid-template-columns: var(--left-width, 25%) 5px 1fr;
   height: 100vh;
+}
+
+.splitter {
+  background: #333333;
+  cursor: col-resize;
+}
+
+.splitter:hover {
+  background: #4a4a4a;
+}
+
+/* Tijdens het slepen: cursor vasthouden en de terminals geen muis-events laten
+   opslokken zodat mousemove op window blijft vuren. */
+body.resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+
+body.resizing .terminal-host {
+  pointer-events: none;
 }
 
 .tui-pane {

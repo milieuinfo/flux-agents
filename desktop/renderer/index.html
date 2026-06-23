@@ -10,11 +10,16 @@
     <link rel="stylesheet" href="./renderer.css" />
   </head>
   <body>
-    <div class="app">
+    <div class="app" id="app">
       <aside class="tui-pane">
         <div class="pane-label">TUI</div>
         <div id="tui-terminal" class="terminal-host"></div>
       </aside>
+      <div
+        id="splitter"
+        class="splitter"
+        title="Versleep om te verdelen — dubbelklik om te resetten"
+      ></div>
       <main class="console-pane">
         <div class="tab-strip-wrap">
           <div id="tab-strip" class="tab-strip"></div>

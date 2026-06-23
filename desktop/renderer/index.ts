@@ -8,6 +8,7 @@ import { TerminalView } from './terminal-view';
 import { TabManager } from './tabs';
 import { SettingsPanel } from './settings';
 import { PreflightPanel } from './preflight';
+import { setupSplitter } from './splitter';
 
 function el(id: string): HTMLElement {
   const node = document.getElementById(id);
@@ -16,6 +17,9 @@ function el(id: string): HTMLElement {
 }
 
 async function main(): Promise<void> {
+  // Versleepbare scheiding links/rechts.
+  setupSplitter(el('app'), el('splitter'));
+
   // Links: de TUI in een eigen pty. Eén permanente terminal.
   const tuiMount = el('tui-terminal');
   const tui = new TerminalView();
