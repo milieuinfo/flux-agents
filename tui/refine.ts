@@ -1,7 +1,7 @@
 import * as p from '@clack/prompts';
 import { promptSprint, promptTicketKey } from './prompts.js';
 import { spawnScript } from './run.js';
-import { isDesktop, launchNpm } from './launch.js';
+import { isDesktop, launchAgent } from './launch.js';
 
 /**
  * Bevestigt en draait refine met de gegeven args. Geeft `true` terug als de
@@ -70,7 +70,7 @@ export async function refineAction(): Promise<void> {
     const sprint = await promptSprint();
     if (sprint === undefined) return;
     if (isDesktop()) {
-      launchNpm(`refine ${sprint}`, 'refine', [sprint]);
+      launchAgent(`refine ${sprint}`, 'refine', [sprint]);
       p.log.success(`Gestart in een eigen tab: refine ${sprint}.`);
       return;
     }
@@ -86,7 +86,7 @@ export async function refineAction(): Promise<void> {
   if (isDesktop()) {
     // In de app draait refine in een eigen tab; de publiceer-vraag erna kan
     // niet op voltooiing wachten. Publiceren doe je apart via het menu.
-    launchNpm(`refine ${key}`, 'refine', [folder, '--tickets', key]);
+    launchAgent(`refine ${key}`, 'refine', [folder, '--tickets', key]);
     p.log.success(
       `Gestart in een eigen tab: refine ${key} (map '${folder}'). ` +
         `Publiceren kan daarna via 'publicatie'.`,

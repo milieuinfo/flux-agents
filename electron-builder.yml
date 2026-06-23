@@ -1,0 +1,55 @@
+appId: be.vlaanderen.flux-agents
+productName: flux-agents
+copyright: Kris Speltincx
+
+directories:
+  output: release
+
+# Wat in de app komt. .env, state, release en .git blijven er bewust uit.
+files:
+  - desktop/dist/**
+  - agents/**
+  - tui/**
+  - scripts/**
+  - package.json
+  - package-lock.json
+  - tsconfig.json
+  - tsconfig.main.json
+  - tsconfig.renderer.json
+  - '!**/*.map'
+
+asar: true
+# De agent-runtime + node_modules moeten echte bestanden op schijf zijn: de
+# pty-tabs draaien `npm run <script>` (tsx) als losse processen, en native
+# node-pty kan sowieso niet vanuit een asar geladen worden.
+asarUnpack:
+  - agents/**
+  - tui/**
+  - scripts/**
+  - package.json
+  - package-lock.json
+  - tsconfig.json
+  - node_modules/**
+
+mac:
+  category: public.app-category.developer-tools
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+    - target: zip
+      arch:
+        - arm64
+        - x64
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  # Distributie (op Kris' machine, met Apple Developer-account):
+  #   - Code-signing: zet CSC_LINK + CSC_KEY_PASSWORD (Developer ID Application)
+  #   - Notarization: zet APPLE_ID + APPLE_APP_SPECIFIC_PASSWORD + APPLE_TEAM_ID
+  #     en `notarize: true` hieronder.
+  # Zonder deze env vars maakt `npm run dist` een ad-hoc-gesigneerde dmg die
+  # lokaal werkt, maar op andere Macs een Gatekeeper-waarschuwing geeft.
+
+dmg:
+  title: ${productName}

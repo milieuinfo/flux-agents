@@ -4,7 +4,7 @@ import { runDevelopReviewLoop } from '../agents/shared/loop.js';
 import { promptProfiles, promptTicketKey } from './prompts.js';
 import { repoRoot } from './run.js';
 import { openInTerminal } from './terminal.js';
-import { isDesktop, launchNpm } from './launch.js';
+import { isDesktop, launchAgent } from './launch.js';
 
 // Spreiding tussen het openen van de vensters, zodat de gelijktijdige
 // 'git worktree add' in de gedeelde clone niet op git's lock botsen.
@@ -94,7 +94,7 @@ export async function iterateAction(): Promise<void> {
     // branch/state). Spreiding tussen de starts zodat de 'git worktree add' in
     // de gedeelde clone niet op git's lock botst.
     for (let i = 0; i < profiles.length; i++) {
-      launchNpm(`iterate ${key} (${profiles[i]})`, 'iterate', [
+      launchAgent(`iterate ${key} (${profiles[i]})`, 'iterate', [
         key,
         '--profile',
         profiles[i],

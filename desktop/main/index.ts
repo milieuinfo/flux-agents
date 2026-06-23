@@ -7,6 +7,7 @@
  */
 import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import { join } from 'node:path';
+import { chmodSync, mkdirSync, writeFileSync } from 'node:fs';
 import { PtyManager } from './pty-manager';
 import {
   IPC,
@@ -28,13 +29,37 @@ import { runPreflight } from './preflight';
 
 const SMOKE = process.env.FLUX_SMOKE === '1';
 
-// Vanuit desktop/dist/main.cjs is de repo-root twee niveaus omhoog. Bij
-// packaging (fase 8) wordt dit een resources-pad — dan hier aanpassen.
-const repoRoot = join(__dirname, '..', '..');
+// In dev is de repo-root twee niveaus boven desktop/dist/main.cjs. Gepackaged
+// staat de agent-runtime (agents/tui/scripts/node_modules/package.json) als
+// uitgepakte asar-inhoud naast app.asar — daar draaien de pty-commando's.
+const repoRoot = app.isPackaged
+  ? `${app.getAppPath()}.unpacked`
+  : join(__dirname, '..', '..');
 const userShell = process.env.SHELL || '/bin/zsh';
 
 let win: BrowserWindow | null = null;
 let ptys: PtyManager;
+
+// De agents draaien als `tsx <script>` in de pty-tabs. We zetten één keer een
+// `tsx`-shim in userData/bin en die vooraan op PATH, zodat tsx resolt zonder
+// npm (de gepackagede app heeft geen npm-scripts: electron-builder stript ze)
+// en zonder de node_modules/.bin-symlinks (die de asar-tools weglaten). Werkt
+// identiek in dev en gepackaged; enige runtime-prerequisite is Node.
+let runtimeBinDir: string | null = null;
+
+function ensureRuntimeBin(): void {
+  try {
+    const binDir = join(app.getPath('userData'), 'bin');
+    mkdirSync(binDir, { recursive: true });
+    const cli = join(repoRoot, 'node_modules', 'tsx', 'dist', 'cli.mjs');
+    const shim = join(binDir, 'tsx');
+    writeFileSync(shim, `#!/bin/sh\nexec node ${JSON.stringify(cli)} "$@"\n`);
+    chmodSync(shim, 0o755);
+    runtimeBinDir = binDir;
+  } catch (err) {
+    console.error('Kon tsx-shim niet aanmaken:', err);
+  }
+}
 
 // Effectieve config (defaults < .env < JSON < secrets). Wordt als env aan elke
 // pty meegegeven zodat de agents gewoon process.env.* lezen. Bij een save in het
@@ -53,13 +78,16 @@ function buildSpec(req: PtyCreateRequest): SpawnSpec {
     ...effectiveConfig,
     TERM: 'xterm-256color',
   } as NodeJS.ProcessEnv;
+  if (runtimeBinDir) {
+    env.PATH = `${runtimeBinDir}:${env.PATH ?? ''}`;
+  }
   const base = { cwd: repoRoot, cols: req.cols, rows: req.rows, env };
 
   if (req.kind === 'tui') {
     // FLUX_DESKTOP zet de TUI in desktop-modus: acties sturen een control-
     // signaal i.p.v. inline/Terminal.app te draaien. Login-shell voor PATH.
     env.FLUX_DESKTOP = '1';
-    return { ...base, shell: userShell, args: ['-lc', 'npm run tui'] };
+    return { ...base, shell: userShell, args: ['-lc', 'tsx tui/index.ts'] };
   }
   if (req.kind === 'command') {
     // Eén actie-tab: draait het meegegeven commando in een login-shell.
@@ -143,6 +171,7 @@ function registerIpc(): void {
 }
 
 void app.whenReady().then(async () => {
+  ensureRuntimeBin();
   effectiveConfig = loadEffectiveConfig(repoRoot);
   if (SMOKE) {
     const cfg = getConfigForRenderer(repoRoot);

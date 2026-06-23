@@ -11,19 +11,32 @@ export function isDesktop(): boolean {
   return process.env.FLUX_DESKTOP === '1';
 }
 
+// Logische actie-naam → script-pad (relatief aan de repo-root, die main als
+// cwd zet). We draaien rechtstreeks via `tsx`, niet via `npm run`: de
+// gepackagede app heeft geen npm-scripts (electron-builder stript ze) en tsx
+// staat via een shim op PATH (zie desktop/main/index.ts).
+const SCRIPT_PATHS: Record<string, string> = {
+  refine: 'agents/refine.ts',
+  plan: 'agents/plan.ts',
+  develop: 'agents/develop.ts',
+  review: 'agents/review.ts',
+  iterate: 'agents/iterate.ts',
+  converge: 'agents/converge.ts',
+  publish: 'scripts/publish.ts',
+};
+
 /** Quote een argument veilig voor een POSIX-shell (single-quote-methode). */
 function shellQuote(s: string): string {
   return `'${s.replace(/'/g, `'\\''`)}'`;
 }
 
 /**
- * Open rechts een tab die `npm run <script> -- <args>` draait (cwd = repo-root,
- * door main bepaald). Hetzelfde commando als de CLI, zodat de tab exact doet
- * wat `npm run <script> -- …` los zou doen.
+ * Open rechts een tab die `tsx <script> <args>` draait (cwd = repo-root, door
+ * main bepaald). Hetzelfde effect als de CLI `npm run <script> -- <args>`.
  */
-export function launchNpm(title: string, script: string, args: string[]): void {
-  const command = args.length
-    ? `npm run ${script} -- ${args.map(shellQuote).join(' ')}`
-    : `npm run ${script}`;
-  emitOpenTab({ title, command });
+export function launchAgent(title: string, script: string, args: string[]): void {
+  const path = SCRIPT_PATHS[script];
+  if (!path) throw new Error(`Onbekend script: ${script}`);
+  const parts = ['tsx', shellQuote(path), ...args.map(shellQuote)];
+  emitOpenTab({ title, command: parts.join(' ') });
 }

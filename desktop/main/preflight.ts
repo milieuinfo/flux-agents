@@ -40,6 +40,19 @@ export async function runPreflight(repoRoot: string): Promise<PreflightCheck[]> 
   const eff = loadEffectiveConfig(repoRoot);
   const checks: PreflightCheck[] = [];
 
+  const node = await checkBin('node --version');
+  checks.push(
+    node
+      ? { id: 'node', label: 'Node.js', status: 'ok', detail: node }
+      : {
+          id: 'node',
+          label: 'Node.js',
+          status: 'error',
+          detail: 'Niet gevonden — vereist (npm draait de agents). Installeer Node 20+.',
+          fixUrl: 'https://nodejs.org/en/download',
+        },
+  );
+
   const git = await checkBin('git --version');
   checks.push(
     git

@@ -4,7 +4,7 @@ import { runReview } from '../agents/review.js';
 import { developModel, runPathLabel } from '../agents/shared/model.js';
 import { TicketState, locateTicketSprint } from '../agents/shared/ticket.js';
 import { promptTicketAndProfile } from './prompts.js';
-import { isDesktop, launchNpm } from './launch.js';
+import { isDesktop, launchAgent } from './launch.js';
 
 /**
  * Leest de uitkomst-status uit `_status.json` na de review en rapporteert die.
@@ -51,7 +51,7 @@ export async function reviewAction(): Promise<void> {
   const { key, profile } = sel;
 
   if (isDesktop()) {
-    launchNpm(`review ${key} (${profile})`, 'review', [key, '--profile', profile]);
+    launchAgent(`review ${key} (${profile})`, 'review', [key, '--profile', profile]);
     p.log.success(`Gestart in een eigen tab: review ${key} (${profile}).`);
     return;
   }

@@ -1,7 +1,7 @@
 import * as p from '@clack/prompts';
 import { promptSprint } from './prompts.js';
 import { spawnScript } from './run.js';
-import { isDesktop, launchNpm } from './launch.js';
+import { isDesktop, launchAgent } from './launch.js';
 
 /**
  * TUI-actie 'planning': vraagt een sprint en draait plan, exact zoals
@@ -13,7 +13,7 @@ export async function planAction(): Promise<void> {
   if (sprint === undefined) return;
 
   if (isDesktop()) {
-    launchNpm(`plan ${sprint}`, 'plan', [sprint]);
+    launchAgent(`plan ${sprint}`, 'plan', [sprint]);
     p.log.success(`Gestart in een eigen tab: plan ${sprint}.`);
     return;
   }

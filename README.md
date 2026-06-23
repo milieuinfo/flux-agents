@@ -102,7 +102,61 @@ waarbij `<code>` de model-code is (`O48`/`S46`/`H45`) — zie
 [AI-profiles](#ai-profiles-optioneel). De gecombineerde output van
 `converge` is profielloos en gebruikt dus het kale `<KEY>/`-niveau.
 
+## Desktop-app (Electron)
+
+Naast de CLI is er een macOS desktop-app: links de TUI, rechts draait elke
+gekozen actie in een eigen console-tab. Bedoeld om uit te delen aan teamleden —
+opstarten, in het ⚙ settings-scherm Jira + repo + een Anthropic API-key invullen,
+klaar. **Geen `.env` nodig** (config in de gebruikersmap, secrets in de
+macOS-keychain).
+
+### Prerequisites (op de Mac van het teamlid)
+
+- **Node.js 20+** — de agents draaien via `tsx`; de app bundelt tsx maar gebruikt
+  de systeem-`node`.
+- **git** — voor alle worktree-operaties.
+- **gh CLI** — enkel voor push / pr / converge (`gh auth login`).
+
+De app checkt deze bij het starten (statusknop **●** rechtsboven) en toont
+installatielinks bij wat ontbreekt. **Docker is niet meer nodig** — Jira loopt via
+REST.
+
+### Lokaal draaien (development)
+
+```bash
+npm run dev      # bouwt desktop/dist (esbuild) en start Electron
+```
+
+### Een dmg bouwen en distribueren
+
+```bash
+npm run dist     # → release/*.dmg (+ zip), arm64 + x64
+```
+
+- Zonder Apple-credentials is dit een **ad-hoc-gesigneerde** dmg: werkt op je
+  eigen Mac, maar geeft op andere Macs een Gatekeeper-waarschuwing (rechtsklik →
+  Openen, of `xattr -dr com.apple.quarantine /Applications/flux-agents.app`).
+- Voor wrijvingsloze distributie: code-sign + notarize met een Apple Developer-
+  account. Zet vóór `npm run dist` de env vars `CSC_LINK` + `CSC_KEY_PASSWORD`
+  (Developer ID Application) en `APPLE_ID` + `APPLE_APP_SPECIFIC_PASSWORD` +
+  `APPLE_TEAM_ID` (notarization). Zie de commentaren in `electron-builder.yml`.
+
+### Installeren + configureren (teamlid)
+
+1. Open de dmg, sleep **flux-agents** naar Applications, start de app.
+2. Klik **⚙** rechtsboven, vul in: Jira-URL + Personal Access Token, repo-URL en
+   een Anthropic API-key. Test de Jira-verbinding en de Claude-auth.
+3. Opslaan → geldt voor nieuwe tabs.
+4. Kies links een actie (analyse / plan / ontwikkel / …) → ze draait rechts in een
+   eigen tab. `+` opent een losse shell.
+
+De pure CLI (`npm run refine`, `npm run iterate`, …) blijft daarnaast gewoon
+werken — de app is een schil errond.
+
 ## Setup
+
+> Onderstaande stappen zijn voor de **CLI / development**. Als desktop-app-
+> gebruiker volstaat het ⚙ settings-scherm (zie hierboven).
 
 ### 1. Install dependencies
 
