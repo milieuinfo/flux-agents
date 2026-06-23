@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "noEmit": true
+  },
+  "include": [
+    "desktop/main/**/*.ts",
+    "desktop/preload/**/*.ts",
+    "desktop/shared/**/*.ts"
+  ]
+}
