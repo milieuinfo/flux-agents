@@ -13,11 +13,14 @@
     <div class="app">
       <aside class="tui-pane">
         <div class="pane-label">TUI</div>
-        <div class="pane-placeholder">links komt de TUI (fase 3)</div>
+        <div id="tui-terminal" class="terminal-host"></div>
       </aside>
       <main class="console-pane">
-        <div class="pane-label">Consoles</div>
-        <div class="pane-placeholder">rechts komen de console-tabs (fase 3)</div>
+        <div class="tab-strip-wrap">
+          <div id="tab-strip" class="tab-strip"></div>
+          <button id="tab-add" class="tab-add" title="Nieuwe shell">+</button>
+        </div>
+        <div id="console-body" class="terminal-host"></div>
       </main>
     </div>
     <script src="./renderer.js"></script>

@@ -37,7 +37,8 @@ const targets = [
     platform: 'node',
     target: 'node20',
     format: 'cjs',
-    external: ['electron'],
+    // electron + native module: niet bundelen, op runtime uit node_modules.
+    external: ['electron', 'node-pty'],
   },
   {
     ...shared,

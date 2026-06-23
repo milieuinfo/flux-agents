@@ -1,19 +1,35 @@
 /**
- * Renderer-entry. Draait in de browser-context van het Electron-venster
- * (geen Node-toegang — alles via de `fluxDesktop`-bridge uit de preload).
- *
- * Fase 2: enkel de layout (via de geïmporteerde CSS) + een sanity-log.
- * Fase 3 hangt hier xterm-terminals en de tab-strip aan.
+ * Renderer-bootstrap. Hangt links een pty met de @clack-TUI en bedraadt rechts
+ * de console-tabs. Draait in de browser-context — alle proces-toegang loopt via
+ * de `fluxDesktop`-bridge uit de preload.
  */
 import './styles.css';
+import { TerminalView } from './terminal-view';
+import { TabManager } from './tabs';
 
-declare global {
-  interface Window {
-    fluxDesktop?: { electronVersion: string };
-  }
+function el(id: string): HTMLElement {
+  const node = document.getElementById(id);
+  if (!node) throw new Error(`Ontbrekend element #${id}`);
+  return node;
 }
 
-console.log(
-  'flux-agents desktop renderer geladen — electron',
-  window.fluxDesktop?.electronVersion ?? '(bridge ontbreekt)',
-);
+async function main(): Promise<void> {
+  // Links: de TUI in een eigen pty. Eén permanente terminal.
+  const tuiMount = el('tui-terminal');
+  const tui = new TerminalView();
+  tuiMount.appendChild(tui.element);
+  tui.element.classList.add('visible');
+  tui.onExit = (code) => {
+    tui.element.insertAdjacentHTML(
+      'beforeend',
+      `<div class="pane-placeholder">TUI gestopt (exit ${code}). Herstart de app om opnieuw te beginnen.</div>`,
+    );
+  };
+  await tui.start('tui');
+
+  // Rechts: console-tabs + de "+"-knop voor een nieuwe shell.
+  const tabs = new TabManager(el('tab-strip'), el('console-body'));
+  el('tab-add').addEventListener('click', () => void tabs.openShell());
+}
+
+void main();

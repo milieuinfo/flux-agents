@@ -29,12 +29,14 @@ body {
   background: #181818;
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .console-pane {
   background: #1e1e1e;
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .pane-label {
@@ -47,8 +49,95 @@ body {
   border-bottom: 1px solid #2a2a2a;
 }
 
+/* Container waarin de (gestapelde) terminal-views leven. */
+.terminal-host {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.term {
+  position: absolute;
+  inset: 0;
+  display: none;
+  padding: 4px 6px;
+}
+
+.term.visible {
+  display: block;
+}
+
 .pane-placeholder {
-  padding: 16px 12px;
+  padding: 12px;
   font-size: 13px;
-  color: #666666;
+  color: #888888;
+}
+
+/* Tab-strip rechts. */
+.tab-strip-wrap {
+  display: flex;
+  align-items: stretch;
+  min-height: 34px;
+  background: #181818;
+  border-bottom: 1px solid #2a2a2a;
+}
+
+.tab-strip {
+  display: flex;
+  flex: 1 1 auto;
+  overflow-x: auto;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: #aaaaaa;
+  border-right: 1px solid #2a2a2a;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tab:hover {
+  background: #202020;
+}
+
+.tab.active {
+  background: #1e1e1e;
+  color: #ffffff;
+}
+
+.tab.exit-ok .tab-label {
+  color: #6a9955;
+}
+
+.tab.exit-err .tab-label {
+  color: #d16969;
+}
+
+.tab-close {
+  color: #777777;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.tab-close:hover {
+  color: #ffffff;
+}
+
+.tab-add {
+  background: none;
+  border: none;
+  color: #aaaaaa;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 14px;
+}
+
+.tab-add:hover {
+  color: #ffffff;
 }
