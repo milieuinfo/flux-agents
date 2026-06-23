@@ -11,6 +11,7 @@ import {
   type PtyDataMsg,
   type PtyExitMsg,
 } from '../shared/ipc';
+import type { OpenTabMsg } from '../shared/control';
 
 const api: FluxDesktopApi = {
   electronVersion: process.versions.electron,
@@ -29,6 +30,11 @@ const api: FluxDesktopApi = {
       ipcRenderer.on(IPC.ptyExit, handler);
       return () => ipcRenderer.removeListener(IPC.ptyExit, handler);
     },
+  },
+  onOpenTab: (cb) => {
+    const handler = (_e: unknown, msg: OpenTabMsg) => cb(msg);
+    ipcRenderer.on(IPC.controlOpenTab, handler);
+    return () => ipcRenderer.removeListener(IPC.controlOpenTab, handler);
   },
 };
 

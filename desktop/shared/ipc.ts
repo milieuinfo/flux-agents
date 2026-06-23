@@ -11,19 +11,22 @@ export const IPC = {
   ptyKill: 'pty:kill', // renderer → main (send)
   ptyData: 'pty:data', // main → renderer (send)
   ptyExit: 'pty:exit', // main → renderer (send)
+  controlOpenTab: 'control:open-tab', // main → renderer (send)
 } as const;
 
 /**
  * Welk soort pty de renderer wil. `tui` draait de @clack-TUI links, `shell`
- * is een kale interactieve shell-tab rechts. Fase 4 breidt dit uit met
- * commando-tabs vanuit het control-protocol.
+ * is een kale interactieve shell-tab rechts, `command` draait een specifiek
+ * commando (een tab die het control-protocol heeft aangevraagd).
  */
-export type PtyKind = 'tui' | 'shell';
+export type PtyKind = 'tui' | 'shell' | 'command';
 
 export interface PtyCreateRequest {
   kind: PtyKind;
   cols: number;
   rows: number;
+  /** Alleen voor kind 'command': het shell-commando dat de tab draait. */
+  command?: string;
 }
 
 export interface PtyInputMsg {
@@ -53,6 +56,18 @@ export interface PtyExitMsg {
 }
 
 /**
+ * Payload van het control-protocol: main vraagt de renderer een tab te openen
+ * die `command` draait. Hier gedefinieerd (niet in control.ts) zodat de
+ * renderer dit type kan gebruiken zonder de Node-only control.ts in te trekken.
+ */
+export interface OpenTabMsg {
+  /** Tab-titel rechts, bv. "refine v2.16.0-AI". */
+  title: string;
+  /** Shell-commando dat in de tab draait (login-shell, cwd = repo-root). */
+  command: string;
+}
+
+/**
  * De API die de preload via contextBridge in `window.fluxDesktop` zet.
  * `onData`/`onExit` geven een unsubscribe-functie terug.
  */
@@ -66,4 +81,6 @@ export interface FluxDesktopApi {
     onData(cb: (msg: PtyDataMsg) => void): () => void;
     onExit(cb: (msg: PtyExitMsg) => void): () => void;
   };
+  /** Main vraagt de renderer een command-tab te openen (control-protocol). */
+  onOpenTab(cb: (msg: OpenTabMsg) => void): () => void;
 }

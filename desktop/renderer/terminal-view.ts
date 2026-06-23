@@ -41,13 +41,15 @@ export class TerminalView {
   /**
    * Open de terminal in het (al aan de DOM gehangen) element en start de pty.
    * Het element moet zichtbaar zijn met afmetingen, anders kan fit niets meten.
+   * `command` is enkel relevant voor kind 'command'.
    */
-  async start(kind: PtyKind): Promise<void> {
+  async start(kind: PtyKind, command?: string): Promise<void> {
     this.term.open(this.element);
     this.safeFit();
 
     this.ptyId = await this.api.pty.create({
       kind,
+      command,
       cols: this.term.cols,
       rows: this.term.rows,
     });

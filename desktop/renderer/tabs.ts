@@ -19,7 +19,8 @@ interface Tab {
 export class TabManager {
   private tabs: Tab[] = [];
   private active: Tab | null = null;
-  private counter = 0;
+  private seq = 0;
+  private shellN = 0;
 
   constructor(
     private readonly stripEl: HTMLElement,
@@ -28,13 +29,17 @@ export class TabManager {
 
   /** Open een kale shell-tab (de "+"-knop). */
   async openShell(): Promise<void> {
-    await this.open('shell', 'shell');
+    await this.open('shell', `shell ${++this.shellN}`);
   }
 
-  /** Open een tab van een bepaald pty-soort met een titel-prefix. */
-  async open(kind: PtyKind, baseTitle: string): Promise<Tab> {
-    const key = ++this.counter;
-    const title = `${baseTitle} ${key}`;
+  /** Open een actie-tab (control-protocol) die `command` draait. */
+  async openCommand(title: string, command: string): Promise<void> {
+    await this.open('command', title, command);
+  }
+
+  /** Open een tab van een bepaald pty-soort met de gegeven titel. */
+  async open(kind: PtyKind, title: string, command?: string): Promise<Tab> {
+    const key = ++this.seq;
 
     const labelEl = document.createElement('span');
     labelEl.className = 'tab-label';
@@ -67,7 +72,7 @@ export class TabManager {
     this.activate(tab);
 
     view.onExit = (code) => this.markExited(tab, code);
-    await view.start(kind);
+    await view.start(kind, command);
     return tab;
   }
 

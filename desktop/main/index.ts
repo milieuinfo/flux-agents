@@ -16,6 +16,7 @@ import {
   type PtyResizeMsg,
 } from '../shared/ipc';
 import type { SpawnSpec } from './pty-manager';
+import { ControlParser } from '../shared/control';
 
 const SMOKE = process.env.FLUX_SMOKE === '1';
 
@@ -27,18 +28,25 @@ const userShell = process.env.SHELL || '/bin/zsh';
 let win: BrowserWindow | null = null;
 let ptys: PtyManager;
 
+// De TUI-pty wordt apart behandeld: zijn stdout loopt door de ControlParser
+// zodat "open tab"-signalen eruit geknipt worden vóór ze xterm bereiken.
+let tuiPtyId: number | null = null;
+const tuiParser = new ControlParser();
+
 /** Bouw de spawn-spec voor een gevraagd pty-soort. */
 function buildSpec(req: PtyCreateRequest): SpawnSpec {
-  const base = {
-    cwd: repoRoot,
-    cols: req.cols,
-    rows: req.rows,
-    env: { ...process.env, TERM: 'xterm-256color' } as NodeJS.ProcessEnv,
-  };
+  const env = { ...process.env, TERM: 'xterm-256color' } as NodeJS.ProcessEnv;
+  const base = { cwd: repoRoot, cols: req.cols, rows: req.rows, env };
+
   if (req.kind === 'tui') {
-    // Login-shell zodat PATH/nvm e.d. geladen zijn, dan de TUI. Sluit de TUI
-    // af → shell eindigt → pty exit → tab toont de exit-code.
+    // FLUX_DESKTOP zet de TUI in desktop-modus: acties sturen een control-
+    // signaal i.p.v. inline/Terminal.app te draaien. Login-shell voor PATH.
+    env.FLUX_DESKTOP = '1';
     return { ...base, shell: userShell, args: ['-lc', 'npm run tui'] };
+  }
+  if (req.kind === 'command') {
+    // Eén actie-tab: draait het meegegeven commando in een login-shell.
+    return { ...base, shell: userShell, args: ['-lc', req.command ?? 'true'] };
   }
   // Kale interactieve login-shell voor een handmatige console-tab.
   return { ...base, shell: userShell, args: ['-li'] };
@@ -71,16 +79,27 @@ function createWindow(): void {
   }
 }
 
+function handlePtyData(id: number, data: string): void {
+  if (id !== tuiPtyId) {
+    win?.webContents.send(IPC.ptyData, { id, data });
+    return;
+  }
+  // TUI-stream: control-signalen eruit knippen, rest doorsturen.
+  const { clean, messages } = tuiParser.push(data);
+  for (const msg of messages) win?.webContents.send(IPC.controlOpenTab, msg);
+  if (clean) win?.webContents.send(IPC.ptyData, { id, data: clean });
+}
+
 function registerIpc(): void {
-  ptys = new PtyManager(
-    (id, data) => win?.webContents.send(IPC.ptyData, { id, data }),
-    (id, exitCode, signal) =>
-      win?.webContents.send(IPC.ptyExit, { id, exitCode, signal }),
+  ptys = new PtyManager(handlePtyData, (id, exitCode, signal) =>
+    win?.webContents.send(IPC.ptyExit, { id, exitCode, signal }),
   );
 
-  ipcMain.handle(IPC.ptyCreate, (_e, req: PtyCreateRequest) =>
-    ptys.create(buildSpec(req)),
-  );
+  ipcMain.handle(IPC.ptyCreate, (_e, req: PtyCreateRequest) => {
+    const id = ptys.create(buildSpec(req));
+    if (req.kind === 'tui') tuiPtyId = id;
+    return id;
+  });
   ipcMain.on(IPC.ptyInput, (_e, m: PtyInputMsg) => ptys.write(m.id, m.data));
   ipcMain.on(IPC.ptyResize, (_e, m: PtyResizeMsg) =>
     ptys.resize(m.id, m.cols, m.rows),

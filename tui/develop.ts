@@ -1,6 +1,7 @@
 import * as p from '@clack/prompts';
 import { runDevelop } from '../agents/develop.js';
 import { promptTicketAndProfile } from './prompts.js';
+import { isDesktop, launchNpm } from './launch.js';
 
 /**
  * TUI-actie 'ontwikkel': vraagt een ticket-sleutel en profiel en draait dan één
@@ -11,6 +12,12 @@ export async function developAction(): Promise<void> {
   const sel = await promptTicketAndProfile();
   if (!sel) return;
   const { key, profile } = sel;
+
+  if (isDesktop()) {
+    launchNpm(`develop ${key} (${profile})`, 'develop', [key, '--profile', profile]);
+    p.log.success(`Gestart in een eigen tab: develop ${key} (${profile}).`);
+    return;
+  }
 
   const confirmed = await p.confirm({
     message: `Ontwikkelen op ${key} met profiel '${profile}'?`,

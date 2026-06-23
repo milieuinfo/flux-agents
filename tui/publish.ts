@@ -1,6 +1,7 @@
 import * as p from '@clack/prompts';
 import { promptSprint, promptTicketKey } from './prompts.js';
 import { spawnScript } from './run.js';
+import { isDesktop, launchNpm } from './launch.js';
 
 /**
  * TUI-actie 'publicatie': publiceert ofwel een volledige sprint (comments +
@@ -59,6 +60,13 @@ export async function publishAction(): Promise<void> {
 
   const args = mode === 'dry' ? [...baseArgs, '--dry-run'] : baseArgs;
   const verb = mode === 'dry' ? 'Dry-run' : 'Publiceren';
+
+  if (isDesktop()) {
+    launchNpm(`${verb.toLowerCase()} ${what}`, 'publish', args);
+    p.log.success(`Gestart in een eigen tab: ${verb.toLowerCase()} ${what}.`);
+    return;
+  }
+
   p.log.step(`${verb} — ${what}…`);
   const code = await spawnScript('scripts/publish.ts', args);
   if (code === 0) {

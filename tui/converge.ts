@@ -1,6 +1,7 @@
 import * as p from '@clack/prompts';
 import { promptProfiles, promptTicketKey } from './prompts.js';
 import { spawnScript } from './run.js';
+import { isDesktop, launchNpm } from './launch.js';
 
 /**
  * TUI-actie 'convergeer': vraagt één ticket en minstens twee profielen, en
@@ -13,6 +14,14 @@ export async function convergeAction(): Promise<void> {
 
   const profiles = await promptProfiles(2);
   if (!profiles) return;
+
+  if (isDesktop()) {
+    launchNpm(`converge ${key}`, 'converge', [key, '--profiles', profiles.join(',')]);
+    p.log.success(
+      `Gestart in een eigen tab: converge ${key}. Dit pusht en maakt een draft-PR.`,
+    );
+    return;
+  }
 
   const confirmed = await p.confirm({
     message:

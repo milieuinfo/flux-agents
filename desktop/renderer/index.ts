@@ -30,6 +30,9 @@ async function main(): Promise<void> {
   // Rechts: console-tabs + de "+"-knop voor een nieuwe shell.
   const tabs = new TabManager(el('tab-strip'), el('console-body'));
   el('tab-add').addEventListener('click', () => void tabs.openShell());
+
+  // Control-protocol: een TUI-actie links opent hier een eigen tab rechts.
+  window.fluxDesktop.onOpenTab((msg) => void tabs.openCommand(msg.title, msg.command));
 }
 
 void main();

@@ -4,6 +4,7 @@ import { runDevelopReviewLoop } from '../agents/shared/loop.js';
 import { promptProfiles, promptTicketKey } from './prompts.js';
 import { repoRoot } from './run.js';
 import { openInTerminal } from './terminal.js';
+import { isDesktop, launchNpm } from './launch.js';
 
 // Spreiding tussen het openen van de vensters, zodat de gelijktijdige
 // 'git worktree add' in de gedeelde clone niet op git's lock botsen.
@@ -87,6 +88,24 @@ export async function iterateAction(): Promise<void> {
 
   const profiles = await promptProfiles(1);
   if (!profiles) return;
+
+  if (isDesktop()) {
+    // Elk profiel een eigen tab rechts; ze draaien parallel (eigen worktree/
+    // branch/state). Spreiding tussen de starts zodat de 'git worktree add' in
+    // de gedeelde clone niet op git's lock botst.
+    for (let i = 0; i < profiles.length; i++) {
+      launchNpm(`iterate ${key} (${profiles[i]})`, 'iterate', [
+        key,
+        '--profile',
+        profiles[i],
+      ]);
+      if (i < profiles.length - 1) await sleep(STAGGER_MS);
+    }
+    p.log.success(
+      `${profiles.length} iterate-tab(s) gestart voor ${key} (${profiles.join(', ')}).`,
+    );
+    return;
+  }
 
   if (profiles.length === 1) {
     await iterateInline(key, profiles[0]);
