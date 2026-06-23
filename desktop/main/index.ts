@@ -5,7 +5,7 @@
  * console-tabs (shell). De pty's leven hier; data/exit gaan via IPC naar de
  * renderer. Het control-protocol (TUI-actie → tab) komt in fase 4.
  */
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import { join } from 'node:path';
 import { PtyManager } from './pty-manager';
 import {
@@ -24,6 +24,7 @@ import {
   saveConfig,
   testJira,
 } from './config-store';
+import { runPreflight } from './preflight';
 
 const SMOKE = process.env.FLUX_SMOKE === '1';
 
@@ -135,9 +136,13 @@ function registerIpc(): void {
   ipcMain.handle(IPC.authStatus, (_e, input: { key?: string }) =>
     checkAnthropicAuth(repoRoot, input),
   );
+  ipcMain.handle(IPC.preflightRun, () => runPreflight(repoRoot));
+  ipcMain.on(IPC.openExternal, (_e, url: string) => {
+    if (/^https?:\/\//.test(url)) void shell.openExternal(url);
+  });
 }
 
-void app.whenReady().then(() => {
+void app.whenReady().then(async () => {
   effectiveConfig = loadEffectiveConfig(repoRoot);
   if (SMOKE) {
     const cfg = getConfigForRenderer(repoRoot);
@@ -147,9 +152,10 @@ void app.whenReady().then(() => {
       `jiraUrlSet=${Boolean(effectiveConfig.JIRA_URL)}`,
       `patSet=${cfg.secretsSet.JIRA_PERSONAL_TOKEN}`,
     );
-    void checkAnthropicAuth(repoRoot, {}).then((a) =>
-      console.log(`[smoke] auth=${a.state}`),
-    );
+    const auth = await checkAnthropicAuth(repoRoot, {});
+    console.log(`[smoke] auth=${auth.state}`);
+    const pf = await runPreflight(repoRoot);
+    console.log(`[smoke] preflight=${pf.map((x) => `${x.id}:${x.status}`).join(',')}`);
   }
   registerIpc();
   createWindow();

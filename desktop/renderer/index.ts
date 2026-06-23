@@ -7,6 +7,7 @@ import './styles.css';
 import { TerminalView } from './terminal-view';
 import { TabManager } from './tabs';
 import { SettingsPanel } from './settings';
+import { PreflightPanel } from './preflight';
 
 function el(id: string): HTMLElement {
   const node = document.getElementById(id);
@@ -39,6 +40,18 @@ async function main(): Promise<void> {
   const settings = new SettingsPanel();
   document.body.appendChild(settings.element);
   el('settings-btn').addEventListener('click', () => void settings.show());
+
+  // Preflight-overlay (●) + statusknop die meekleurt; auto-open bij een error.
+  const preflight = new PreflightPanel();
+  document.body.appendChild(preflight.element);
+  const pfBtn = el('preflight-btn');
+  preflight.onStatus = (worst) => {
+    pfBtn.className = `tab-add pf-btn pf-${worst}`;
+  };
+  pfBtn.addEventListener('click', () => void preflight.show());
+  void preflight.refresh().then((worst) => {
+    if (worst === 'error') preflight.show();
+  });
 }
 
 void main();

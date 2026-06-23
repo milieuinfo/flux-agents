@@ -16,7 +16,17 @@ export const IPC = {
   configSave: 'config:save', // renderer → main (invoke)
   configTestJira: 'config:test-jira', // renderer → main (invoke)
   authStatus: 'auth:status', // renderer → main (invoke)
+  preflightRun: 'preflight:run', // renderer → main (invoke)
+  openExternal: 'shell:open-external', // renderer → main (send)
 } as const;
+
+export interface PreflightCheck {
+  id: string;
+  label: string;
+  status: 'ok' | 'warn' | 'error';
+  detail: string;
+  fixUrl?: string;
+}
 
 export interface ConfigForRenderer {
   values: Record<string, string>;
@@ -113,4 +123,6 @@ export interface FluxDesktopApi {
     }): Promise<TestJiraResult>;
     checkAuth(input: { key?: string }): Promise<AuthStatus>;
   };
+  preflight(): Promise<PreflightCheck[]>;
+  openExternal(url: string): void;
 }

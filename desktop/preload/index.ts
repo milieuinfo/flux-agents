@@ -42,6 +42,8 @@ const api: FluxDesktopApi = {
     testJira: (input) => ipcRenderer.invoke(IPC.configTestJira, input),
     checkAuth: (input) => ipcRenderer.invoke(IPC.authStatus, input),
   },
+  preflight: () => ipcRenderer.invoke(IPC.preflightRun),
+  openExternal: (url) => ipcRenderer.send(IPC.openExternal, url),
 };
 
 contextBridge.exposeInMainWorld('fluxDesktop', api);
