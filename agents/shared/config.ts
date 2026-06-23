@@ -98,12 +98,15 @@ export const ENV_SCHEMA: EnvField[] = [
 
   // --- Auth ---
   {
-    key: 'ANTHROPIC_API_KEY',
-    label: 'Anthropic API-key',
+    key: 'CLAUDE_CODE_OAUTH_TOKEN',
+    label: 'Claude OAuth-token',
     group: 'Auth',
     secret: true,
-    placeholder: 'sk-ant-…',
-    description: 'API-key voor Claude. Vereist voor de agents in de app.',
+    placeholder: 'genereer met: claude setup-token',
+    description:
+      'Token voor je persoonlijke Claude Pro/Max-abonnement. Genereer eenmalig ' +
+      'met `claude setup-token` in een terminal (vereist de claude CLI), kopieer ' +
+      'het token (1 jaar geldig) en plak het hier.',
   },
 
   // --- Modellen (leeg = ingebouwde default uit shared/model.ts) ---

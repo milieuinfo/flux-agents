@@ -19,13 +19,13 @@ uitdelen en die ze "gewoon kunnen opstarten":
 **Gekozen richting (met Kris afgetikt):**
 - **Electron** (één Node-runtime — bestaande TS/agent-code, `node-pty`, `git`/`gh`-spawns draaien ongewijzigd; geen sidecar).
 - **Alleen macOS** (dmg). Geen Windows/Linux → geen cross-platform signing-matrix, AppleScript-tak mag gewoon vervallen.
-- **Alleen API-key** voor Claude: `ANTHROPIC_API_KEY` via settings in OS-keychain. Geen `claude login`-flow, geen `claude` CLI als prerequisite.
+- **Alleen OAuth-token** voor Claude: persoonlijk Pro/Max-abonnement via `CLAUDE_CODE_OAUTH_TOKEN` (eenmalig `claude setup-token`), in settings/OS-keychain. Geen API-key/pay-per-use; `ANTHROPIC_API_KEY` wordt uit de pty-env gestript zodat hij de token niet overschrijft. `claude` CLI is prerequisite (alleen voor token-generatie).
 - **Bestaande `@clack` TUI embedden** in een pty links (minste herschrijfwerk), acties openen via een control-signaal een tab rechts.
 - **Geen Docker**: de Jira-MCP wordt geschrapt en `refine` leest via de bestaande REST-client → teamleden vullen enkel Jira-URL + PAT in settings in.
 
 **Beoogd eindresultaat:** een macOS `.app`/`.dmg` waarin links de vertrouwde TUI
 draait en elke gekozen actie rechts in een eigen, live console-tab loopt — met een
-settings-scherm voor alle config en de Claude API-key. De pure CLI (`npm run *`)
+settings-scherm voor alle config en het Claude OAuth-token. De pure CLI (`npm run *`)
 blijft door alles heen werken dankzij een `FLUX_DESKTOP`-switch.
 
 ---
@@ -131,16 +131,16 @@ Elke fase is op zichzelf bruikbaar. De agent-entry-points (`agents/*.ts`,
 ### Fase 5 — Centrale config-laag + settings-scherm
 **Doel:** alle env via UI, opgeslagen per gebruiker.
 - `agents/shared/config.ts` (nieuw, non-invasief): één `EnvSchema` (key, label, group, required, default, secret, beschrijving) afgeleid van `.env.example`. Loader **schrijft naar `process.env`** → bestaande lezers (`agents/shared/jira.ts`, `model.ts`, `repo.ts`) blijven ongewijzigd werken.
-- `desktop/main/config-store.ts`: niet-secret config in `app.getPath('userData')/flux-agents.config.json`; secrets (`JIRA_PERSONAL_TOKEN`, `ANTHROPIC_API_KEY`) in Electron `safeStorage` (OS-keychain). Load-volgorde: schema-defaults → JSON → safeStorage → bestaande repo-`.env` (laagste prioriteit, legacy-fallback).
+- `desktop/main/config-store.ts`: niet-secret config in `app.getPath('userData')/flux-agents.config.json`; secrets (`JIRA_PERSONAL_TOKEN`, `CLAUDE_CODE_OAUTH_TOKEN`) in Electron `safeStorage` (OS-keychain). Load-volgorde: schema-defaults → JSON → safeStorage → bestaande repo-`.env` (laagste prioriteit, legacy-fallback).
 - **Env-injectie:** main bouwt `mergedEnv = {...process.env, ...effectiveConfig, FLUX_DESKTOP:'1'}` en geeft die aan elke `pty.spawn`. Agents erven alles zonder iets van de app te weten.
 - `desktop/renderer/settings.ts`: form uit `EnvSchema`, gegroepeerde secties (Jira / Repo / Modellen / Git / Customfields / Advanced), required-validatie, secrets gemaskeerd, "Test Jira-verbinding"-knop (`jiraFetch /rest/api/2/myself`).
 - IPC: `config:get`, `config:save`, `config:test-jira`.
 - Voorstel: `STATE_DIR` default → `app.getPath('userData')/state` (i.p.v. `../flux-agents-state`), configureerbaar.
 - **Deliverable:** verse gebruiker vult settings in en kan draaien zonder `.env`.
 
-### Fase 6 — Claude-auth (API-key)
-**Doel:** Claude-account zonder `.env`.
-- Auth-sectie in settings: `ANTHROPIC_API_KEY`-veld (gemaskeerd, safeStorage), geïnjecteerd in elke pty-env → SDK pikt het op. Geen `claude login`/CLI nodig.
+### Fase 6 — Claude-auth (OAuth-token, Pro/Max)
+**Doel:** Claude-account zonder `.env`, op het persoonlijke abonnement.
+- Auth-sectie in settings: `CLAUDE_CODE_OAUTH_TOKEN`-veld (gemaskeerd, safeStorage) + uitleg (`claude setup-token`), geïnjecteerd in elke pty-env → SDK pikt het op. `ANTHROPIC_API_KEY`/`ANTHROPIC_AUTH_TOKEN` worden uit de pty-env gestript (hogere precedentie zou pay-per-use afrekenen).
 - Auth-status-indicator (IPC `auth:status`): goedkope check of de key gezet/geldig is.
 - **Deliverable:** key invoeren in settings → agents draaien op pay-per-token.
 
@@ -148,7 +148,7 @@ Elke fase is op zichzelf bruikbaar. De agent-entry-points (`agents/*.ts`,
 **Doel:** "gewoon opstarten" met nette foutmeldingen bij ontbrekende deps.
 - Bundelen: Electron's Node + `tsx` + `node_modules` (asar; `node-pty` asar-**unpacked**, per-arch prebuilt via electron-rebuild). Gebruiker hoeft geen Node te installeren.
 - Prerequisites na Docker-eliminatie: enkel `git` (altijd) + `gh` (push/pr/converge). Géén Docker meer.
-- `desktop/main/preflight.ts`: checkt `git --version`, `gh --version`, verplichte config + API-key → renderer dependency-status-scherm met installatielinks.
+- `desktop/main/preflight.ts`: checkt `node`/`git`/`gh`/`claude` --version, verplichte config + OAuth-token → renderer dependency-status-scherm met installatielinks.
 - **Deliverable:** app meldt netjes welke system-deps ontbreken i.p.v. cryptisch te falen.
 
 ### Fase 8 — Packaging & distributie (macOS)
@@ -196,6 +196,6 @@ Elke fase is op zichzelf bruikbaar. De agent-entry-points (`agents/*.ts`,
 3. **Fase 3:** TUI links reageert op toetsen (clack-menu rendert correct); "+" opent shell-tab rechts; tab toont exit-code bij sluiten.
 4. **Fase 4:** kies in TUI `refine`/`develop`/`iterate` → telkens nieuwe tab rechts met live output; multi-profiel iterate → meerdere tabs. Controleer dat `npm run iterate -- FLUX-x --profile y` in een gewone terminal nog steeds werkt (CLI-pad).
 5. **Fase 5:** verse `userData` (geen `.env`) → settings invullen → "Test Jira" slaagt → `refine` draait.
-6. **Fase 6:** API-key in settings → een echte agent-run voltooit (token-verbruik zichtbaar).
+6. **Fase 6:** OAuth-token (`claude setup-token`) in settings → een echte agent-run voltooit op het Pro/Max-abonnement.
 7. **Fase 7:** met ontbrekende `gh` → preflight toont duidelijke melding i.p.v. crash.
 8. **Fase 8:** `npm run dist` → dmg; op een tweede Mac openen (geen Docker geïnstalleerd), settings invullen, één ticket end-to-end `refine` → `iterate` → `push`/`pr`.

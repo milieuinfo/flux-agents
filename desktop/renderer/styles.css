@@ -324,6 +324,26 @@ body.resizing .terminal-host {
   color: #777777;
 }
 
+.settings-help {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #aaaaaa;
+  background: #1a1a1a;
+  border: 1px solid #303030;
+  border-radius: 4px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+
+.settings-help code {
+  background: #2a2a2a;
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-family: Menlo, Monaco, monospace;
+  font-size: 11px;
+  color: #d7ba7d;
+}
+
 .settings-footer {
   display: flex;
   align-items: center;

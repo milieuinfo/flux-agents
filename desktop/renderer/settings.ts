@@ -101,6 +101,18 @@ export class SettingsPanel {
     }
 
     if (group === 'Auth') {
+      const help = document.createElement('div');
+      help.className = 'settings-help';
+      help.innerHTML =
+        'De app draait op je persoonlijke Claude <b>Pro/Max-abonnement</b> via een ' +
+        'OAuth-token (geen API-key, geen pay-per-use).<br />' +
+        '1. Installeer de <code>claude</code> CLI en draai eenmalig in een terminal: ' +
+        '<code>claude setup-token</code><br />' +
+        '2. Log in met je Pro/Max-account, kopieer het token (1 jaar geldig) en plak ' +
+        'het hierboven.<br />' +
+        'Een eventuele <code>ANTHROPIC_API_KEY</code> in je omgeving wordt genegeerd.';
+      section.appendChild(help);
+
       const row = document.createElement('div');
       row.className = 'settings-row';
       const check = document.createElement('button');
@@ -119,13 +131,12 @@ export class SettingsPanel {
     this.authStatus.textContent = 'Controleren…';
     this.authStatus.className = 'settings-status';
     const res = await this.api.config.checkAuth({
-      key: this.inputs.get('ANTHROPIC_API_KEY')?.value || undefined,
+      token: this.inputs.get('CLAUDE_CODE_OAUTH_TOKEN')?.value || undefined,
     });
-    const kind = res.state === 'ok' ? 'ok' : res.state === 'invalid' ? 'err' : '';
-    const prefix =
-      res.state === 'ok' ? '✓ ' : res.state === 'invalid' ? '✗ ' : 'ℹ ';
+    const kind = res.state === 'ok' ? 'ok' : 'err';
+    const prefix = res.state === 'ok' ? '✓ ' : '✗ ';
     this.authStatus.textContent = prefix + (res.detail ?? res.state);
-    this.authStatus.className = `settings-status${kind ? ` ${kind}` : ''}`;
+    this.authStatus.className = `settings-status ${kind}`;
   }
 
   async show(): Promise<void> {

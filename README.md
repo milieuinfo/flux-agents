@@ -106,7 +106,7 @@ waarbij `<code>` de model-code is (`O48`/`S46`/`H45`) — zie
 
 Naast de CLI is er een macOS desktop-app: links de TUI, rechts draait elke
 gekozen actie in een eigen console-tab. Bedoeld om uit te delen aan teamleden —
-opstarten, in het ⚙ settings-scherm Jira + repo + een Anthropic API-key invullen,
+opstarten, in het ⚙ settings-scherm Jira + repo + een Claude OAuth-token invullen,
 klaar. **Geen `.env` nodig** (config in de gebruikersmap, secrets in de
 macOS-keychain).
 
@@ -114,12 +114,28 @@ macOS-keychain).
 
 - **Node.js 20+** — de agents draaien via `tsx`; de app bundelt tsx maar gebruikt
   de systeem-`node`.
+- **claude CLI** — eenmalig nodig om een OAuth-token te genereren
+  (`claude setup-token`, zie Claude-auth hieronder).
 - **git** — voor alle worktree-operaties.
 - **gh CLI** — enkel voor push / pr / converge (`gh auth login`).
 
 De app checkt deze bij het starten (statusknop **●** rechtsboven) en toont
 installatielinks bij wat ontbreekt. **Docker is niet meer nodig** — Jira loopt via
 REST.
+
+### Claude-auth (persoonlijk Pro/Max-abonnement)
+
+De app draait op je **eigen Claude Pro/Max-abonnement** via een OAuth-token —
+geen API-key, geen pay-per-use. Elk teamlid gebruikt zijn eigen token:
+
+```bash
+claude setup-token     # opent de browser, log in met je Pro/Max-account
+```
+
+Kopieer het token (1 jaar geldig) en plak het in ⚙ Instellingen → Auth →
+*Claude OAuth-token*. Een eventuele `ANTHROPIC_API_KEY` in je omgeving wordt door
+de app genegeerd (en niet aan de agents doorgegeven) zodat er altijd op het
+abonnement wordt afgerekend. Deel je token niet — hij is persoonlijk.
 
 ### Lokaal draaien (development)
 
@@ -145,7 +161,8 @@ npm run dist     # → release/*.dmg (+ zip), arm64 + x64
 
 1. Open de dmg, sleep **flux-agents** naar Applications, start de app.
 2. Klik **⚙** rechtsboven, vul in: Jira-URL + Personal Access Token, repo-URL en
-   een Anthropic API-key. Test de Jira-verbinding en de Claude-auth.
+   het Claude OAuth-token (zie Claude-auth hierboven). Test de Jira-verbinding en
+   de Claude-auth.
 3. Opslaan → geldt voor nieuwe tabs.
 4. Kies links een actie (analyse / plan / ontwikkel / …) → ze draait rechts in een
    eigen tab. `+` opent een losse shell.

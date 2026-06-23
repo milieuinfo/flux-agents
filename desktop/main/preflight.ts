@@ -79,6 +79,20 @@ export async function runPreflight(repoRoot: string): Promise<PreflightCheck[]> 
         },
   );
 
+  const claude = await checkBin('claude --version');
+  checks.push(
+    claude
+      ? { id: 'claude', label: 'claude CLI', status: 'ok', detail: claude }
+      : {
+          id: 'claude',
+          label: 'claude CLI',
+          status: 'warn',
+          detail:
+            'Niet gevonden — nodig om eenmalig een OAuth-token te genereren (claude setup-token).',
+          fixUrl: 'https://docs.claude.com/en/docs/claude-code/overview',
+        },
+  );
+
   const missing = requiredKeys().filter((k) => !eff[k]);
   checks.push(
     missing.length === 0
@@ -97,19 +111,19 @@ export async function runPreflight(repoRoot: string): Promise<PreflightCheck[]> 
   );
 
   checks.push(
-    eff.ANTHROPIC_API_KEY
+    eff.CLAUDE_CODE_OAUTH_TOKEN
       ? {
           id: 'auth',
           label: 'Claude-auth',
           status: 'ok',
-          detail: 'API-key ingesteld.',
+          detail: 'OAuth-token ingesteld (Pro/Max-abonnement).',
         }
       : {
           id: 'auth',
           label: 'Claude-auth',
-          status: 'warn',
+          status: 'error',
           detail:
-            'Geen API-key — agents gebruiken je Claude Code-sessie (claude login).',
+            'Geen OAuth-token — genereer met `claude setup-token` en vul in via ⚙ Instellingen.',
         },
   );
 

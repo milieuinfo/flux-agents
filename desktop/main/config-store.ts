@@ -131,32 +131,29 @@ function ensureUserData(): void {
 }
 
 /**
- * Controleer de Claude-auth. Geen API-key → de SDK gebruikt de Claude Code
- * sessie ('session'); een ingestelde key wordt cheap gevalideerd via
- * `GET /v1/models` (geen token-kost).
+ * Controleer de Claude-auth. De app gebruikt uitsluitend een OAuth-token van
+ * een persoonlijk Pro/Max-abonnement (`CLAUDE_CODE_OAUTH_TOKEN`, via
+ * `claude setup-token`). We checken op aanwezigheid: een abonnement-OAuth-token
+ * is niet betrouwbaar te valideren tegen de publieke REST-API, dus de echte
+ * verificatie gebeurt bij de eerste agent-run.
  */
 export async function checkAnthropicAuth(
   repoRoot: string,
-  input: { key?: string },
-): Promise<{ state: 'ok' | 'invalid' | 'session'; detail?: string }> {
+  input: { token?: string },
+): Promise<{ state: 'ok' | 'invalid' | 'missing'; detail?: string }> {
   const eff = loadEffectiveConfig(repoRoot);
-  const key = input.key || eff.ANTHROPIC_API_KEY || '';
-  if (!key) {
+  const token = input.token || eff.CLAUDE_CODE_OAUTH_TOKEN || '';
+  if (!token) {
     return {
-      state: 'session',
-      detail: 'Geen API-key — agents gebruiken je Claude Code-sessie (claude login).',
+      state: 'missing',
+      detail:
+        'Geen OAuth-token. Genereer er één met `claude setup-token` (vereist Pro/Max) en vul het in.',
     };
   }
-  try {
-    const res = await fetch('https://api.anthropic.com/v1/models?limit=1', {
-      headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-    });
-    if (res.ok) return { state: 'ok', detail: 'API-key geldig.' };
-    if (res.status === 401) return { state: 'invalid', detail: 'API-key geweigerd (401).' };
-    return { state: 'invalid', detail: `HTTP ${res.status}` };
-  } catch (err) {
-    return { state: 'invalid', detail: err instanceof Error ? err.message : String(err) };
-  }
+  return {
+    state: 'ok',
+    detail: 'OAuth-token ingesteld — agents draaien op je Pro/Max-abonnement.',
+  };
 }
 
 /** Test een Jira-verbinding met de opgegeven (of bewaarde) credentials. */

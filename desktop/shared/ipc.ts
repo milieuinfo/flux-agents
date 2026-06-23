@@ -40,7 +40,7 @@ export interface TestJiraResult {
 }
 
 export interface AuthStatus {
-  state: 'ok' | 'invalid' | 'session';
+  state: 'ok' | 'invalid' | 'missing';
   detail?: string;
 }
 
@@ -121,7 +121,7 @@ export interface FluxDesktopApi {
       token?: string;
       sslVerify?: string;
     }): Promise<TestJiraResult>;
-    checkAuth(input: { key?: string }): Promise<AuthStatus>;
+    checkAuth(input: { token?: string }): Promise<AuthStatus>;
   };
   preflight(): Promise<PreflightCheck[]>;
   openExternal(url: string): void;

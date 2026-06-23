@@ -81,6 +81,11 @@ function buildSpec(req: PtyCreateRequest): SpawnSpec {
   if (runtimeBinDir) {
     env.PATH = `${runtimeBinDir}:${env.PATH ?? ''}`;
   }
+  // De app gebruikt uitsluitend het Pro/Max-abonnement via CLAUDE_CODE_OAUTH_TOKEN.
+  // Een rondslingerende ANTHROPIC_API_KEY/ANTHROPIC_AUTH_TOKEN heeft hogere
+  // precedentie bij de SDK en zou stilletjes pay-per-use afrekenen — strip ze.
+  delete env.ANTHROPIC_API_KEY;
+  delete env.ANTHROPIC_AUTH_TOKEN;
   const base = { cwd: repoRoot, cols: req.cols, rows: req.rows, env };
 
   if (req.kind === 'tui') {
@@ -167,7 +172,7 @@ function registerIpc(): void {
     (_e, input: { url?: string; token?: string; sslVerify?: string }) =>
       testJira(repoRoot, input),
   );
-  ipcMain.handle(IPC.authStatus, (_e, input: { key?: string }) =>
+  ipcMain.handle(IPC.authStatus, (_e, input: { token?: string }) =>
     checkAnthropicAuth(repoRoot, input),
   );
   ipcMain.handle(IPC.preflightRun, () => runPreflight(repoRoot));
