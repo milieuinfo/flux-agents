@@ -14,6 +14,7 @@ export class SettingsPanel {
   readonly element = document.createElement('div');
   private readonly inputs = new Map<string, HTMLInputElement>();
   private readonly status = document.createElement('div');
+  private readonly authStatus = document.createElement('span');
   private readonly api = window.fluxDesktop;
 
   constructor() {
@@ -98,7 +99,33 @@ export class SettingsPanel {
       }
       section.appendChild(row);
     }
+
+    if (group === 'Auth') {
+      const row = document.createElement('div');
+      row.className = 'settings-row';
+      const check = document.createElement('button');
+      check.className = 'btn';
+      check.textContent = 'Controleer Claude-auth';
+      check.addEventListener('click', () => void this.checkAuth());
+      this.authStatus.className = 'settings-status';
+      row.append(check, this.authStatus);
+      section.appendChild(row);
+    }
+
     return section;
+  }
+
+  private async checkAuth(): Promise<void> {
+    this.authStatus.textContent = 'Controleren…';
+    this.authStatus.className = 'settings-status';
+    const res = await this.api.config.checkAuth({
+      key: this.inputs.get('ANTHROPIC_API_KEY')?.value || undefined,
+    });
+    const kind = res.state === 'ok' ? 'ok' : res.state === 'invalid' ? 'err' : '';
+    const prefix =
+      res.state === 'ok' ? '✓ ' : res.state === 'invalid' ? '✗ ' : 'ℹ ';
+    this.authStatus.textContent = prefix + (res.detail ?? res.state);
+    this.authStatus.className = `settings-status${kind ? ` ${kind}` : ''}`;
   }
 
   async show(): Promise<void> {
@@ -118,6 +145,7 @@ export class SettingsPanel {
       }
     }
     this.element.hidden = false;
+    void this.checkAuth();
   }
 
   hide(): void {

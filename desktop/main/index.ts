@@ -18,6 +18,7 @@ import {
 import type { SpawnSpec } from './pty-manager';
 import { ControlParser } from '../shared/control';
 import {
+  checkAnthropicAuth,
   getConfigForRenderer,
   loadEffectiveConfig,
   saveConfig,
@@ -131,6 +132,9 @@ function registerIpc(): void {
     (_e, input: { url?: string; token?: string; sslVerify?: string }) =>
       testJira(repoRoot, input),
   );
+  ipcMain.handle(IPC.authStatus, (_e, input: { key?: string }) =>
+    checkAnthropicAuth(repoRoot, input),
+  );
 }
 
 void app.whenReady().then(() => {
@@ -142,6 +146,9 @@ void app.whenReady().then(() => {
       `stateDir=${effectiveConfig.STATE_DIR}`,
       `jiraUrlSet=${Boolean(effectiveConfig.JIRA_URL)}`,
       `patSet=${cfg.secretsSet.JIRA_PERSONAL_TOKEN}`,
+    );
+    void checkAnthropicAuth(repoRoot, {}).then((a) =>
+      console.log(`[smoke] auth=${a.state}`),
     );
   }
   registerIpc();

@@ -130,6 +130,35 @@ function ensureUserData(): void {
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
 }
 
+/**
+ * Controleer de Claude-auth. Geen API-key → de SDK gebruikt de Claude Code
+ * sessie ('session'); een ingestelde key wordt cheap gevalideerd via
+ * `GET /v1/models` (geen token-kost).
+ */
+export async function checkAnthropicAuth(
+  repoRoot: string,
+  input: { key?: string },
+): Promise<{ state: 'ok' | 'invalid' | 'session'; detail?: string }> {
+  const eff = loadEffectiveConfig(repoRoot);
+  const key = input.key || eff.ANTHROPIC_API_KEY || '';
+  if (!key) {
+    return {
+      state: 'session',
+      detail: 'Geen API-key — agents gebruiken je Claude Code-sessie (claude login).',
+    };
+  }
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/models?limit=1', {
+      headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+    });
+    if (res.ok) return { state: 'ok', detail: 'API-key geldig.' };
+    if (res.status === 401) return { state: 'invalid', detail: 'API-key geweigerd (401).' };
+    return { state: 'invalid', detail: `HTTP ${res.status}` };
+  } catch (err) {
+    return { state: 'invalid', detail: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 /** Test een Jira-verbinding met de opgegeven (of bewaarde) credentials. */
 export async function testJira(
   repoRoot: string,

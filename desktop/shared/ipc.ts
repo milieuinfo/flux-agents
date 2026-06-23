@@ -15,6 +15,7 @@ export const IPC = {
   configGet: 'config:get', // renderer → main (invoke)
   configSave: 'config:save', // renderer → main (invoke)
   configTestJira: 'config:test-jira', // renderer → main (invoke)
+  authStatus: 'auth:status', // renderer → main (invoke)
 } as const;
 
 export interface ConfigForRenderer {
@@ -26,6 +27,11 @@ export interface TestJiraResult {
   ok: boolean;
   user?: string;
   error?: string;
+}
+
+export interface AuthStatus {
+  state: 'ok' | 'invalid' | 'session';
+  detail?: string;
 }
 
 /**
@@ -105,5 +111,6 @@ export interface FluxDesktopApi {
       token?: string;
       sslVerify?: string;
     }): Promise<TestJiraResult>;
+    checkAuth(input: { key?: string }): Promise<AuthStatus>;
   };
 }

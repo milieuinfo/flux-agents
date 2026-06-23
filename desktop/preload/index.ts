@@ -40,6 +40,7 @@ const api: FluxDesktopApi = {
     get: () => ipcRenderer.invoke(IPC.configGet),
     save: (values) => ipcRenderer.invoke(IPC.configSave, values),
     testJira: (input) => ipcRenderer.invoke(IPC.configTestJira, input),
+    checkAuth: (input) => ipcRenderer.invoke(IPC.authStatus, input),
   },
 };
 
