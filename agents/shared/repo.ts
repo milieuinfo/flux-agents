@@ -1,6 +1,6 @@
 import { access, mkdir } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
-import { spawn } from 'node:child_process';
+import { spawn, execFileSync } from 'node:child_process';
 import { log } from './logger.js';
 
 /**
@@ -13,21 +13,45 @@ export function managedRepoPath(stateDir: string): string {
   return resolve(stateDir, 'repo', 'flux-web-components');
 }
 
+/** Lees een globale git-config-waarde synchroon; leeg als niet gezet. */
+function gitGlobalConfig(key: string): string {
+  try {
+    return execFileSync('git', ['config', '--global', key], {
+      encoding: 'utf8',
+    }).trim();
+  } catch {
+    return '';
+  }
+}
+
 /**
- * Zorg dat git-commits door agents 3/4 met Kris' VO-identiteit worden
- * gemaakt in plaats van de host git-config (die typisch op een Claude/SDK
- * default staat). Zet `GIT_AUTHOR_*` + `GIT_COMMITTER_*` op `process.env`,
- * zodat het Bash-tool van de agent ze erft. De globale git-config wordt
- * niet aangeraakt. Te overriden via `FLUX_GIT_AUTHOR_NAME` /
- * `FLUX_GIT_AUTHOR_EMAIL`.
+ * Zorg dat git-commits door agents 3/4 met een vaste, expliciete identiteit
+ * worden gemaakt in plaats van de host git-config (die bij een SDK/LLM-run op
+ * een Claude-default kan staan). Zet `GIT_AUTHOR_*` + `GIT_COMMITTER_*` op
+ * `process.env`, zodat het Bash-tool van de agent ze erft. De globale git-config
+ * wordt niet aangeraakt.
+ *
+ * Identiteit wordt afgeleid in deze volgorde:
+ *   1. `FLUX_GIT_AUTHOR_NAME` / `FLUX_GIT_AUTHOR_EMAIL` (.env of app-instellingen)
+ *   2. de globale git-identiteit (`git config --global user.name` / `user.email`)
+ * Ontbreekt beide → harde fout. Bewust géén ingebakken persoon als fallback:
+ * dat zou commits van een andere installateur onder een vreemde naam zetten.
  *
  * Geldt voor zowel de iteratie-commits van agent 3 als de squash-commit
  * van agent 4: anders verschilt de auteur tussen rondes en de uiteindelijke
  * PR-commit.
  */
 export function applyGitIdentityFromEnv(): { name: string; email: string } {
-  const name = process.env.FLUX_GIT_AUTHOR_NAME ?? 'Kris Speltincx';
-  const email = process.env.FLUX_GIT_AUTHOR_EMAIL ?? 'kris.speltincx@vlaanderen.be';
+  const name = (process.env.FLUX_GIT_AUTHOR_NAME || gitGlobalConfig('user.name')).trim();
+  const email = (process.env.FLUX_GIT_AUTHOR_EMAIL || gitGlobalConfig('user.email')).trim();
+  if (!name || !email) {
+    throw new Error(
+      'Geen git-identiteit gevonden. Zet FLUX_GIT_AUTHOR_NAME en ' +
+        'FLUX_GIT_AUTHOR_EMAIL (in .env of de app-instellingen), of configureer ' +
+        'een globale git-identiteit (`git config --global user.name "..."` en ' +
+        '`git config --global user.email "..."`).',
+    );
+  }
   process.env.GIT_AUTHOR_NAME = name;
   process.env.GIT_AUTHOR_EMAIL = email;
   process.env.GIT_COMMITTER_NAME = name;

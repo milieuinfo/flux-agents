@@ -471,9 +471,13 @@ Geen `_status.json` schema-wijziging — `prUrl` was al optioneel.
 **Committer-identiteit afgedwongen vóór de push.** `runPush` draait —
 ná `applyGitIdentityFromEnv()`, vóór `git push` — `enforceCommitIdentity`
 (in `shared/repo.ts`): elke nog-ongepushte commit tussen `origin/<base>` en
-HEAD krijgt zowel als author áls committer de canonieke identiteit
-(`Kris Speltincx <kris.speltincx@vlaanderen.be>`, te overriden via
-`FLUX_GIT_AUTHOR_*`). Dit sluit het lek waarbij de squash-/combineer-commit
+HEAD krijgt zowel als author áls committer de canonieke identiteit. Die wordt
+afgeleid uit `FLUX_GIT_AUTHOR_NAME`/`FLUX_GIT_AUTHOR_EMAIL` (.env of
+app-instellingen) en valt anders terug op de globale git-identiteit
+(`git config --global user.name`/`user.email`); ontbreekt beide, dan stopt de
+push met een duidelijke fout (bewust géén ingebakken persoon als fallback, zodat
+een andere installateur nooit onder een vreemde naam commit). Dit sluit het lek
+waarbij de squash-/combineer-commit
 door een LLM-agent (review, converge) met een afwijkende committer wordt
 gemaakt — bv. via `git cherry-pick`/`git commit -C`, die de author overnemen
 maar de committer uit de lokale git-config halen, zodat er een ongewenste
