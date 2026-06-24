@@ -89,7 +89,7 @@ export function modelLabel(model: string): string {
 /** Model voor agent 1 (refine). */
 export function refineModel(): string {
   return (
-    process.env.AGENT_REFINE_MODEL ?? process.env.AGENT1_MODEL ?? 'claude-opus-4-7'
+    process.env.AGENT_REFINE_MODEL ?? process.env.AGENT1_MODEL ?? 'claude-opus-4-8'
   );
 }
 
@@ -105,7 +105,7 @@ export function refineSummaryModel(): string {
 /** Model voor agent 2 (plan). */
 export function planModel(): string {
   return (
-    process.env.AGENT_PLAN_MODEL ?? process.env.AGENT2_MODEL ?? 'claude-opus-4-7'
+    process.env.AGENT_PLAN_MODEL ?? process.env.AGENT2_MODEL ?? 'claude-opus-4-8'
   );
 }
 
@@ -119,7 +119,7 @@ export function developModel(): string {
 /** Model voor agent 4 (review). */
 export function reviewModel(): string {
   return (
-    process.env.AGENT_REVIEW_MODEL ?? process.env.AGENT4_MODEL ?? 'claude-opus-4-7'
+    process.env.AGENT_REVIEW_MODEL ?? process.env.AGENT4_MODEL ?? 'claude-opus-4-8'
   );
 }
 

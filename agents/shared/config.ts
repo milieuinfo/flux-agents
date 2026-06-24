@@ -133,7 +133,7 @@ export const ENV_SCHEMA: EnvField[] = [
     key: 'AGENT_DEVELOP_MODEL',
     label: 'Develop-model',
     group: 'Modellen',
-    placeholder: 'claude-opus-4-8',
+    placeholder: 'claude-sonnet-4-6',
   },
   {
     key: 'AGENT_REVIEW_MODEL',
