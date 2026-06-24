@@ -93,7 +93,8 @@ export const ENV_SCHEMA: EnvField[] = [
     group: 'Repo',
     placeholder: '(standaard: userData/state)',
     description:
-      'Map voor sprints/tickets/worktrees. Leeg = userData/state in de app.',
+      'Map voor sprints/tickets/worktrees. Gebruik een absoluut pad. ' +
+      'Leeg = userData/state in de app.',
   },
 
   // --- Auth ---

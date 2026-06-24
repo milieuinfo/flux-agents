@@ -12,7 +12,7 @@
  */
 import { app, safeStorage } from 'electron';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { isAbsolute, join, resolve } from 'node:path';
 import { parse as parseEnv } from 'dotenv';
 import {
   ENV_SCHEMA,
@@ -106,13 +106,21 @@ export function getConfigForRenderer(repoRoot: string): {
 }
 
 /** Sla niet-secret config (JSON) en secrets (keychain) op. */
-export function saveConfig(incoming: Record<string, string>): void {
+export function saveConfig(repoRoot: string, incoming: Record<string, string>): void {
   ensureUserData();
 
   const json: Record<string, string> = {};
   for (const f of ENV_SCHEMA) {
     if (f.secret) continue;
-    const v = (incoming[f.key] ?? '').trim();
+    let v = (incoming[f.key] ?? '').trim();
+    // STATE_DIR moet absoluut zijn: een relatief pad zou in een geïnstalleerde
+    // (DMG) app oplossen t.o.v. de app-bundle (cwd = repoRoot binnen .app),
+    // wat onbruikbaar is en bij elke update verdwijnt. Resolve het hier, zodat
+    // wat we opslaan ondubbelzinnig en stabiel is. In dev blijft dit identiek
+    // aan hoe de agents het vandaag oplossen (cwd = repoRoot).
+    if (f.key === 'STATE_DIR' && v && !isAbsolute(v)) {
+      v = resolve(repoRoot, v);
+    }
     if (v) json[f.key] = v;
   }
   writeFileSync(configJsonPath(), JSON.stringify(json, null, 2), 'utf8');

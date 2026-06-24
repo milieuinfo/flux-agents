@@ -141,7 +141,7 @@ function registerIpc(): void {
 
   ipcMain.handle(IPC.configGet, () => getConfigForRenderer(repoRoot));
   ipcMain.handle(IPC.configSave, (_e, values: Record<string, string>) => {
-    saveConfig(values);
+    saveConfig(repoRoot, values);
     effectiveConfig = loadEffectiveConfig(repoRoot); // direct van kracht voor nieuwe tabs
   });
   ipcMain.handle(

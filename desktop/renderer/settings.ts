@@ -10,9 +10,15 @@ import {
   type EnvField,
 } from '../../agents/shared/config';
 
+/** Absoluut pad (posix `/…` of Windows `C:\…`/`C:/…`). */
+function isAbsolutePath(value: string): boolean {
+  return value.startsWith('/') || /^[A-Za-z]:[\\/]/.test(value);
+}
+
 export class SettingsPanel {
   readonly element = document.createElement('div');
   private readonly inputs = new Map<string, HTMLInputElement>();
+  private stateDirWarning?: HTMLElement;
   private readonly status = document.createElement('div');
   private readonly authStatus = document.createElement('span');
   private readonly jiraStatus = document.createElement('span');
@@ -94,22 +100,39 @@ export class SettingsPanel {
         desc.textContent = f.description;
         row.appendChild(desc);
       }
+      if (f.key === 'STATE_DIR') {
+        const warn = document.createElement('span');
+        warn.className = 'settings-warn';
+        warn.hidden = true;
+        warn.textContent =
+          '⚠ Relatief pad — in een geïnstalleerde app wijst dit naar de ' +
+          'app-bundle en verdwijnt het bij een update. Gebruik een absoluut ' +
+          'pad (bv. /Users/jij/flux-agents-state) of laat het veld leeg.';
+        this.stateDirWarning = warn;
+        input.addEventListener('input', () => this.updateStateDirWarning());
+        row.appendChild(warn);
+      }
       section.appendChild(row);
     }
 
     if (group === 'Jira') {
       const row = document.createElement('div');
       row.className = 'settings-row';
+      const cell = document.createElement('div');
+      cell.className = 'settings-actions';
       const test = document.createElement('button');
       test.className = 'btn';
       test.textContent = 'Test Jira-verbinding';
       test.addEventListener('click', () => void this.testJira());
       this.jiraStatus.className = 'settings-status';
-      row.append(test, this.jiraStatus);
+      cell.append(this.jiraStatus, test);
+      row.appendChild(cell);
       section.appendChild(row);
     }
 
     if (group === 'Auth') {
+      const helpRow = document.createElement('div');
+      helpRow.className = 'settings-row';
       const help = document.createElement('div');
       help.className = 'settings-help';
       help.innerHTML =
@@ -120,20 +143,30 @@ export class SettingsPanel {
         '2. Log in met je Pro/Max-account, kopieer het token (1 jaar geldig) en plak ' +
         'het hierboven.<br />' +
         'Een eventuele <code>ANTHROPIC_API_KEY</code> in je omgeving wordt genegeerd.';
-      section.appendChild(help);
+      helpRow.appendChild(help);
+      section.appendChild(helpRow);
 
       const row = document.createElement('div');
       row.className = 'settings-row';
+      const cell = document.createElement('div');
+      cell.className = 'settings-actions';
       const check = document.createElement('button');
       check.className = 'btn';
       check.textContent = 'Controleer Claude-auth';
       check.addEventListener('click', () => void this.checkAuth());
       this.authStatus.className = 'settings-status';
-      row.append(check, this.authStatus);
+      cell.append(this.authStatus, check);
+      row.appendChild(cell);
       section.appendChild(row);
     }
 
     return section;
+  }
+
+  private updateStateDirWarning(): void {
+    if (!this.stateDirWarning) return;
+    const v = (this.inputs.get('STATE_DIR')?.value ?? '').trim();
+    this.stateDirWarning.hidden = v === '' || isAbsolutePath(v);
   }
 
   private async checkAuth(): Promise<void> {
@@ -166,6 +199,7 @@ export class SettingsPanel {
         input.value = values[f.key] ?? '';
       }
     }
+    this.updateStateDirWarning();
     this.element.hidden = false;
     void this.checkAuth();
   }

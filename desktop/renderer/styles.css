@@ -326,6 +326,25 @@ body.resizing .terminal-host {
   color: #777777;
 }
 
+.settings-warn {
+  grid-column: 2;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #d16969;
+}
+
+.settings-actions {
+  grid-column: 2;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.settings-row > .settings-help {
+  grid-column: 2;
+  margin-bottom: 0;
+}
+
 .settings-help {
   font-size: 12px;
   line-height: 1.5;
