@@ -11,7 +11,7 @@
     "tui": "tsx tui/index.ts",
     "dev": "node desktop/dev-app-name.mjs && node desktop/build.mjs && electron desktop/dist/main.cjs",
     "build": "node desktop/build.mjs",
-    "dist": "node desktop/build.mjs && electron-builder --mac",
+    "dist": "node desktop/build.mjs && PYTHON_PATH=\"$(command -v python3)\" electron-builder --mac",
     "pack": "node desktop/build.mjs && electron-builder --dir",
     "rebuild": "electron-rebuild -f -w node-pty",
     "postinstall": "patch-package && electron-rebuild -f -w node-pty",
