@@ -355,7 +355,22 @@ void app.whenReady().then(async () => {
   });
 });
 
-app.on('will-quit', () => ptys?.killAll());
+// Gecontroleerd afsluiten i.p.v. de pty's tijdens de proces-teardown te killen.
+// node-pty's native lees-/reaper-thread gooit op macOS een `Napi::Error` als hij
+// een al-afgebroken libuv/V8 raakt terwijl het proces afsluit — een C++-exception
+// op een thread zonder JS-context, dus niet te vangen met try/catch, en het
+// proces eindigt met SIGABRT (exit 1). We onderscheppen daarom de quit, killen de
+// pty's terwijl de event-loop nog leeft (hun onExit kan netjes vuren), wachten
+// één korte tick zodat node-pty zijn threads afbouwt, en exiten dan hard met
+// code 0 — vóór de natuurlijke teardown die zou aborten.
+let quitting = false;
+app.on('before-quit', (e) => {
+  if (quitting) return;
+  quitting = true;
+  e.preventDefault();
+  ptys?.killAll();
+  setTimeout(() => app.exit(0), 150);
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
