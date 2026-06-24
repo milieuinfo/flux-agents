@@ -18,6 +18,8 @@ export const IPC = {
   authStatus: 'auth:status', // renderer → main (invoke)
   preflightRun: 'preflight:run', // renderer → main (invoke)
   openExternal: 'shell:open-external', // renderer → main (send)
+  appReady: 'app:ready', // renderer → main (send): UI klaar, splash mag sluiten
+  menuOpenAbout: 'menu:open-about', // main → renderer (send): toon de "Over"-tab
 } as const;
 
 export interface PreflightCheck {
@@ -113,6 +115,8 @@ export interface FluxDesktopApi {
   };
   /** Main vraagt de renderer een command-tab te openen (control-protocol). */
   onOpenTab(cb: (msg: OpenTabMsg) => void): () => void;
+  /** Main vraagt de renderer het info-paneel op de "Over"-tab te openen. */
+  onOpenAbout(cb: () => void): () => void;
   config: {
     get(): Promise<ConfigForRenderer>;
     save(values: Record<string, string>): Promise<void>;
@@ -125,4 +129,6 @@ export interface FluxDesktopApi {
   };
   preflight(): Promise<PreflightCheck[]>;
   openExternal(url: string): void;
+  /** Sein main dat de UI klaar is met opstarten (splash-window mag sluiten). */
+  notifyReady(): void;
 }

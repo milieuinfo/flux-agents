@@ -1,5 +1,6 @@
 {
   "name": "flux-agents",
+  "productName": "Flux Agents",
   "version": "0.1.0",
   "description": "Lokale agent pipeline voor Flux web components ticket workflow",
   "private": true,
@@ -8,7 +9,7 @@
   "scripts": {
     "start": "tsx tui/index.ts",
     "tui": "tsx tui/index.ts",
-    "dev": "node desktop/build.mjs && electron desktop/dist/main.cjs",
+    "dev": "node desktop/dev-app-name.mjs && node desktop/build.mjs && electron desktop/dist/main.cjs",
     "build": "node desktop/build.mjs",
     "dist": "node desktop/build.mjs && electron-builder --mac",
     "pack": "node desktop/build.mjs && electron-builder --dir",

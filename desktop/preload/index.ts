@@ -36,6 +36,11 @@ const api: FluxDesktopApi = {
     ipcRenderer.on(IPC.controlOpenTab, handler);
     return () => ipcRenderer.removeListener(IPC.controlOpenTab, handler);
   },
+  onOpenAbout: (cb) => {
+    const handler = (): void => cb();
+    ipcRenderer.on(IPC.menuOpenAbout, handler);
+    return () => ipcRenderer.removeListener(IPC.menuOpenAbout, handler);
+  },
   config: {
     get: () => ipcRenderer.invoke(IPC.configGet),
     save: (values) => ipcRenderer.invoke(IPC.configSave, values),
@@ -44,6 +49,7 @@ const api: FluxDesktopApi = {
   },
   preflight: () => ipcRenderer.invoke(IPC.preflightRun),
   openExternal: (url) => ipcRenderer.send(IPC.openExternal, url),
+  notifyReady: () => ipcRenderer.send(IPC.appReady),
 };
 
 contextBridge.exposeInMainWorld('fluxDesktop', api);

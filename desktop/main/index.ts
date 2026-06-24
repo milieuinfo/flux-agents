@@ -5,7 +5,8 @@
  * console-tabs (shell). De pty's leven hier; data/exit gaan via IPC naar de
  * renderer. Het control-protocol (TUI-actie → tab) komt in fase 4.
  */
-import { app, BrowserWindow, ipcMain, nativeImage, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu, nativeImage, shell } from 'electron';
+import type { MenuItemConstructorOptions } from 'electron';
 import { join } from 'node:path';
 import { PtyManager } from './pty-manager';
 import {
@@ -21,12 +22,22 @@ import {
   checkAnthropicAuth,
   getConfigForRenderer,
   loadEffectiveConfig,
+  migrateLegacyUserData,
   saveConfig,
   testJira,
 } from './config-store';
 import { runPreflight } from './preflight';
 
 const SMOKE = process.env.FLUX_SMOKE === '1';
+
+// Naam in de macOS-menubalk (en het dock). Gepackaged komt dit uit de bundle
+// (productName in electron-builder.yml); in dev draait Electron kaal en zou de
+// menubalk "Electron" tonen — daarom expliciet zetten, vóór app.whenReady().
+app.setName('Flux Agents');
+// app.setName() verschuift óók app.getPath('userData') (= appData/<naam>), waar
+// de config + secrets leven. Pin die map op de stabiele naam 'flux-agents' zodat
+// een weergavenaam-wijziging de bewaarde instellingen niet "verplaatst".
+app.setPath('userData', join(app.getPath('appData'), 'flux-agents'));
 
 // In dev is de repo-root twee niveaus boven desktop/dist/main.cjs. Gepackaged
 // staat de agent-runtime (agents/tui/scripts/node_modules/package.json) als
@@ -37,7 +48,15 @@ const repoRoot = app.isPackaged
 const userShell = process.env.SHELL || '/bin/zsh';
 
 let win: BrowserWindow | null = null;
+let splash: BrowserWindow | null = null;
 let ptys: PtyManager;
+
+// Splash minstens zo lang tonen, ook als de app sneller klaar is — anders
+// flitst hij maar heel even voorbij.
+const MIN_SPLASH_MS = 3000;
+let splashShownAt = 0;
+let revealed = false;
+let revealPending = false;
 
 // Effectieve config (defaults < .env < JSON < secrets). Wordt als env aan elke
 // pty meegegeven zodat de agents gewoon process.env.* lezen. Bij een save in het
@@ -79,10 +98,85 @@ function buildSpec(req: PtyCreateRequest): SpawnSpec {
   return { ...base, shell: userShell, args: ['-li'] };
 }
 
+// Splash: een frameless venstertje dat meteen verschijnt zodat duidelijk is
+// dat de app aan het opstarten is (het laden van de renderer + het spawnen van
+// de TUI-pty duurt eventjes). Sluit zodra de renderer `app:ready` seint, of na
+// een fallback-timeout mocht dat sein nooit komen.
+function createSplash(): void {
+  const w = 440;
+  const h = 320;
+  // Centreer de splash over het (nog verborgen) hoofdvenster, zodat hij op
+  // dezelfde monitor verschijnt en niet op het primaire scherm belandt.
+  let pos: { x: number; y: number } | undefined;
+  if (win && !win.isDestroyed()) {
+    const b = win.getBounds();
+    pos = {
+      x: Math.round(b.x + (b.width - w) / 2),
+      y: Math.round(b.y + (b.height - h) / 2),
+    };
+  }
+  splash = new BrowserWindow({
+    width: w,
+    height: h,
+    ...(pos ?? {}),
+    center: pos === undefined,
+    frame: false,
+    resizable: false,
+    movable: true,
+    show: false,
+    transparent: true,
+    backgroundColor: '#00000000',
+    alwaysOnTop: true,
+    title: 'Departement Omgeving - Flux - Agents',
+    webPreferences: { contextIsolation: true, nodeIntegration: false },
+  });
+  splash.once('ready-to-show', () => {
+    splash?.show();
+    splashShownAt = Date.now();
+  });
+  void splash.loadFile(join(__dirname, 'splash.html'));
+}
+
+function closeSplash(): void {
+  if (splash && !splash.isDestroyed()) splash.close();
+  splash = null;
+}
+
+// Toon het hoofdvenster zodra de renderer zijn eerste frame klaar heeft. De
+// splash ligt er (alwaysOnTop) bovenop tot zijn minimale tijd om is — zo ziet de
+// gebruiker de toepassing al opstarten mét het splash-scherm erboven.
+function showMainWindow(): void {
+  if (win && !win.isDestroyed() && !win.isVisible()) {
+    win.show();
+    win.focus();
+  }
+}
+
+// Sluit de splash, maar laat hem eerst zijn minimale tijd uitzitten. Het venster
+// staat op dat moment al zichtbaar (zie showMainWindow); deze functie regelt
+// enkel het wegnemen van het splash-scherm dat eroverheen lag.
+function closeSplashWhenReady(): void {
+  if (revealed || revealPending) return;
+  const elapsed = splashShownAt ? Date.now() - splashShownAt : MIN_SPLASH_MS;
+  const wait = Math.max(0, MIN_SPLASH_MS - elapsed);
+  const finish = (): void => {
+    revealed = true;
+    revealPending = false;
+    closeSplash();
+  };
+  if (wait === 0) {
+    finish();
+    return;
+  }
+  revealPending = true;
+  setTimeout(finish, wait);
+}
+
 function createWindow(): void {
   win = new BrowserWindow({
     width: 1400,
     height: 900,
+    show: false, // tonen zodra de renderer zijn eerste frame klaar heeft (ready-to-show)
     backgroundColor: '#1e1e1e',
     title: 'Departement Omgeving - Flux - Agents',
     webPreferences: {
@@ -93,6 +187,13 @@ function createWindow(): void {
   });
 
   void win.loadFile(join(__dirname, 'index.html'));
+
+  // Toon het venster zodra het eerste frame klaar is — de splash ligt eroverheen.
+  win.once('ready-to-show', showMainWindow);
+
+  // Vangnet: als `app:ready` nooit aankomt (renderer-fout), sluit de splash toch
+  // na een tijd zodat de gebruiker nooit achter een blijvend splash-scherm zit.
+  setTimeout(closeSplashWhenReady, 12_000);
 
   if (SMOKE) {
     win.webContents.once('did-finish-load', () => {
@@ -121,6 +222,67 @@ function handlePtyData(id: number, data: string): void {
   const { clean, messages } = tuiParser.push(data);
   for (const msg of messages) send(IPC.controlOpenTab, msg);
   if (clean) send(IPC.ptyData, { id, data: clean });
+}
+
+// Applicatiemenu. Het enige inhoudelijke verschil met het Electron-default-menu
+// is dat "About Flux Agents" niet het ingebouwde about-paneel opent, maar de
+// renderer seint om het eigen info-paneel op de "Over"-tab te tonen. De overige
+// items zijn standaard-rollen zodat kopiëren/plakken/sluiten gewoon blijven
+// werken. macOS-only opbouw; de app wordt enkel voor macOS gepackaged.
+function buildAppMenu(): void {
+  const appName = app.name; // 'Flux Agents' (zie app.setName hierboven)
+  const template: MenuItemConstructorOptions[] = [
+    {
+      label: appName,
+      submenu: [
+        {
+          label: `Over ${appName}`,
+          click: () => {
+            if (win && !win.isDestroyed()) {
+              if (win.isMinimized()) win.restore();
+              win.show();
+              win.focus();
+            }
+            send(IPC.menuOpenAbout, undefined);
+          },
+        },
+        { type: 'separator' },
+        { role: 'services' },
+        { type: 'separator' },
+        { role: 'hide', label: `Verberg ${appName}` },
+        { role: 'hideOthers' },
+        { role: 'unhide' },
+        { type: 'separator' },
+        { role: 'quit', label: `Sluit ${appName} af` },
+      ],
+    },
+    {
+      label: 'Bewerken',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'selectAll' },
+      ],
+    },
+    {
+      label: 'Beeld',
+      submenu: [
+        { role: 'reload' },
+        { role: 'toggleDevTools' },
+        { type: 'separator' },
+        { role: 'togglefullscreen' },
+      ],
+    },
+    {
+      label: 'Venster',
+      role: 'windowMenu',
+    },
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
 function registerIpc(): void {
@@ -156,6 +318,7 @@ function registerIpc(): void {
   ipcMain.on(IPC.openExternal, (_e, url: string) => {
     if (/^https?:\/\//.test(url)) void shell.openExternal(url);
   });
+  ipcMain.on(IPC.appReady, () => closeSplashWhenReady());
 }
 
 void app.whenReady().then(async () => {
@@ -166,6 +329,7 @@ void app.whenReady().then(async () => {
     const img = nativeImage.createFromPath(join(repoRoot, 'build', 'icon.png'));
     if (!img.isEmpty()) app.dock?.setIcon(img);
   }
+  migrateLegacyUserData(); // bewaarde config/secrets van de naamloze dev-app overnemen
   effectiveConfig = loadEffectiveConfig(repoRoot);
   if (SMOKE) {
     const cfg = getConfigForRenderer(repoRoot);
@@ -181,7 +345,11 @@ void app.whenReady().then(async () => {
     console.log(`[smoke] preflight=${pf.map((x) => `${x.id}:${x.status}`).join(',')}`);
   }
   registerIpc();
+  buildAppMenu();
+  // Hoofdvenster eerst (verborgen) zodat de splash zich over zijn bounds — en
+  // dus op dezelfde monitor — kan centreren.
   createWindow();
+  if (!SMOKE) createSplash();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });

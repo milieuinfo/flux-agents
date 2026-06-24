@@ -16,25 +16,12 @@ export class PreflightPanel {
   onStatus?: (worst: Worst) => void;
 
   constructor() {
-    this.element.className = 'settings-overlay';
-    this.element.hidden = true;
+    // Sectie binnen het gecombineerde InfoPanel (tab "Status").
+    this.element.className = 'info-section';
     this.build();
   }
 
   private build(): void {
-    const panel = document.createElement('div');
-    panel.className = 'settings-panel';
-
-    const header = document.createElement('div');
-    header.className = 'settings-header';
-    const title = document.createElement('h2');
-    title.textContent = 'Systeemstatus';
-    const close = document.createElement('button');
-    close.className = 'settings-close';
-    close.textContent = '×';
-    close.addEventListener('click', () => this.hide());
-    header.append(title, close);
-
     this.list.className = 'settings-body';
 
     const footer = document.createElement('div');
@@ -47,11 +34,7 @@ export class PreflightPanel {
     refresh.addEventListener('click', () => void this.refresh());
     footer.append(spacer, refresh);
 
-    panel.append(header, this.list, footer);
-    this.element.appendChild(panel);
-    this.element.addEventListener('click', (e) => {
-      if (e.target === this.element) this.hide();
-    });
+    this.element.append(this.list, footer);
   }
 
   async refresh(): Promise<Worst> {
@@ -100,12 +83,4 @@ export class PreflightPanel {
     }
   }
 
-  show(): void {
-    this.element.hidden = false;
-    void this.refresh();
-  }
-
-  hide(): void {
-    this.element.hidden = true;
-  }
 }

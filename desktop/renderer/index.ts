@@ -6,8 +6,7 @@
 import './styles.css';
 import { TerminalView } from './terminal-view';
 import { TabManager } from './tabs';
-import { SettingsPanel } from './settings';
-import { PreflightPanel } from './preflight';
+import { InfoPanel } from './info-panel';
 import { setupSplitter } from './splitter';
 
 function el(id: string): HTMLElement {
@@ -58,22 +57,27 @@ async function main(): Promise<void> {
   // Control-protocol: een TUI-actie links opent hier een eigen tab rechts.
   window.fluxDesktop.onOpenTab((msg) => void tabs.openCommand(msg.title, msg.command));
 
-  // Settings-overlay (⚙).
-  const settings = new SettingsPanel();
-  document.body.appendChild(settings.element);
-  el('settings-btn').addEventListener('click', () => void settings.show());
-
-  // Preflight-overlay (●) + statusknop die meekleurt; auto-open bij een error.
-  const preflight = new PreflightPanel();
-  document.body.appendChild(preflight.element);
-  const pfBtn = el('preflight-btn');
-  preflight.onStatus = (worst) => {
-    pfBtn.className = `tab-add pf-btn pf-${worst}`;
+  // Gecombineerde overlay (⚙): Instellingen, Status en Over achter één knop.
+  // De knop kleurt mee met de slechtste systeemstatus; bij een error opent het
+  // paneel automatisch op de Status-tab.
+  const info = new InfoPanel();
+  document.body.appendChild(info.element);
+  const menuBtn = el('menu-btn');
+  menuBtn.addEventListener('click', () => info.show('settings'));
+  // "About Flux Agents" in de macOS-menubalk opent hetzelfde paneel op "Over".
+  window.fluxDesktop.onOpenAbout(() => info.show('about'));
+  info.onStatus = (worst) => {
+    // Neutraal bij 'ok'; enkel tinten bij warn/error zodat het icoon niet
+    // permanent oplicht.
+    menuBtn.className =
+      'tab-add menu-btn' + (worst === 'ok' ? '' : ` pf-${worst}`);
   };
-  pfBtn.addEventListener('click', () => void preflight.show());
-  void preflight.refresh().then((worst) => {
-    if (worst === 'error') preflight.show();
+  void info.refreshStatus().then((worst) => {
+    if (worst === 'error') info.show('status');
   });
+
+  // UI staat: sein main dat de splash mag sluiten en het hoofdvenster mag tonen.
+  window.fluxDesktop.notifyReady();
 }
 
 void main();

@@ -11,7 +11,13 @@
  * als env in elke gespawnde pty (zie index.ts).
  */
 import { app, safeStorage } from 'electron';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
 import { parse as parseEnv } from 'dotenv';
 import {
@@ -21,6 +27,35 @@ import {
 } from '../../agents/shared/config';
 
 const SECRET_SET = new Set(SECRET_KEYS);
+
+/**
+ * Eénmalige migratie van de bewaarde niet-secret config. Vroege dev-builds
+ * draaiden naamloos ("Electron") en bewaarden in appData/Electron; nu de app
+ * een vaste naam heeft en userData op appData/flux-agents gepind is, halen we
+ * `flux-agents.config.json` (STATE_DIR, JIRA_URL, …) eenmalig over zodat die
+ * instellingen niet verloren gaan.
+ *
+ * De secrets (`flux-agents.secrets.bin`) migreren we bewust NIET: die zijn met
+ * Electron `safeStorage` versleuteld met een sleutel die aan de app-identiteit
+ * hangt (de oude "Electron"-naam). Onder de nieuwe naam zijn ze niet te
+ * ontsleutelen — het bestand kopiëren zou enkel onleesbare data opleveren. De
+ * gebruiker vult zijn token(s) eenmalig opnieuw in (Jira zit doorgaans al in
+ * `.env`).
+ *
+ * No-op voor nieuwe installs (geen legacy-map) of als er al config op de
+ * nieuwe plek staat. Aanroepen vóór de eerste config-read.
+ */
+export function migrateLegacyUserData(): void {
+  const dest = app.getPath('userData');
+  const legacy = join(app.getPath('appData'), 'Electron');
+  if (legacy === dest) return;
+  const from = join(legacy, 'flux-agents.config.json');
+  const to = join(dest, 'flux-agents.config.json');
+  if (existsSync(from) && !existsSync(to)) {
+    mkdirSync(dest, { recursive: true });
+    copyFileSync(from, to);
+  }
+}
 
 function configJsonPath(): string {
   return join(app.getPath('userData'), 'flux-agents.config.json');

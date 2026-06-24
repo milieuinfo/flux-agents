@@ -25,26 +25,13 @@ export class SettingsPanel {
   private readonly api = window.fluxDesktop;
 
   constructor() {
-    this.element.className = 'settings-overlay';
-    this.element.hidden = true;
+    // Sectie binnen het gecombineerde InfoPanel (tab "Instellingen"); het
+    // InfoPanel levert de overlay, de tab-header en de sluitknop.
+    this.element.className = 'info-section';
     this.build();
   }
 
   private build(): void {
-    const panel = document.createElement('div');
-    panel.className = 'settings-panel';
-
-    const header = document.createElement('div');
-    header.className = 'settings-header';
-    const title = document.createElement('h2');
-    title.textContent = 'Instellingen';
-    const close = document.createElement('button');
-    close.className = 'settings-close';
-    close.textContent = '×';
-    close.title = 'Sluiten';
-    close.addEventListener('click', () => this.hide());
-    header.append(title, close);
-
     const body = document.createElement('div');
     body.className = 'settings-body';
     for (const group of CONFIG_GROUPS) {
@@ -62,13 +49,7 @@ export class SettingsPanel {
     saveBtn.addEventListener('click', () => void this.save());
     footer.append(this.status, saveBtn);
 
-    panel.append(header, body, footer);
-    this.element.appendChild(panel);
-
-    // Klik op de achtergrond (buiten het paneel) sluit.
-    this.element.addEventListener('click', (e) => {
-      if (e.target === this.element) this.hide();
-    });
+    this.element.append(body, footer);
   }
 
   private renderGroup(group: string, fields: EnvField[]): HTMLElement {
@@ -181,7 +162,9 @@ export class SettingsPanel {
     this.authStatus.className = `settings-status ${kind}`;
   }
 
-  async show(): Promise<void> {
+  /** Vul het formulier (her)in vanuit de bewaarde config. Door InfoPanel
+   *  aangeroepen wanneer de Instellingen-tab actief wordt. */
+  async load(): Promise<void> {
     this.status.textContent = '';
     this.status.className = 'settings-status';
     this.jiraStatus.textContent = '';
@@ -200,12 +183,7 @@ export class SettingsPanel {
       }
     }
     this.updateStateDirWarning();
-    this.element.hidden = false;
     void this.checkAuth();
-  }
-
-  hide(): void {
-    this.element.hidden = true;
   }
 
   private collect(): Record<string, string> {

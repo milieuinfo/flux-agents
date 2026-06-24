@@ -152,10 +152,13 @@ body.resizing .terminal-host {
 }
 
 .tab-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: none;
   color: #aaaaaa;
-  font-size: 19px;
+  font-size: 21px;
   line-height: 1;
   cursor: pointer;
   padding: 0 16px;
@@ -167,7 +170,7 @@ body.resizing .terminal-host {
 
 /* Preflight statusknop + rijen. */
 .pf-btn {
-  font-size: 12px;
+  font-size: 14px;
 }
 .pf-btn.pf-ok {
   color: #6a9955;
@@ -176,6 +179,15 @@ body.resizing .terminal-host {
   color: #d7ba7d;
 }
 .pf-btn.pf-error {
+  color: #d16969;
+}
+
+/* De gecombineerde menu-knop (⚙) tint mee met de slechtste systeemstatus:
+   neutraal bij ok, geel bij warn, rood bij error. */
+.menu-btn.pf-warn {
+  color: #d7ba7d;
+}
+.menu-btn.pf-error {
   color: #d16969;
 }
 
@@ -222,7 +234,7 @@ body.resizing .terminal-host {
   font-size: 12px;
 }
 
-/* Settings-overlay. */
+/* Gecombineerde overlay (Instellingen / Status / Over). */
 .settings-overlay {
   position: fixed;
   inset: 0;
@@ -233,13 +245,94 @@ body.resizing .terminal-host {
   z-index: 100;
 }
 
+/* Tab-balk in de header van het gecombineerde paneel. */
+.info-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.info-tab {
+  background: none;
+  border: none;
+  color: #8a9bb0;
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.info-tab:hover {
+  color: #dddddd;
+  background: #2a2a2a;
+}
+
+.info-tab.active {
+  color: #ffffff;
+  background: #333333;
+}
+
+/* Body die de drie secties bevat; de actieve vult de hoogte. */
+.info-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.info-section {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.info-section[hidden] {
+  display: none;
+}
+
+/* Over-sectie: gecentreerd logo + tekst. */
+.about-section {
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 36px 28px;
+  text-align: center;
+  color: #eaeaea;
+}
+
+.about-logo {
+  width: 96px;
+  height: 96px;
+  image-rendering: -webkit-optimize-contrast;
+}
+
+.about-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.about-meta {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #8a9bb0;
+}
+
+.about-meta b {
+  color: #cccccc;
+  font-weight: 600;
+}
+
 .settings-overlay[hidden] {
   display: none;
 }
 
 .settings-panel {
+  /* Vaste grootte zodat het paneel niet krimpt/groeit bij het wisselen van
+     tabs (settings is lang, status/over korter). */
   width: min(720px, 92vw);
-  max-height: 88vh;
+  height: min(640px, 88vh);
   display: flex;
   flex-direction: column;
   background: #232323;
@@ -274,6 +367,8 @@ body.resizing .terminal-host {
 }
 
 .settings-body {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   padding: 8px 16px 16px;
 }

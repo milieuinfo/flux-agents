@@ -12,7 +12,7 @@
  *   node desktop/build.mjs --watch    blijft herbouwen bij wijzigingen
  */
 import esbuild from 'esbuild';
-import { cp, mkdir, rm } from 'node:fs/promises';
+import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 
 const watch = process.argv.includes('--watch');
 const outdir = 'desktop/dist';
@@ -21,11 +21,25 @@ const prod = process.env.NODE_ENV === 'production';
 await rm(outdir, { recursive: true, force: true });
 await mkdir(outdir, { recursive: true });
 
+// Build-info: versie uit package.json, naam = electron-builder productName-ish
+// (we tonen de venster-titel), builddatum = vandaag (lokaal, YYYY-MM-DD). Via
+// esbuild `define` letterlijk in de bundels gesubstitueerd én via token-replace
+// in splash.html gezet, zodat splash-window en about-overlay dezelfde bron delen.
+const pkg = JSON.parse(await readFile('package.json', 'utf8'));
+const APP_NAME = 'Departement Omgeving - Flux - Agents';
+const APP_VERSION = pkg.version ?? '0.0.0';
+const BUILD_DATE = new Date().toISOString().slice(0, 10);
+
 const shared = {
   bundle: true,
   sourcemap: !prod,
   minify: prod,
   logLevel: 'info',
+  define: {
+    __APP_NAME__: JSON.stringify(APP_NAME),
+    __APP_VERSION__: JSON.stringify(APP_VERSION),
+    __BUILD_DATE__: JSON.stringify(BUILD_DATE),
+  },
 };
 
 /** @type {import('esbuild').BuildOptions[]} */
@@ -61,6 +75,15 @@ const targets = [
 
 async function copyStatic() {
   await cp('desktop/renderer/index.html', `${outdir}/index.html`);
+  // Logo voor splash-window én about-overlay (CSP 'self' → moet in dist staan).
+  await cp('build/icon.png', `${outdir}/logo.png`);
+  // splash.html uit template: tokens vervangen door de build-info.
+  const tpl = await readFile('desktop/renderer/splash.html', 'utf8');
+  const html = tpl
+    .replaceAll('%%APP_NAME%%', APP_NAME)
+    .replaceAll('%%VERSION%%', APP_VERSION)
+    .replaceAll('%%BUILD_DATE%%', BUILD_DATE);
+  await writeFile(`${outdir}/splash.html`, html, 'utf8');
 }
 
 if (watch) {
