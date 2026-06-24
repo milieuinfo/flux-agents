@@ -53,7 +53,7 @@ let ptys: PtyManager;
 
 // Splash minstens zo lang tonen, ook als de app sneller klaar is — anders
 // flitst hij maar heel even voorbij.
-const MIN_SPLASH_MS = 3000;
+const MIN_SPLASH_MS = 1500;
 let splashShownAt = 0;
 let revealed = false;
 let revealPending = false;
