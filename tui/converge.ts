@@ -2,6 +2,7 @@ import * as p from '@clack/prompts';
 import { promptProfiles, promptTicketKey } from './prompts.js';
 import { spawnScript } from './run.js';
 import { isDesktop, launchAgent } from './launch.js';
+import { wrapLog } from './format.js';
 
 /**
  * TUI-actie 'convergeer': vraagt één ticket en minstens twee profielen, en
@@ -18,7 +19,9 @@ export async function convergeAction(): Promise<void> {
   if (isDesktop()) {
     launchAgent(`converge ${key}`, 'converge', [key, '--profiles', profiles.join(',')]);
     p.log.success(
-      `Gestart in een eigen tab: converge ${key}. Dit pusht en maakt een draft-PR.`,
+      wrapLog(
+        `Gestart in een eigen tab: converge ${key}. Dit pusht en maakt een draft-PR.`,
+      ),
     );
     return;
   }

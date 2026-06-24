@@ -29,12 +29,12 @@ export interface EnvField {
 }
 
 export const CONFIG_GROUPS: ConfigGroup[] = [
-  'Jira',
   'Repo',
+  'Git',
+  'Jira',
+  'Publish',
   'Auth',
   'Modellen',
-  'Git',
-  'Publish',
   'Geavanceerd',
 ];
 

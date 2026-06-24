@@ -8,19 +8,19 @@ import { convergeAction } from './converge.js';
 import { refineAction } from './refine.js';
 import { planAction } from './plan.js';
 import { publishAction } from './publish.js';
+import { isDesktop } from './launch.js';
 
 config();
 
 // Optie-`value`s zijn de pipeline-codes zodat latere increments er direct op
 // kunnen routeren; de labels zijn NL voor het menu.
-type MenuChoice = 'refine' | 'plan' | 'publish' | 'develop' | 'exit';
+type MenuChoice = 'refine' | 'plan' | 'publish' | 'develop';
 
 const MENU_OPTIONS: { value: MenuChoice; label: string; hint: string }[] = [
   { value: 'refine', label: 'analyse', hint: '' },
   { value: 'plan', label: 'planning', hint: 'van analyses' },
   { value: 'publish', label: 'publicatie', hint: 'van analyse' },
   { value: 'develop', label: 'ontwikkeling', hint: 'na analyse' },
-  { value: 'exit', label: 'afsluiten', hint: '' },
 ];
 
 type DevelopChoice = 'iterate' | 'converge' | 'develop' | 'review' | 'back';
@@ -73,7 +73,15 @@ async function developMenu(): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  p.intro('flux-agents');
+  // In de app stop je de TUI door het venster te sluiten, niet met Ctrl-C.
+  // Vang SIGINT zodat een Ctrl-C tussen prompts in het node-proces niet doodt
+  // (clack vangt Ctrl-C binnen een prompt al als cancel — die negeren we
+  // hieronder). Zonder dit blijft het venster achter met een dode terminal.
+  if (isDesktop()) {
+    process.on('SIGINT', () => {});
+  }
+
+  p.intro('TUI - flux-agents');
 
   while (true) {
     const choice = await p.select<MenuChoice>({
@@ -82,12 +90,11 @@ async function main(): Promise<void> {
     });
 
     if (p.isCancel(choice)) {
+      // Buiten de app is Ctrl-C op het hoofdmenu een normale manier om te
+      // stoppen. In de app negeren we het en tonen we het menu opnieuw.
+      if (isDesktop()) continue;
       p.cancel('Geannuleerd.');
       process.exit(0);
-    }
-
-    if (choice === 'exit') {
-      break;
     }
 
     if (choice === 'develop') {
@@ -107,8 +114,6 @@ async function main(): Promise<void> {
       continue;
     }
   }
-
-  p.outro('Tot ziens.');
 }
 
 main().catch((err) => {

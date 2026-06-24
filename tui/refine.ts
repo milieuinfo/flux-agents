@@ -2,6 +2,7 @@ import * as p from '@clack/prompts';
 import { promptSprint, promptTicketKey } from './prompts.js';
 import { spawnScript } from './run.js';
 import { isDesktop, launchAgent } from './launch.js';
+import { wrapLog } from './format.js';
 
 /**
  * Bevestigt en draait refine met de gegeven args. Geeft `true` terug als de
@@ -71,7 +72,7 @@ export async function refineAction(): Promise<void> {
     if (sprint === undefined) return;
     if (isDesktop()) {
       launchAgent(`refine ${sprint}`, 'refine', [sprint]);
-      p.log.success(`Gestart in een eigen tab: refine ${sprint}.`);
+      p.log.success(wrapLog(`Gestart in een eigen tab: refine ${sprint}.`));
       return;
     }
     await runRefine([sprint], `sprint '${sprint}'`);
@@ -88,8 +89,10 @@ export async function refineAction(): Promise<void> {
     // niet op voltooiing wachten. Publiceren doe je apart via het menu.
     launchAgent(`refine ${key}`, 'refine', [folder, '--tickets', key]);
     p.log.success(
-      `Gestart in een eigen tab: refine ${key} (map '${folder}'). ` +
-        `Publiceren kan daarna via 'publicatie'.`,
+      wrapLog(
+        `Gestart in een eigen tab: refine ${key} (map '${folder}'). ` +
+          `Publiceren kan daarna via 'publicatie'.`,
+      ),
     );
     return;
   }

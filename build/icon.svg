@@ -1,0 +1,53 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Achtergrond: diep petroleum -> teal-groen -->
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0c3138"/>
+      <stop offset="0.55" stop-color="#0f5f63"/>
+      <stop offset="1" stop-color="#16a79a"/>
+    </linearGradient>
+    <!-- Bliksem: warm wit -> goudgeel (bewust anders dan de aqua nodes/lijnen) -->
+    <linearGradient id="bolt" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fffdf3"/>
+      <stop offset="0.45" stop-color="#ffe7a0"/>
+      <stop offset="1" stop-color="#ffc21e"/>
+    </linearGradient>
+    <radialGradient id="sheen" cx="0.32" cy="0.24" r="0.9">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.22"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="14" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- App-vlak (squircle) met marge -->
+  <rect x="80" y="80" width="864" height="864" rx="208" fill="url(#bg)"/>
+  <rect x="80" y="80" width="864" height="864" rx="208" fill="url(#sheen)"/>
+
+  <!-- Agents: drie verbonden nodes als constellatie achter de bliksem.
+       Lijnen bewust dik + fel zodat ze ook op tray-formaat leesbaar blijven. -->
+  <g stroke="#d6fbf6" stroke-opacity="0.62" stroke-width="13" stroke-linecap="round" fill="none">
+    <path d="M286 372 L512 512 L742 332"/>
+    <path d="M512 512 L690 716"/>
+  </g>
+  <g fill="#eafffb">
+    <circle cx="286" cy="372" r="40"/>
+    <circle cx="742" cy="332" r="35"/>
+    <circle cx="690" cy="716" r="45"/>
+  </g>
+
+  <!-- Bliksem: het flux-symbool, centraal -->
+  <path filter="url(#glow)" fill="url(#bolt)"
+        d="M582 196
+           L356 548
+           L486 548
+           L432 828
+           L690 452
+           L548 452
+           L626 196 Z"/>
+</svg>

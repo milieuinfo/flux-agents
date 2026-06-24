@@ -5,7 +5,7 @@
  * console-tabs (shell). De pty's leven hier; data/exit gaan via IPC naar de
  * renderer. Het control-protocol (TUI-actie → tab) komt in fase 4.
  */
-import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, nativeImage, shell } from 'electron';
 import { join } from 'node:path';
 import { PtyManager } from './pty-manager';
 import {
@@ -84,7 +84,7 @@ function createWindow(): void {
     width: 1400,
     height: 900,
     backgroundColor: '#1e1e1e',
-    title: 'flux-agents',
+    title: 'Departement Omgeving - Flux - Agents',
     webPreferences: {
       preload: join(__dirname, 'preload.cjs'),
       contextIsolation: true,
@@ -159,6 +159,13 @@ function registerIpc(): void {
 }
 
 void app.whenReady().then(async () => {
+  // Gepackaged neemt macOS het dock-icoon uit het app-bundle (build/icon.icns).
+  // In dev draait Electron kaal, dus zetten we het dock-icoon zelf zodat de
+  // bliksem ook tijdens `npm run dev` zichtbaar is.
+  if (!app.isPackaged && process.platform === 'darwin') {
+    const img = nativeImage.createFromPath(join(repoRoot, 'build', 'icon.png'));
+    if (!img.isEmpty()) app.dock?.setIcon(img);
+  }
   effectiveConfig = loadEffectiveConfig(repoRoot);
   if (SMOKE) {
     const cfg = getConfigForRenderer(repoRoot);

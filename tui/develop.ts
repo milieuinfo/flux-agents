@@ -2,6 +2,7 @@ import * as p from '@clack/prompts';
 import { runDevelop } from '../agents/develop.js';
 import { promptTicketAndProfile } from './prompts.js';
 import { isDesktop, launchAgent } from './launch.js';
+import { wrapLog } from './format.js';
 
 /**
  * TUI-actie 'ontwikkel': vraagt een ticket-sleutel en profiel en draait dan één
@@ -15,7 +16,7 @@ export async function developAction(): Promise<void> {
 
   if (isDesktop()) {
     launchAgent(`develop ${key} (${profile})`, 'develop', [key, '--profile', profile]);
-    p.log.success(`Gestart in een eigen tab: develop ${key} (${profile}).`);
+    p.log.success(wrapLog(`Gestart in een eigen tab: develop ${key} (${profile}).`));
     return;
   }
 

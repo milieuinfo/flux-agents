@@ -15,6 +15,7 @@ export class SettingsPanel {
   private readonly inputs = new Map<string, HTMLInputElement>();
   private readonly status = document.createElement('div');
   private readonly authStatus = document.createElement('span');
+  private readonly jiraStatus = document.createElement('span');
   private readonly api = window.fluxDesktop;
 
   constructor() {
@@ -49,15 +50,11 @@ export class SettingsPanel {
     const footer = document.createElement('div');
     footer.className = 'settings-footer';
     this.status.className = 'settings-status';
-    const testBtn = document.createElement('button');
-    testBtn.className = 'btn';
-    testBtn.textContent = 'Test Jira-verbinding';
-    testBtn.addEventListener('click', () => void this.testJira());
     const saveBtn = document.createElement('button');
     saveBtn.className = 'btn btn-primary';
     saveBtn.textContent = 'Opslaan';
     saveBtn.addEventListener('click', () => void this.save());
-    footer.append(this.status, testBtn, saveBtn);
+    footer.append(this.status, saveBtn);
 
     panel.append(header, body, footer);
     this.element.appendChild(panel);
@@ -97,6 +94,18 @@ export class SettingsPanel {
         desc.textContent = f.description;
         row.appendChild(desc);
       }
+      section.appendChild(row);
+    }
+
+    if (group === 'Jira') {
+      const row = document.createElement('div');
+      row.className = 'settings-row';
+      const test = document.createElement('button');
+      test.className = 'btn';
+      test.textContent = 'Test Jira-verbinding';
+      test.addEventListener('click', () => void this.testJira());
+      this.jiraStatus.className = 'settings-status';
+      row.append(test, this.jiraStatus);
       section.appendChild(row);
     }
 
@@ -142,6 +151,8 @@ export class SettingsPanel {
   async show(): Promise<void> {
     this.status.textContent = '';
     this.status.className = 'settings-status';
+    this.jiraStatus.textContent = '';
+    this.jiraStatus.className = 'settings-status';
     const { values, secretsSet } = await this.api.config.get();
     for (const f of ENV_SCHEMA) {
       const input = this.inputs.get(f.key);
@@ -183,14 +194,19 @@ export class SettingsPanel {
   }
 
   private async testJira(): Promise<void> {
-    this.setStatus('Testen…', '');
+    this.setJiraStatus('Testen…', '');
     const res = await this.api.config.testJira({
       url: this.inputs.get('JIRA_URL')?.value || undefined,
       token: this.inputs.get('JIRA_PERSONAL_TOKEN')?.value || undefined,
       sslVerify: this.inputs.get('JIRA_SSL_VERIFY')?.value || undefined,
     });
-    if (res.ok) this.setStatus(`Verbonden als ${res.user}.`, 'ok');
-    else this.setStatus(`Mislukt: ${res.error}`, 'err');
+    if (res.ok) this.setJiraStatus(`✓ Verbonden als ${res.user}.`, 'ok');
+    else this.setJiraStatus(`✗ Mislukt: ${res.error}`, 'err');
+  }
+
+  private setJiraStatus(text: string, kind: '' | 'ok' | 'err'): void {
+    this.jiraStatus.textContent = text;
+    this.jiraStatus.className = `settings-status${kind ? ` ${kind}` : ''}`;
   }
 
   private setStatus(text: string, kind: '' | 'ok' | 'err'): void {

@@ -33,6 +33,24 @@ async function main(): Promise<void> {
   };
   await tui.start('tui');
 
+  // De TUI moet meteen typbaar zijn, zonder dat je er eerst expliciet in moet
+  // klikken. (a) focus bij opstart, (b) een klik érgens in het linkerpaneel
+  // (incl. de balk bovenaan) focust de TUI, (c) als het venster focus krijgt en
+  // je nergens specifiek staat, gaat focus terug naar de TUI. We stelen geen
+  // focus van een console-tab rechts of een overlay-invoerveld.
+  const tuiPane = el('tui-terminal').closest('.tui-pane');
+  tuiPane?.addEventListener('mousedown', (ev) => {
+    // Laat tekstselectie in de terminal zelf met rust; focus enkel expliciet
+    // wanneer je op de niet-interactieve chrome (balk/marges) klikt.
+    if (!(ev.target as HTMLElement).closest('.xterm')) tui.focus();
+  });
+  const refocusTui = (): void => {
+    const active = document.activeElement;
+    if (!active || active === document.body) tui.focus();
+  };
+  window.addEventListener('focus', refocusTui);
+  tui.focus();
+
   // Rechts: console-tabs + de "+"-knop voor een nieuwe shell.
   const tabs = new TabManager(el('tab-strip'), el('console-body'));
   el('tab-add').addEventListener('click', () => void tabs.openShell());
