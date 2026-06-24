@@ -16,20 +16,20 @@ config();
 type MenuChoice = 'refine' | 'plan' | 'publish' | 'develop' | 'exit';
 
 const MENU_OPTIONS: { value: MenuChoice; label: string; hint: string }[] = [
-  { value: 'refine', label: 'analyse', hint: 'refinement van een Jira-ticket of sprint' },
-  { value: 'plan', label: 'planning', hint: 'een Jira sprint plannen' },
-  { value: 'publish', label: 'publicatie', hint: 'naar Jira publiceren - van een analyse (refinement) of planning' },
-  { value: 'develop', label: 'ontwikkeling', hint: 'ontwikkelen / reviewen / itereren - van een geanalyseerd Jira ticket' },
+  { value: 'refine', label: 'analyse', hint: '' },
+  { value: 'plan', label: 'planning', hint: 'van analyses' },
+  { value: 'publish', label: 'publicatie', hint: 'van analyse' },
+  { value: 'develop', label: 'ontwikkeling', hint: 'na analyse' },
   { value: 'exit', label: 'afsluiten', hint: '' },
 ];
 
 type DevelopChoice = 'iterate' | 'converge' | 'develop' | 'review' | 'back';
 
 const DEVELOP_OPTIONS: { value: DevelopChoice; label: string; hint: string }[] = [
-  { value: 'iterate', label: 'itereer', hint: 'een ticket ontwikkelen en reviewen (max. 3x) met een profiel' },
-  { value: 'converge', label: 'convergeer', hint: '2 geïtereerde tickets samenvoegen (zelfde ticket / verschillend profiel)' },
-  { value: 'develop', label: 'ontwikkel', hint: 'een ticket met een specifiek profiel ontwikkelen' },
-  { value: 'review', label: 'review', hint: 'een ontwikkeld ticket reviewen' },
+  { value: 'iterate', label: 'itereer', hint: 'ontwikkel & review' },
+  { value: 'converge', label: 'convergeer', hint: 'samenvoegen' },
+  { value: 'develop', label: 'ontwikkel', hint: '' },
+  { value: 'review', label: 'review', hint: 'na ontwikkeling' },
   { value: 'back', label: 'terug', hint: '' },
 ];
 

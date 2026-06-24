@@ -12,9 +12,10 @@ export function isDesktop(): boolean {
 }
 
 // Logische actie-naam → script-pad (relatief aan de repo-root, die main als
-// cwd zet). We draaien rechtstreeks via `tsx`, niet via `npm run`: de
-// gepackagede app heeft geen npm-scripts (electron-builder stript ze) en tsx
-// staat via een shim op PATH (zie desktop/main/index.ts).
+// cwd zet). We draaien via `node --import tsx <script>` (één proces), niet via
+// `npm run` (de gepackagede app heeft geen npm-scripts) en niet via de `tsx`-
+// binary (die fork't een child waardoor SIGWINCH/resize niet aankomt en clack
+// niet meer herwrapt). `node` is een prerequisite; tsx komt uit node_modules.
 const SCRIPT_PATHS: Record<string, string> = {
   refine: 'agents/refine.ts',
   plan: 'agents/plan.ts',
@@ -37,6 +38,6 @@ function shellQuote(s: string): string {
 export function launchAgent(title: string, script: string, args: string[]): void {
   const path = SCRIPT_PATHS[script];
   if (!path) throw new Error(`Onbekend script: ${script}`);
-  const parts = ['tsx', shellQuote(path), ...args.map(shellQuote)];
+  const parts = ['node', '--import', 'tsx', shellQuote(path), ...args.map(shellQuote)];
   emitOpenTab({ title, command: parts.join(' ') });
 }

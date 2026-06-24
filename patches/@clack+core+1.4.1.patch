@@ -1,0 +1,13 @@
+diff --git a/node_modules/@clack/core/dist/index.mjs b/node_modules/@clack/core/dist/index.mjs
+index a318d52..e5f8f2f 100644
+--- a/node_modules/@clack/core/dist/index.mjs
++++ b/node_modules/@clack/core/dist/index.mjs
+@@ -159,7 +159,7 @@ function block({
+ const getColumns = (e) => "columns" in e && typeof e.columns == "number" ? e.columns : 80, getRows = (e) => "rows" in e && typeof e.rows == "number" ? e.rows : 20;
+ function wrapTextWithPrefix(e, r, o, t = o, s = o, n) {
+   const f = getColumns(e ?? stdout);
+-  return wrapAnsi(r, f - o.length, {
++  return wrapAnsi(r, f - o.replace(/\u001b\[[0-9;]*m/g, "").length, {
+     hard: true,
+     trim: false
+   }).split(`
