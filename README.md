@@ -11,21 +11,21 @@ triggert, en de finale merge doe je altijd zelf.
 ```
 Jira sprint
     │
-    ▼  npm run refine -- <sprint>
+    ▼  npm run pipeline:refine -- <sprint>
 ┌─────────────┐   agent 1: SDK (Node) — leest Jira via REST
 │ refine      │   per ticket FLUX-*.md (Opus, uitgebreid)
 │ (Opus+Son.) │   + FLUX-*.jira.md (Sonnet, beknopt voor Jira)
 └─────────────┘   idempotent; update-geschiedenis bij herstart
     │ state/sprints/<sprint>/FLUX-*.md
-    ▼  npm run plan -- <sprint>
+    ▼  npm run pipeline:plan -- <sprint>
 ┌─────────────┐   agent 2: SDK (Node) — leest markdowns
 │ plan        │   produceert _order.md met volgorde +
 │ (Opus)      │   dependency graph
 └─────────────┘
     │ state/sprints/<sprint>/_order.md
-    ▼  npm run publish -- <sprint>   (optioneel, naar Jira)
+    ▼  npm run jira:publish -- <sprint>   (optioneel, naar Jira)
     ┆  (jij kiest welk ticket je wil aanpakken)
-    ▼  npm run develop -- FLUX-123
+    ▼  npm run pipeline:develop -- FLUX-123
 ┌─────────────┐   agent 3: SDK (Node) — Sonnet
 │ develop     │◀──┐ per-ticket git worktree, implementeert,
 │             │   │ lokale commits, géén push, géén PR
@@ -37,8 +37,8 @@ Jira sprint
 │ (Opus)      │       lokale squash + _pr-body.md. GÉÉN push, GÉÉN PR.
 └─────────────┘
     │
-    ▼  npm run push -- FLUX-123      (git push -u origin <branch>)
-    ▼  npm run pr   -- FLUX-123      (gh pr create --draft)
+    ▼  npm run git:push -- FLUX-123      (git push -u origin <branch>)
+    ▼  npm run git:pr   -- FLUX-123      (gh pr create --draft)
     │
     ▼  draft-PR op GitHub
     ┆  (jij zet de PR ready en merget zelf)
@@ -52,12 +52,12 @@ Jira sprint
 
 - Agent 3 schrijft `code-changes.md` en commit lokaal (één commit per ronde).
 - Agent 4 reviewt en schrijft `review-r<N>.md`. Status in `_status.json`.
-- Bij `CHANGES_REQUESTED`: jij triggert opnieuw `npm run develop`,
+- Bij `CHANGES_REQUESTED`: jij triggert opnieuw `npm run pipeline:develop`,
   agent 3 detecteert via `_status.json` dat het ronde N+1 is, leest
   de vorige review, en maakt een nieuwe commit die de feedback adresseert.
 - Bij `APPROVED`: agent 4 squasht alle ronde-commits tot één conventional
   commit **lokaal** en schrijft de PR-body naar `_pr-body.md`. Hij pusht
-  niet en maakt geen PR — dat doe je met `npm run push` + `npm run pr`.
+  niet en maakt geen PR — dat doe je met `npm run git:push` + `npm run git:pr`.
 - Bij ronde 3 zonder approval: status wordt `ESCALATED`, geen squash, jij
   moet zelf ingrijpen.
 
@@ -82,7 +82,7 @@ state/
 │           ├── ticket.md           ← kopie van refinement-rapport
 │           ├── code-changes.md     ← agent 3 (groeit per ronde)
 │           ├── review-r1.md        ← agent 4 ronde 1
-│           ├── _pr-body.md         ← agent 4 bij APPROVED (body voor npm run pr)
+│           ├── _pr-body.md         ← agent 4 bij APPROVED (body voor npm run git:pr)
 │           ├── _status.json        ← round, status, baseBranch, branch, prUrl?, profile?
 │           └── <profiel>-<code>/   ← mét --profile: eigen kopie per profiel+model
 │               ├── ticket.md
@@ -140,20 +140,20 @@ abonnement wordt afgerekend. Deel je token niet — hij is persoonlijk.
 ### Lokaal draaien (development)
 
 ```bash
-npm run dev      # bouwt desktop/dist (esbuild) en start Electron
+npm run app:dev      # bouwt app/desktop/dist (esbuild) en start Electron
 ```
 
 ### Een dmg bouwen en distribueren
 
 ```bash
-npm run dist     # → release/*.dmg (+ zip), arm64 + x64
+npm run app:dist     # → release/*.dmg (+ zip), arm64 + x64
 ```
 
 - Zonder Apple-credentials is dit een **ad-hoc-gesigneerde** dmg: werkt op je
   eigen Mac, maar geeft op andere Macs een Gatekeeper-waarschuwing (rechtsklik →
   Openen, of `xattr -dr com.apple.quarantine /Applications/flux-agents.app`).
 - Voor wrijvingsloze distributie: code-sign + notarize met een Apple Developer-
-  account. Zet vóór `npm run dist` de env vars `CSC_LINK` + `CSC_KEY_PASSWORD`
+  account. Zet vóór `npm run app:dist` de env vars `CSC_LINK` + `CSC_KEY_PASSWORD`
   (Developer ID Application) en `APPLE_ID` + `APPLE_APP_SPECIFIC_PASSWORD` +
   `APPLE_TEAM_ID` (notarization). Zie de commentaren in `electron-builder.yml`.
 
@@ -167,7 +167,7 @@ npm run dist     # → release/*.dmg (+ zip), arm64 + x64
 4. Kies links een actie (analyse / plan / ontwikkel / …) → ze draait rechts in een
    eigen tab. `+` opent een losse shell.
 
-De pure CLI (`npm run refine`, `npm run iterate`, …) blijft daarnaast gewoon
+De pure CLI (`npm run pipeline:refine`, `npm run pipeline:iterate`, …) blijft daarnaast gewoon
 werken — de app is een schil errond.
 
 ## Setup
@@ -213,7 +213,7 @@ Vul minstens in:
 - `FLUX_BASE_BRANCH` (default `develop-v2`)
 - `STATE_DIR` — default `../flux-agents-state` als je de conventie volgt
 
-Voor `npm run publish` (publicatie naar Jira) zijn er extra env vars
+Voor `npm run jira:publish` (publicatie naar Jira) zijn er extra env vars
 (`JIRA_SPRINT_FIELD`, `JIRA_STORYPOINTS_FIELD`, `JIRA_REALIZATION_LINK_TYPE`,
 `JIRA_UMBRELLA_EPIC`, …) — zie `.env.example` en §9 in `CLAUDE.md`.
 
@@ -234,7 +234,7 @@ credits, niet je MAX plan.
 
 ### 5. `gh` CLI geauthenticeerd
 
-`npm run pr` (en `converge`) gebruiken `gh pr create`. Check `gh auth status`.
+`npm run git:pr` (en `converge`) gebruiken `gh pr create`. Check `gh auth status`.
 
 ### 6. (optioneel) Claude Code commands linken naar flux-web-components
 
@@ -243,7 +243,7 @@ kunnen draaien (bv. voor debugging). Voor de normale SDK-flow hoef je
 dit niet te doen.
 
 ```bash
-npm run link-commands -- /path/to/flux-web-components
+npm run dev:link -- /path/to/flux-web-components
 ```
 
 ## Gebruik — complete flow
@@ -251,13 +251,13 @@ npm run link-commands -- /path/to/flux-web-components
 ### Stap 1: refine een sprint
 
 ```bash
-npm run refine -- SPRINT-42
+npm run pipeline:refine -- SPRINT-42
 # of met JQL
-npm run refine -- --jql "sprint = openSprints() AND project = FLUX"
+npm run pipeline:refine -- --jql "sprint = openSprints() AND project = FLUX"
 # of met een expliciete lijst van tickets (eerste positional = folder-naam onder state/sprints/)
-npm run refine -- hotfixes-april --tickets FLUX-123,FLUX-124,FLUX-125
+npm run pipeline:refine -- hotfixes-april --tickets FLUX-123,FLUX-124,FLUX-125
 # droogtest (verifieert Jira REST-auth, schrijft niets blijvends)
-npm run refine:dry -- SPRINT-42
+npm run pipeline:refine:dry -- SPRINT-42
 ```
 
 Output per ticket: `FLUX-*.md` (uitgebreid, Opus) **en** `FLUX-*.jira.md`
@@ -270,7 +270,7 @@ YYYY-MM-DD` sectie wordt toegevoegd.
 ### Stap 2: plan de uitvoeringsvolgorde
 
 ```bash
-npm run plan -- SPRINT-42
+npm run pipeline:plan -- SPRINT-42
 ```
 
 Output: `state/sprints/SPRINT-42/_order.md` met volgorde,
@@ -279,13 +279,13 @@ dependency graph en aanbevelingen.
 ### Stap 3 (optioneel): publiceer de analyse naar Jira
 
 ```bash
-npm run publish -- SPRINT-42
+npm run jira:publish -- SPRINT-42
 # alleen per-ticket comments, geen umbrella-ticket
-npm run publish:ticket -- SPRINT-42
+npm run jira:publish-ticket -- SPRINT-42
 # droogtest — schrijft _preview_*.md lokaal i.p.v. naar Jira
-npm run publish:dry -- SPRINT-42
+npm run jira:publish:dry -- SPRINT-42
 # selectie / deelpublicatie
-npm run publish -- SPRINT-42 --tickets FLUX-123,FLUX-124 --skip-overview
+npm run jira:publish -- SPRINT-42 --tickets FLUX-123,FLUX-124 --skip-overview
 ```
 
 Schrijft per ticket een comment (`## Sprint-analyse - AI`, bij voorkeur de
@@ -296,9 +296,9 @@ is een no-op. Wijzigt **nooit** een Jira workflow-status.
 ### Stap 4: kies een ticket en start ontwikkeling
 
 ```bash
-npm run develop -- FLUX-123 SPRINT-42
+npm run pipeline:develop -- FLUX-123 SPRINT-42
 # of zonder sprintId — de sprint wordt automatisch opgespoord:
-npm run develop -- FLUX-123
+npm run pipeline:develop -- FLUX-123
 ```
 
 Wat dit doet:
@@ -315,7 +315,7 @@ Wat dit doet:
 ### Stap 5: review
 
 ```bash
-npm run review -- FLUX-123
+npm run pipeline:review -- FLUX-123
 ```
 
 Reviewt (Opus) op dezelfde worktree. Drie uitkomsten:
@@ -324,7 +324,7 @@ Reviewt (Opus) op dezelfde worktree. Drie uitkomsten:
   tot één conventional commit, en de PR-body wordt naar `_pr-body.md`
   geschreven. Er wordt **niet** gepusht en **geen** PR gemaakt.
 - **CHANGES_REQUESTED** — lees `state/tickets/<sprint>/FLUX-123/review-r<N>.md`,
-  dan opnieuw `npm run develop -- FLUX-123`. Dat detecteert automatisch
+  dan opnieuw `npm run pipeline:develop -- FLUX-123`. Dat detecteert automatisch
   dat het ronde N+1 is en schakelt naar address-modus.
 - **ESCALATED** — max 3 rondes bereikt; geen squash, jij beslist manueel.
 
@@ -334,8 +334,8 @@ Na APPROVED breng je de branch zelf naar GitHub (twee deterministische
 scripts, geen LLM):
 
 ```bash
-npm run push -- FLUX-123        # git push -u origin <branch>
-npm run pr   -- FLUX-123        # gh pr create --draft
+npm run git:push -- FLUX-123        # git push -u origin <branch>
+npm run git:pr   -- FLUX-123        # gh pr create --draft
 ```
 
 `push` is idempotent (already-up-to-date = no-op). `pr` gebruikt de
@@ -352,17 +352,17 @@ merget zelf**. Geen automatisering in deze stap.
 ### ship — hele lus + push, in één commando
 
 ```bash
-npm run ship -- FLUX-123 backlog-20260422
+npm run pipeline:ship -- FLUX-123 backlog-20260422
 ```
 
 Draait de `develop → review` lus automatisch, tot maximaal 3 rondes. Bij
 APPROVED: lokale squash + automatisch `git push` naar origin (de PR maak je
-zelf met `npm run pr`). Stopt bij ESCALATED of na ronde 3.
+zelf met `npm run git:pr`). Stopt bij ESCALATED of na ronde 3.
 
 ### iterate — zelfde lus, puur lokaal
 
 ```bash
-npm run iterate -- FLUX-123 backlog-20260422
+npm run pipeline:iterate -- FLUX-123 backlog-20260422
 ```
 
 Identiek aan `ship`, maar **zonder push of PR**. Bij APPROVED stopt iterate
@@ -376,9 +376,9 @@ Use case: hetzelfde ticket parallel onder twee profielen ontwikkelen en
 daarna het beste van beide samenvoegen.
 
 ```bash
-npm run iterate  -- FLUX-620 --profile no
-npm run iterate  -- FLUX-620 --profile kris
-npm run converge -- FLUX-620 --profiles no,kris
+npm run pipeline:iterate  -- FLUX-620 --profile no
+npm run pipeline:iterate  -- FLUX-620 --profile kris
+npm run pipeline:converge -- FLUX-620 --profiles no,kris
 ```
 
 `converge` valideert dat beide profielruns `approved` zijn, maakt een
@@ -397,18 +397,18 @@ bestand. Zie §12 in `CLAUDE.md`.
 Een feature-branch van een andere developer reviewen, los van de sprint-flow:
 
 ```bash
-npm run review-external -- FLUX-595 feature-v2/iemand-anders-zn-branch
+npm run pipeline:review-external -- FLUX-595 feature-v2/iemand-anders-zn-branch
 # met expliciete base-branch en/of profiel
-npm run review-external -- FLUX-595 feature-v2/branch --base develop-v3 --profile kris
+npm run pipeline:review-external -- FLUX-595 feature-v2/branch --base develop-v3 --profile kris
 ```
 
 Output: `state/reviews/FLUX-595/review-<timestamp>.md` (één per run, geen
 squash/push/PR). Publiceer naar Jira met:
 
 ```bash
-npm run publish-review -- FLUX-595                    # laatste review-md
-npm run publish-review -- FLUX-595 --file <pad>       # specifiek bestand
-npm run publish-review:dry -- FLUX-595                # droogtest
+npm run jira:publish-review -- FLUX-595                    # laatste review-md
+npm run jira:publish-review -- FLUX-595 --file <pad>       # specifiek bestand
+npm run jira:publish-review:dry -- FLUX-595                # droogtest
 ```
 
 Plaatst een comment `## Code review - AI` op het ticket. Idempotent via
@@ -426,12 +426,12 @@ De agents die in een worktree draaien (`develop`, `review`, `ship`,
 vlag; `converge` neemt `--profiles <a,b>`:
 
 ```bash
-npm run develop -- FLUX-123 --profile kris
-npm run review  -- FLUX-123 --profile kris
-npm run ship    -- FLUX-123 --profile karim
-npm run iterate -- FLUX-123 --profile kris
-npm run review-external -- FLUX-595 feature-v2/iemand-anders --profile kris
-npm run converge -- FLUX-123 --profiles no,kris
+npm run pipeline:develop -- FLUX-123 --profile kris
+npm run pipeline:review  -- FLUX-123 --profile kris
+npm run pipeline:ship    -- FLUX-123 --profile karim
+npm run pipeline:iterate -- FLUX-123 --profile kris
+npm run pipeline:review-external -- FLUX-595 feature-v2/iemand-anders --profile kris
+npm run pipeline:converge -- FLUX-123 --profiles no,kris
 ```
 
 Wat er onder de motorkap gebeurt bij `--profile kris`. Het pad-segment is
@@ -464,23 +464,23 @@ backwards-compatible).
 
 ## Interactief alternatief (debugging)
 
-De Claude Code subagents staan in `agents/claude-code/.claude/` en kunnen
+De Claude Code subagents staan in `pipeline/agents/claude-code/.claude/` en kunnen
 handmatig aangeroepen worden via `/develop` / `/review` / `/address` in een
 Claude Code sessie in `flux-web-components`. Handig als je stap-voor-stap
 wil meekijken of de prompts wil tunen. De SDK-flow is de autonome variant
 die op een server kan draaien. Bij een prompt-wijziging: bewerk de canonical
-prompt onder `agents/prompts/` en draai `npm run sync-cc-agents`.
+prompt onder `pipeline/agents/prompts/` en draai `npm run dev:sync-cc`.
 
 ## Test-strategie voor de eerste keer
 
-1. `npm run refine:dry -- <oude-sprint>` — verifieer Jira REST-auth
-2. `npm run refine -- <oude-sprint>` op een kleine sprint (2-3 tickets)
+1. `npm run pipeline:refine:dry -- <oude-sprint>` — verifieer Jira REST-auth
+2. `npm run pipeline:refine -- <oude-sprint>` op een kleine sprint (2-3 tickets)
 3. Lees de markdowns. Zijn ze bruikbaar? Stuur de prompt bij in
-   `agents/prompts/refine.md`
+   `pipeline/agents/prompts/refine.md`
 4. Run agent 1 opnieuw op dezelfde sprint → moet alle tickets overslaan
-5. `npm run plan -- <sprint>` — check de volgorde
-6. Kies het simpelste ticket. Probeer `npm run develop -- <KEY>` en
-   daarna `npm run review -- <KEY>`. Begin met iets klein om de flow
+5. `npm run pipeline:plan -- <sprint>` — check de volgorde
+6. Kies het simpelste ticket. Probeer `npm run pipeline:develop -- <KEY>` en
+   daarna `npm run pipeline:review -- <KEY>`. Begin met iets klein om de flow
    te leren.
 
 ## Modellen en kosten
@@ -501,15 +501,15 @@ Override via env vars — één per agent-rol: `AGENT_REFINE_MODEL`,
 De oude genummerde namen (`AGENT1_MODEL`–`AGENT4_MODEL`,
 `AGENT1_SUMMARY_MODEL`) blijven als fallback werken. Voor de interactieve
 CC-variant kan je ook de frontmatter van
-`agents/claude-code/.claude/agents/*.md` aanpassen (of de canonical prompt
-onder `agents/prompts/` en vervolgens `npm run sync-cc-agents`).
+`pipeline/agents/claude-code/.claude/agents/*.md` aanpassen (of de canonical prompt
+onder `pipeline/agents/prompts/` en vervolgens `npm run dev:sync-cc`).
 
 ## Wat de agents NOOIT doen
 
 - PR's mergen — alleen jij
 - `git push --force` of history rewriten op remote
 - Pushen of een PR maken buiten de deterministische scripts
-  (`npm run push` / `npm run pr`) — de develop/review-agents doen dat zelf nooit
+  (`npm run git:push` / `npm run git:pr`) — de develop/review-agents doen dat zelf nooit
 - Bestaande PR's aanpassen of comments posten op GitHub
 - Jira workflow-status wijzigen (publish posts enkel comments + umbrella-ticket)
 - Dependencies installeren zonder te vragen

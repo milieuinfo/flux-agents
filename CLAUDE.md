@@ -33,22 +33,22 @@ met de `Co-Authored-By`-trailer.
 | 4 | review | Claude Agent SDK (Node) | Opus | Reviewt op dezelfde worktree, bij approval: lokale squash + schrijft PR-body-artifact (`_pr-body.md`). Pusht niet en maakt geen PR. |
 
 Daarnaast zijn er **deterministische scripts** (geen LLM-oordeel nodig):
-- `scripts/publish.ts` — sprint-output van agents 1 + 2 naar Jira (zie §9)
-- `scripts/publish-review.ts` — losse externe-review-md naar Jira (zie zijtak hierboven)
-- `scripts/push.ts` (`npm run push`) — pusht de feature-branch van een
+- `pipeline/jira/publish.ts` — sprint-output van agents 1 + 2 naar Jira (zie §9)
+- `pipeline/jira/publish-review.ts` — losse externe-review-md naar Jira (zie zijtak hierboven)
+- `pipeline/git/push.ts` (`npm run git:push`) — pusht de feature-branch van een
   goedgekeurd ticket naar origin (zie §11)
-- `scripts/pr.ts` (`npm run pr`) — maakt de draft-PR aan op basis van de
+- `pipeline/git/pr.ts` (`npm run git:pr`) — maakt de draft-PR aan op basis van de
   squash-commit-subject (titel) + `_pr-body.md` (body) (zie §11)
 
-En er zijn **orchestrators** die de agents/scripts na elkaar draaien:
-- `agents/ship.ts` / `agents/iterate.ts` — develop→review-lus voor één ticket
+En er zijn **orchestrators** die de agents en scripts na elkaar draaien:
+- `pipeline/agents/ship.ts` / `pipeline/agents/iterate.ts` — develop→review-lus voor één ticket
   (ship pusht bij APPROVED, iterate blijft lokaal)
-- `agents/converge.ts` (`npm run converge`) — combineert twee `approved`
+- `pipeline/agents/converge.ts` (`npm run pipeline:converge`) — combineert twee `approved`
   profielruns van hetzelfde ticket tot één profielloze branch + push + draft-PR
   (eigen Opus LLM-stap voor het combineren, zie §12)
 
 Agents 3 en 4 hebben ook een **Claude Code subagent variant** in
-`agents/claude-code/.claude/agents/` (ticket-author.md, ticket-reviewer.md)
+`pipeline/agents/claude-code/.claude/agents/` (ticket-author.md, ticket-reviewer.md)
 voor interactieve debugging. De SDK-scripts laden diezelfde markdowns
 (frontmatter gestript) als system prompt — één bron van waarheid.
 
@@ -62,40 +62,40 @@ MAX plan gebruik.
 ```
 Jira sprint
     │
-    ▼  npm run refine -- <sprint>
+    ▼  npm run pipeline:refine -- <sprint>
 ┌─────────────┐
 │ agent 1     │ → state/sprints/<sprint>/FLUX-*.md         (uitgebreid, Opus)
 │             │ → state/sprints/<sprint>/FLUX-*.jira.md    (beknopt, Sonnet)
 └─────────────┘
     │
-    ▼  npm run plan -- <sprint>
+    ▼  npm run pipeline:plan -- <sprint>
 ┌─────────────┐
 │ agent 2     │ → state/sprints/<sprint>/_order.md
 └─────────────┘
     │
-    ▼  npm run publish -- <sprint>   (optioneel, indien zichtbaar in Jira gewenst)
+    ▼  npm run jira:publish -- <sprint>   (optioneel, indien zichtbaar in Jira gewenst)
 ┌─────────────┐
 │ publish.ts  │ → comment per ticket + umbrella-ticket [Sprint-analyse]
 └─────────────┘
     │
     ▼  (Kris kiest ticket)
     │
-    ▼  npm run develop -- FLUX-123 [sprint]
+    ▼  npm run pipeline:develop -- FLUX-123 [sprint]
 ┌─────────────┐
 │ agent 3     │◀──┐ per-ticket worktree + feature-v2/... branch
 └─────────────┘   │ lokale commits, géén push, géén PR
     │             │
-    ▼  npm run review -- FLUX-123
+    ▼  npm run pipeline:review -- FLUX-123
 ┌─────────────┐   │
-│ agent 4     │───┘ CHANGES_REQUESTED → opnieuw npm run develop --
+│ agent 4     │───┘ CHANGES_REQUESTED → opnieuw npm run pipeline:develop --
 │             │       (automatisch in address-modus via _status.json)
 │             │     APPROVED → lokale squash + _pr-body.md (géén push, géén PR)
 │             │     ESCALATED → ronde 3 bereikt, Kris stapt in
 └─────────────┘
     │
-    ▼  npm run push -- FLUX-123      (git push -u origin <branch>)
+    ▼  npm run git:push -- FLUX-123      (git push -u origin <branch>)
     │
-    ▼  npm run pr -- FLUX-123        (gh pr create --draft)
+    ▼  npm run git:pr -- FLUX-123        (gh pr create --draft)
     │
     ▼  draft-PR op GitHub
     │
@@ -110,14 +110,14 @@ die door agent 1 + 2 verwerkt is, en er is geen `_status.json` of
 `code-changes.md`.
 
 ```
-npm run review-external -- FLUX-XYZ feature-v2/iemand-anders-zn-branch
+npm run pipeline:review-external -- FLUX-XYZ feature-v2/iemand-anders-zn-branch
     │  per-ticket worktree onder state/worktrees/flux-web-components-FLUX-XYZ-external/
     │  detached HEAD op origin/<branch>, leest optioneel ticket.md
     ▼
 state/reviews/FLUX-XYZ/review-<timestamp>.md
     │
     ▼
-npm run publish-review -- FLUX-XYZ          (eventueel met --file <pad>)
+npm run jira:publish-review -- FLUX-XYZ          (eventueel met --file <pad>)
     │  comment op het Jira-ticket met header "## Code review - AI"
     ▼
 Jira-comment
@@ -163,7 +163,7 @@ Tijdens iteraties committeert agent 3 elke ronde als aparte commit
 APPROVED geeft, doet die een `git reset --soft <base>` + één nette
 conventional commit. Die squash blijft **lokaal** — agent 4 pusht niet
 en maakt geen PR. Het pushen en de PR-creatie zijn losgetrokken naar de
-deterministische scripts `npm run push` en `npm run pr` (zie §11).
+deterministische scripts `npm run git:push` en `npm run git:pr` (zie §11).
 
 **Waarom:** (a) Lokaal is de iteratie-historie zichtbaar per ronde,
 handig voor debuggen van de pipeline zelf. (b) Op GitHub verschijnt
@@ -172,12 +172,12 @@ interactieve editors nodig (die werken slecht in niet-TTY contexten).
 (d) Kris kan tussen "review goedgekeurd" en "naar GitHub geduwd" gaan
 staan en de squash + `_pr-body.md` eerst lokaal nakijken.
 
-### 4. Geen GitHub-interactie behalve één draft-PR via `npm run pr`
+### 4. Geen GitHub-interactie behalve één draft-PR via `npm run git:pr`
 
 Agents posten GEEN comments op PR's, updaten GEEN status, reageren
 NIET op review comments van mensen. De enige GitHub-schrijfacties in
 de hele pipeline zijn (a) `git push` van één feature-branch via
-`scripts/push.ts` en (b) één `gh pr create --draft` via `scripts/pr.ts`.
+`pipeline/git/push.ts` en (b) één `gh pr create --draft` via `pipeline/git/pr.ts`.
 Beide zijn losse, deterministische scripts die Kris zelf draait op een
 ticket met status `approved` — geen LLM, geen agent 4.
 
@@ -202,14 +202,14 @@ volgende run automatisch een re-refine. AI-gegenereerde comments
 (`## Sprint-analyse - AI` van `publish.ts`, `## Code review - AI` van
 `publish-review.ts`) worden gefilterd vóór ze in de hash belanden —
 anders zou de pipeline zichzelf eindeloos triggeren. Het filter staat in
-`agents/shared/jira.ts` (`isAiGeneratedComment`/`humanComments`).
+`pipeline/agents/shared/jira.ts` (`isAiGeneratedComment`/`humanComments`).
 
 Agent 1 haalt de ticket-velden (description, AC, status, labels, links,
 comments) via Jira REST op (`getFullIssueDetails` in
-`agents/shared/jira.ts`) en injecteert ze rechtstreeks in de user-prompt —
+`pipeline/agents/shared/jira.ts`) en injecteert ze rechtstreeks in de user-prompt —
 géén interactieve MCP tool-call meer. Comments worden vóór injectie op
 menselijke gefilterd (`humanComments`), zodat AI-comments van de pipeline
-zelf nooit als input dienen. Het system prompt (`agents/prompts/refine.md`)
+zelf nooit als input dienen. Het system prompt (`pipeline/agents/prompts/refine.md`)
 instrueert het model hoe ze te wegen — recente comments hebben voorrang op
 stale description-tekst als die tegenstrijdig zijn.
 
@@ -223,7 +223,7 @@ description amper context geeft. Limieten via env vars
 `JIRA_REFINE_IMAGE_MAX_BYTES` (default 5MB totaal) beschermen tegen
 token-budget-explosie. SVG en andere niet-rasterformaten worden
 overgeslagen — Anthropic vision ondersteunt ze niet. Selectie en
-download in `agents/refine.ts` (`selectImageAttachments`,
+download in `pipeline/agents/refine.ts` (`selectImageAttachments`,
 `loadImagePayloads`).
 
 **Waarom:** (a) Kris heeft vaak al feedback/annotaties op een markdown
@@ -240,7 +240,7 @@ override via `AGENT_REFINE_SUMMARY_MODEL`) die het uitgebreide rapport inkort
 tot een Jira-comment-vriendelijke versie. De Sonnet-call krijgt enkel
 de tekst van de `.md` mee — geen tools, geen MCP. Output:
 `FLUX-XXX.jira.md` naast de bestaande `FLUX-XXX.md`. Canonical prompt
-in `agents/prompts/refine-summary.md`.
+in `pipeline/agents/prompts/refine-summary.md`.
 
 **Faalt soft:** als de samenvatting-call faalt of de output niet door
 de shape-check raakt, blijft de uitgebreide `.md` staan en wordt een
@@ -250,7 +250,7 @@ samenvatting post.
 **Backfill voor bestaande sprints:** als een ticket op disk al een
 `.md` heeft maar nog geen `.jira.md` (sprint gerefined vóór deze
 feature bestond), genereert agent 1 hem alsnog tijdens de skip-paden
-— een `npm run refine -- <sprint>` op een onveranderde sprint vult de
+— een `npm run pipeline:refine -- <sprint>` op een onveranderde sprint vult de
 ontbrekende samenvattingen aan zonder dat `_meta.json` weggegooid
 hoeft te worden.
 
@@ -291,17 +291,17 @@ worktree maakt parallel werk op meerdere tickets gratis (elk zijn eigen
 branch + working tree). (d) Base-branch als env var → schakelen naar
 `develop-v3` is een config-wijziging.
 
-De Claude Code subagent-variant in `agents/claude-code/.claude/agents/`
+De Claude Code subagent-variant in `pipeline/agents/claude-code/.claude/agents/`
 blijft bestaan als **mirror**: YAML frontmatter + een kopie van de
-canonical prompt uit `agents/prompts/`. De SDK-scripts laden direct uit
-`agents/prompts/<role>.md`. Bij een prompt-wijziging: canonical bewerken,
-dan `npm run sync-cc-agents` om de CC-mirror bij te werken.
+canonical prompt uit `pipeline/agents/prompts/`. De SDK-scripts laden direct uit
+`pipeline/agents/prompts/<role>.md`. Bij een prompt-wijziging: canonical bewerken,
+dan `npm run dev:sync-cc` om de CC-mirror bij te werken.
 
 ### 8. Jira lezen via directe REST (geen Docker/MCP)
 
 Agent 1 leest Jira via directe REST-calls met het Personal Access Token
 (`searchJql` voor de sprint-lookup, `getFullIssueDetails` per ticket, beide
-in `agents/shared/jira.ts`). De opgehaalde velden worden in de user-prompt
+in `pipeline/agents/shared/jira.ts`). De opgehaalde velden worden in de user-prompt
 geïnjecteerd; het LLM-werk blijft de analyse, niet het ophalen. Er is dus
 **geen Docker en geen MCP-server** meer nodig.
 
@@ -309,12 +309,12 @@ geïnjecteerd; het LLM-werk blijft de analyse, niet het ophalen. Er is dus
 (`jira.omgeving.vlaanderen.be`), geen OAuth zoals Cloud — een PAT volstaat
 voor REST. De vroegere route liep via `ghcr.io/sooperset/mcp-atlassian` in
 Docker, maar dat (a) maakte Docker een harde prerequisite (blokkerend voor
-het uitdelen van een desktop-app aan teamleden, zie `analyse/desktop-app.md`),
+het uitdelen van een desktop-app aan teamleden, zie `docs/desktop-app.md`),
 (b) kostte LLM-beurten aan een puur deterministische lookup, en (c) was
 trager door de Docker-startup per run. REST is sneller, deterministischer en
 dependency-vrij. Publicatie naar Jira gebruikt al langer directe REST (zie §9).
 
-### 9. Publicatie naar Jira via `scripts/publish.ts`
+### 9. Publicatie naar Jira via `pipeline/jira/publish.ts`
 
 Publish leest `state/sprints/<sprint>/FLUX-*.md` (en bij voorkeur
 `FLUX-*.jira.md`) en `_order.md` (output van agent 1 + 2) en schrijft
@@ -386,7 +386,7 @@ identiek aan vóór de feature (backwards compatible).
 Het pad-segment is bij een profile-run niet het kale profiel maar een
 **label `<profiel>-<modelcode>`** (bv. `kris-O48`). De model-code komt uit
 het agent-model in `.env`: `claude-opus-4-8` → `O48`, `claude-sonnet-4-6`
-→ `S46`, `claude-haiku-4-5` → `H45` (zie `agents/shared/model.ts`,
+→ `S46`, `claude-haiku-4-5` → `H45` (zie `pipeline/agents/shared/model.ts`,
 `modelCode`/`runPathLabel`). Voor `develop`/`review`/`ship`/`iterate` is dat
 het **develop-model `AGENT_DEVELOP_MODEL`** (review, ship en iterate aligneren
 op develops worktree, dus zij berekenen de code óók uit `AGENT_DEVELOP_MODEL`,
@@ -418,7 +418,7 @@ Bij een profile-run gebeurt het volgende (`<label>` = `<profiel>-<code>`):
   en ship herberekenen het label uit `--profile` + `AGENT_DEVELOP_MODEL` (`.env`),
   net zoals het profiel consistent meegegeven wordt.
 - **Profile-activatie** in de worktree gebeurt door
-  `applyAiProfile(worktreePath, profile)` (in `agents/shared/repo.ts`),
+  `applyAiProfile(worktreePath, profile)` (in `pipeline/agents/shared/repo.ts`),
   dat `./set-ai-profile.sh <profile>` in de worktree-cwd draait vóór de
   SDK-call. Idempotent — opnieuw draaien is safe en switcht netjes als
   je per ongeluk een ander profile actief had.
@@ -448,10 +448,10 @@ de PR-body naar `_pr-body.md` in de ticket-state. Het pushen en de
 PR-creatie zijn losgetrokken naar twee deterministische scripts (geen LLM,
 zoals `publish.ts`):
 
-- `npm run push -- <KEY> [--profile <naam>]` (`scripts/push.ts`): `git push
+- `npm run git:push -- <KEY> [--profile <naam>]` (`pipeline/git/push.ts`): `git push
   -u origin <branch>` in de per-ticket worktree. Idempotent (already-up-to-date
   = no-op).
-- `npm run pr -- <KEY> [--profile <naam>]` (`scripts/pr.ts`): `gh pr create
+- `npm run git:pr -- <KEY> [--profile <naam>]` (`pipeline/git/pr.ts`): `gh pr create
   --draft --base <baseBranch>`. **PR-titel** = de squash-commit-subject
   (`git log -1 --format=%s`) — niet apart opgeslagen, gegarandeerd identiek
   aan de clean commit. **PR-body** = `_pr-body.md`. Schrijft de PR-URL naar
@@ -484,17 +484,17 @@ maar de committer uit de lokale git-config halen, zodat er een ongewenste
 `committed by …`-regel op de commit komt. De stap is **idempotent en
 force-push-vrij**: dragen alle commits al de canonieke identiteit, dan wordt
 er niets herschreven en is een her-push een gewone no-op. Omdat álle
-push-paden (`npm run push`, `ship`, `converge`) door `runPush` lopen, geldt
+push-paden (`npm run git:push`, `ship`, `converge`) door `runPush` lopen, geldt
 dit overal.
 
 `ship.ts` draait bij APPROVED automatisch `runPush` (dezelfde logica als
-`npm run push`) zodat de branch op origin komt. De PR maakt ship **niet** aan
-— `gh pr create` blijft een bewuste manuele stap (`npm run pr`).
+`npm run git:push`) zodat de branch op origin komt. De PR maakt ship **niet** aan
+— `gh pr create` blijft een bewuste manuele stap (`npm run git:pr`).
 
 `iterate.ts` draait exact dezelfde develop→review-lus als ship (gedeeld in
-`agents/shared/loop.ts`), maar pusht **niet**: bij APPROVED stopt het lokaal
-met de squash + `_pr-body.md`. Push én PR blijven dan manueel (`npm run push`
-+ `npm run pr`). Gebruik iterate wanneer je het resultaat eerst lokaal wil
+`pipeline/agents/shared/loop.ts`), maar pusht **niet**: bij APPROVED stopt het lokaal
+met de squash + `_pr-body.md`. Push én PR blijven dan manueel (`npm run git:push`
++ `npm run git:pr`). Gebruik iterate wanneer je het resultaat eerst lokaal wil
 nakijken voor er iets op origin belandt.
 
 **Waarom:** Kris wil tussen "review goedgekeurd" en "naar GitHub geduwd"
@@ -502,18 +502,18 @@ kunnen gaan staan (squash + `_pr-body.md` lokaal nakijken), en de enige
 netwerk-schrijfacties van de pipeline horen expliciet en deterministisch te
 zijn in plaats van verstopt in een LLM-run.
 
-### 12. Converge — twee profielruns combineren tot één branch (`npm run converge`)
+### 12. Converge — twee profielruns combineren tot één branch (`npm run pipeline:converge`)
 
 Use case: Kris draait hetzelfde ticket parallel onder twee profielen om de
 implementaties te vergelijken:
 
 ```
-npm run iterate -- FLUX-620 --profile no
-npm run iterate -- FLUX-620 --profile kris
-npm run converge -- FLUX-620 --profiles no,kris
+npm run pipeline:iterate -- FLUX-620 --profile no
+npm run pipeline:iterate -- FLUX-620 --profile kris
+npm run pipeline:converge -- FLUX-620 --profiles no,kris
 ```
 
-`converge` (`agents/converge.ts`, `npm run converge`) neemt de twee
+`converge` (`pipeline/agents/converge.ts`, `npm run pipeline:converge`) neemt de twee
 afgewerkte profielruns en levert één canonieke branch op GitHub. Het is een
 orchestrator zoals `ship`/`iterate`, maar met een eigen LLM-stap (Opus,
 `AGENT_CONVERGE_MODEL`, default = `reviewModel()`) die het combineren doet.
@@ -538,7 +538,7 @@ Flow:
    profielloze refinement-rapport (`sprints/<sprint>/<KEY>.md`), niet uit een
    per-profiel `ticket.md`. Worktree (`flux-web-components-<KEY>`) en
    ticket-state (`tickets/<sprint>/<KEY>/`, zonder label-subfolder) zijn dus
-   de profielloze paden — exact wat `npm run push`/`npm run pr` zonder
+   de profielloze paden — exact wat `npm run git:push`/`npm run git:pr` zonder
    `--profile` verwachten. De gecombineerde run ís de canonieke ontwikkeling
    van het ticket.
 3. **Combineren (LLM).** Een Opus-agent draait in de verse worktree (op de
@@ -553,12 +553,12 @@ Flow:
    gecombineerde branch beschrijft, én een vrije-vorm `_converge.md` waarin
    hij voor Kris uitschrijft wat hij in elke bron vond en welke keuzes hij
    maakte om de gecombineerde versie te bouwen. Canonieke prompt:
-   `agents/prompts/converge.md`.
+   `pipeline/agents/prompts/converge.md`.
 4. **Guardrails + afronden (deterministisch).** Na de LLM-run checkt converge
    dat er ≥1 commit op de branch staat en dat zowel `_pr-body.md` als
    `_converge.md` bestaan — anders harde fout, niets gepusht. Daarna zet het `_status.json` op `approved`
    (profielloos) en draait het `runPush` + `runPr` (dezelfde logica als
-   `npm run push`/`npm run pr`). Resultaat: gepushte branch + draft-PR waarvan
+   `npm run git:push`/`npm run git:pr`). Resultaat: gepushte branch + draft-PR waarvan
    de titel = de squash-commit-subject en de body = `_pr-body.md`.
 
 **Converge maakt de PR wél automatisch aan** — bewuste afwijking van de
@@ -578,14 +578,14 @@ verschillende sprints), of de PR mergen. `converge` weigert als een bron niet
 
 ## Harde regels — agents mogen deze NOOIT overtreden
 
-- **Geen `git push` behalve** via `scripts/push.ts` (`npm run push`) op een
+- **Geen `git push` behalve** via `pipeline/git/push.ts` (`npm run git:push`) op een
   ticket met status `approved`, en alleen naar de eigen feature-branch. Ook
   `ship` en `converge` pushen — maar enkel door diezelfde `runPush`-logica te
   hergebruiken, nooit eigen git-push. De review-agent en de converge-agent
   (de LLM-stap) pushen zelf NOOIT.
 - **Geen `git push --force`** ooit
-- **Geen PR aanmaken behalve** via `scripts/pr.ts` (`npm run pr`) of via
-  `npm run converge` — beide doen één `gh pr create --draft` via dezelfde
+- **Geen PR aanmaken behalve** via `pipeline/git/pr.ts` (`npm run git:pr`) of via
+  `npm run pipeline:converge` — beide doen één `gh pr create --draft` via dezelfde
   `runPr`-logica. De review-agent en de converge-agent (de LLM-stap) maken
   zelf NOOIT een PR aan. `converge` is de enige orchestrator die de PR
   automatisch aanmaakt; voor de gewone pipeline blijft de PR een bewuste
@@ -606,7 +606,7 @@ verschillende sprints), of de PR mergen. `converge` weigert als een bron niet
 
 ## Projectspecifieke conventies (flux-web-components)
 
-Deze staan uitgebreider in `agents/claude-code/.claude/agents/ticket-author.md`
+Deze staan uitgebreider in `pipeline/agents/claude-code/.claude/agents/ticket-author.md`
 en `ticket-reviewer.md`. Samengevat:
 
 - **Lit framework**, TypeScript strict mode
@@ -636,24 +636,32 @@ commits). `STATE_DIR` uit `.env` wijst naar de tweede; default
 
 ```
 flux-agents/                      ← deze repo (tooling, code, prompts)
-├── agents/
-│   ├── refine.ts / plan.ts / develop.ts / review.ts / ship.ts / iterate.ts   ← agent-entrypoints (SDK)
-│   ├── converge.ts               ← combineert 2 profielruns → 1 branch + push + PR (§12)
-│   ├── review-external.ts        ← zijtak voor externe code-reviews
-│   ├── prompts/                  ← canonical system prompts per agent-rol
-│   │   └── refine.md / refine-summary.md / plan.md / develop.md / review.md / converge.md / review-external.md
-│   ├── shared/                   ← gedeelde helpers (query, repo, state, ticket, jira, prompts, logger, model, loop, push, pr, observability)
-│   └── claude-code/              ← interactieve CC-variant (optioneel)
-│       └── .claude/
-│           ├── agents/           ← mirrors van agents/prompts/ met YAML frontmatter
-│           └── commands/         ← /develop, /review, /address slash commands
-└── scripts/
-    ├── publish.ts                ← sprint-publicatie (directe Jira REST)
-    ├── publish-review.ts         ← review-publicatie (1 ticket, 1 comment per run)
-    ├── push.ts                   ← push feature-branch van approved ticket (§11)
-    ├── pr.ts                     ← draft-PR aanmaken voor approved ticket (§11)
-    ├── sync-cc-agents.sh         ← sync canonical → CC mirrors
-    └── link-commands.sh          ← symlink flux-web-components/.claude
+├── pipeline/                     ← de agent-pipeline (LLM + deterministische staart)
+│   ├── agents/                   ← agent-entrypoints (SDK) + shared/ prompts/ claude-code/
+│   │   ├── refine.ts / plan.ts / develop.ts / review.ts / ship.ts / iterate.ts   ← agent-entrypoints
+│   │   ├── converge.ts           ← combineert 2 profielruns → 1 branch + push + PR (§12)
+│   │   ├── review-external.ts    ← zijtak voor externe code-reviews
+│   │   ├── prompts/              ← canonical system prompts per agent-rol
+│   │   │   └── refine.md / refine-summary.md / plan.md / develop.md / review.md / converge.md / review-external.md
+│   │   ├── shared/               ← gedeelde helpers (query, repo, state, ticket, jira, prompts, logger, model, loop, push, pr, config, observability)
+│   │   └── claude-code/          ← interactieve CC-variant (optioneel)
+│   │       └── .claude/
+│   │           ├── agents/       ← mirrors van pipeline/agents/prompts/ met YAML frontmatter
+│   │           └── commands/     ← /develop, /review, /address slash commands
+│   ├── jira/                     ← deterministische Jira-publicatie (npm run jira:*)
+│   │   ├── publish.ts            ← sprint-publicatie (directe Jira REST)
+│   │   └── publish-review.ts     ← review-publicatie (1 ticket, 1 comment per run)
+│   └── git/                      ← deterministische git/GitHub-stappen (npm run git:*)
+│       ├── push.ts               ← push feature-branch van approved ticket (§11)
+│       └── pr.ts                 ← draft-PR aanmaken voor approved ticket (§11)
+├── app/                          ← de shell om de pipeline te draaien
+│   ├── desktop/                  ← Electron-app (main/preload/renderer + build.mjs)
+│   ├── tui/                      ← @clack/prompts terminal-UI
+│   └── build/                    ← app-iconen
+├── tools/                        ← onderhoudsscripts (npm run dev:*)
+│   ├── sync-cc-agents.sh         ← sync canonical → CC mirrors
+│   └── link-commands.sh          ← symlink flux-web-components/.claude
+└── docs/                         ← ontwerp-/analysenotities
 
 flux-agents-state/                ← aparte repo (STATE_DIR)
 ├── logs/                         ← gitignored
@@ -666,14 +674,14 @@ flux-agents-state/                ← aparte repo (STATE_DIR)
 ├── sprints/<SPRINT>/             ← gecommit (refinement-output)
 │   ├── _meta.json                ← agent 1 hashes
 │   ├── _order.md                 ← agent 2 output
-│   ├── _published.json           ← publish.ts state (hashes per ticket + umbrella key)
+│   ├── _published.json           ← pipeline/jira/publish.ts state (hashes per ticket + umbrella key)
 │   ├── FLUX-*.md                 ← agent 1 output per ticket (uitgebreid, Opus)
 │   └── FLUX-*.jira.md            ← agent 1 beknopte versie (Sonnet, voor Jira-comment)
 ├── tickets/<SPRINT>/<KEY>/       ← gecommit (per-ticket werk, gegroepeerd per sprint)
 │   ├── ticket.md                 ← kopie van refinement (zonder profile)
 │   ├── code-changes.md           ← agent 3 per ronde (zonder profile)
 │   ├── review-r<N>.md            ← agent 4 per ronde (zonder profile)
-│   ├── _pr-body.md               ← agent 4 bij APPROVED; body voor `npm run pr` (§11)
+│   ├── _pr-body.md               ← agent 4 bij APPROVED; body voor `npm run git:pr` (§11)
 │   ├── _converge.md              ← converge: verslag van bronnen + keuzes (§12)
 │   ├── _status.json              ← round, status, baseBranch, branch, prUrl, profile?
 │   └── <profiel>-<code>/         ← mét --profile: eigen kopie per profiel+model (§10)
@@ -701,7 +709,7 @@ visibility (tool mag publiek, state bevat interne ticket-details).
 - **`dotenv`** voor env configuratie
 - Geen framework of DI — bewust minimaal
 
-### Publish-script (`scripts/publish.ts`)
+### Publish-script (`pipeline/jira/publish.ts`)
 - Zelfde Node + tsx + dotenv basis als de agents
 - Native `fetch` (Node 20+) tegen Jira Data Center REST API v2
 - Eigen kleine markdown→wiki markup converter (geen externe dep)
@@ -715,8 +723,8 @@ visibility (tool mag publiek, state bevat interne ticket-details).
   via proactive triggers)
 
 ### External tools
-- **Jira Data Center REST API v2** — direct vanuit agent 1 (`agents/shared/jira.ts`)
-  én `scripts/publish.ts`/`publish-review.ts` met `fetch`. Geen Docker/MCP meer.
+- **Jira Data Center REST API v2** — direct vanuit agent 1 (`pipeline/agents/shared/jira.ts`)
+  én `pipeline/jira/publish.ts`/`publish-review.ts` met `fetch`. Geen Docker/MCP meer.
 - **`gh` CLI** voor de ene GitHub-actie (PR aanmaken)
 - **`git`** — vereist minstens 2.23+ voor `switch`
 
@@ -787,7 +795,7 @@ Veel waarschijnlijke foutmodes:
 - **Agent 2 krijgt te weinig context** → als een sprint >20 tickets
   heeft, kan de prompt te groot worden. Overweeg truncation of
   chunking (nog niet geïmplementeerd)
-- **`npm run develop` vindt de ticket markdown niet** → sprint-ID moet
+- **`npm run pipeline:develop` vindt de ticket markdown niet** → sprint-ID moet
   exact matchen met de folder naam in `state/sprints/`, of je laat de
   sprint weg en dan spoort agent 3 hem zelf op (werkt alleen als het
   ticket in exact één sprint-folder voorkomt)

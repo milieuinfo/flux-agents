@@ -5,5 +5,5 @@
     "types": [],
     "noEmit": true
   },
-  "include": ["desktop/renderer/**/*.ts", "desktop/build-info.d.ts"]
+  "include": ["app/desktop/renderer/**/*.ts", "app/desktop/build-info.d.ts"]
 }

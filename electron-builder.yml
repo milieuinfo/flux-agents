@@ -7,10 +7,10 @@ directories:
 
 # Wat in de app komt. .env, state, release en .git blijven er bewust uit.
 files:
-  - desktop/dist/**
-  - agents/**
-  - tui/**
-  - scripts/**
+  - app/desktop/dist/**
+  - pipeline/**
+  - app/tui/**
+  - tools/**
   - package.json
   - package-lock.json
   - tsconfig.json
@@ -21,20 +21,20 @@ files:
 # electron-builder zijn eigen native rebuild overslaan. Het bundelt een oude
 # node-gyp (9.x) waarvan `gyp` `distutils` importeert — verwijderd uit Python
 # 3.12+, dus die rebuild faalt (en wist bovendien de werkende node-pty-build).
-# `npm run rebuild` (electron-rebuild met node-gyp 12.x, distutils-vrij) bouwt
-# node-pty al tegen Electron's ABI; electron-builder hoeft dat niet over te doen.
-# Draai dus vóór `npm run dist` minstens één keer `npm run rebuild` (postinstall
-# doet dit normaal automatisch).
+# `npm run app:rebuild` (electron-rebuild met node-gyp 12.x, distutils-vrij)
+# bouwt node-pty al tegen Electron's ABI; electron-builder hoeft dat niet over te
+# doen. Draai dus vóór `npm run app:dist` minstens één keer `npm run app:rebuild`
+# (postinstall doet dit normaal automatisch).
 npmRebuild: false
 
 asar: true
 # De agent-runtime + node_modules moeten echte bestanden op schijf zijn: de
-# pty-tabs draaien `npm run <script>` (tsx) als losse processen, en native
+# pty-tabs draaien `node --import tsx <script>` als losse processen, en native
 # node-pty kan sowieso niet vanuit een asar geladen worden.
 asarUnpack:
-  - agents/**
-  - tui/**
-  - scripts/**
+  - pipeline/**
+  - app/tui/**
+  - tools/**
   - package.json
   - package-lock.json
   - tsconfig.json
@@ -42,7 +42,7 @@ asarUnpack:
 
 mac:
   category: public.app-category.developer-tools
-  icon: build/icon.icns
+  icon: app/build/icon.icns
   # Alleen arm64 (Apple Silicon). x64 zou met npmRebuild:false een arm64
   # node-pty meekrijgen (verkeerde arch → kapotte TUI op Intel); een correcte
   # x64-build vereist een per-arch native rebuild die de gebundelde node-gyp 9.x
@@ -60,7 +60,7 @@ mac:
   #   - Code-signing: zet CSC_LINK + CSC_KEY_PASSWORD (Developer ID Application)
   #   - Notarization: zet APPLE_ID + APPLE_APP_SPECIFIC_PASSWORD + APPLE_TEAM_ID
   #     en `notarize: true` hieronder.
-  # Zonder deze env vars maakt `npm run dist` een ad-hoc-gesigneerde dmg die
+  # Zonder deze env vars maakt `npm run app:dist` een ad-hoc-gesigneerde dmg die
   # lokaal werkt, maar op andere Macs een Gatekeeper-waarschuwing geeft.
 
 dmg:

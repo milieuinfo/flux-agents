@@ -5,9 +5,9 @@
     "noEmit": true
   },
   "include": [
-    "desktop/main/**/*.ts",
-    "desktop/preload/**/*.ts",
-    "desktop/shared/**/*.ts",
-    "desktop/build-info.d.ts"
+    "app/desktop/main/**/*.ts",
+    "app/desktop/preload/**/*.ts",
+    "app/desktop/shared/**/*.ts",
+    "app/desktop/build-info.d.ts"
   ]
 }
