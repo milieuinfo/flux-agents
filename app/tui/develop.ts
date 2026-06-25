@@ -6,7 +6,7 @@ import { wrapLog } from './format.js';
 
 /**
  * TUI-actie 'ontwikkel': vraagt een ticket-sleutel en profiel en draait dan één
- * develop-ronde, exact zoals `npm run develop -- <KEY> --profile <naam>`. Geen
+ * develop-ronde, exact zoals `npm run pipeline:develop -- <KEY> --profile <naam>`. Geen
  * review, geen push. Keert na afloop terug naar het submenu.
  */
 export async function developAction(): Promise<void> {

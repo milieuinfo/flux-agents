@@ -63,7 +63,7 @@ async function iterateInTerminals(
   for (let i = 0; i < profiles.length; i++) {
     const profile = profiles[i];
     const cmd =
-      `cd '${repoRoot}' && npm run iterate -- ${key} --profile ${profile}; ` +
+      `cd '${repoRoot}' && npm run pipeline:iterate -- ${key} --profile ${profile}; ` +
       `echo; echo '== iterate klaar: ${profile} =='`;
     await openInTerminal(cmd);
     // Gespreide start: even wachten vóór het volgende venster (niet na het laatste).
@@ -79,7 +79,7 @@ async function iterateInTerminals(
  * TUI-actie 'itereer': vraagt een ticket-sleutel en één of meer profielen.
  * Bij één profiel draait de develop→review-lus inline in de TUI; bij meerdere
  * opent elk profiel een eigen Terminal-venster zodat ze parallel kunnen lopen
- * (zoals `npm run iterate -- <KEY> --profile <naam>`). Keert terug naar het
+ * (zoals `npm run pipeline:iterate -- <KEY> --profile <naam>`). Keert terug naar het
  * submenu. Een geannuleerde prompt (Esc/Ctrl-C) breekt netjes af.
  */
 export async function iterateAction(): Promise<void> {

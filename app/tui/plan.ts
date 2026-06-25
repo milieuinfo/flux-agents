@@ -6,7 +6,7 @@ import { wrapLog } from './format.js';
 
 /**
  * TUI-actie 'planning': vraagt een sprint en draait plan, exact zoals
- * `npm run plan -- <sprint>`. Leest de refinement-markdowns van de sprint en
+ * `npm run pipeline:plan -- <sprint>`. Leest de refinement-markdowns van de sprint en
  * schrijft `_order.md`. Keert na afloop terug naar het hoofdmenu.
  */
 export async function planAction(): Promise<void> {

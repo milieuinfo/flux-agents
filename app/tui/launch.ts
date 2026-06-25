@@ -2,7 +2,7 @@
  * Desktop-modus-helpers voor de TUI. Wanneer de TUI in de Electron-app draait
  * (env `FLUX_DESKTOP=1`), voert ze acties niet inline of in een Terminal.app-
  * venster uit, maar stuurt ze een control-signaal naar het main-proces dat
- * rechts een eigen console-tab opent. Buiten de app (gewone `npm run tui`) is
+ * rechts een eigen console-tab opent. Buiten de app (gewone `npm run app:tui`) is
  * `isDesktop()` false en blijft het oude gedrag gelden.
  */
 import { emitOpenTab } from '../desktop/shared/control.js';
