@@ -8,9 +8,7 @@
     "strict": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "types": ["node"],
-    "outDir": "./dist",
-    "rootDir": "."
+    "types": ["node"]
   },
   "include": ["pipeline/**/*.ts", "app/tui/**/*.ts"],
   "exclude": ["node_modules", "dist"]

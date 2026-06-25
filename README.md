@@ -498,8 +498,7 @@ Default setup:
 Override via env vars — één per agent-rol: `AGENT_REFINE_MODEL`,
 `AGENT_REFINE_SUMMARY_MODEL`, `AGENT_PLAN_MODEL`, `AGENT_DEVELOP_MODEL`,
 `AGENT_REVIEW_MODEL`, `AGENT_CONVERGE_MODEL`, `AGENT_REVIEW_EXTERNAL_MODEL`.
-De oude genummerde namen (`AGENT1_MODEL`–`AGENT4_MODEL`,
-`AGENT1_SUMMARY_MODEL`) blijven als fallback werken. Voor de interactieve
+Voor de interactieve
 CC-variant kan je ook de frontmatter van
 `pipeline/agents/claude-code/.claude/agents/*.md` aanpassen (of de canonical prompt
 onder `pipeline/agents/prompts/` en vervolgens `npm run dev:sync-cc`).

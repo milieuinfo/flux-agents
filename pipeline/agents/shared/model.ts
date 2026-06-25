@@ -80,47 +80,33 @@ export function modelLabel(model: string): string {
 }
 
 /*
- * Model per agent-rol. De canonieke env vars dragen de rolnaam
- * (`AGENT_REFINE_MODEL`, `AGENT_DEVELOP_MODEL`, …); de oude genummerde
- * varianten (`AGENT1_MODEL`–`AGENT4_MODEL`) blijven als fallback werken
- * zodat een bestaande `.env` niets breekt.
+ * Model per agent-rol. De env vars dragen de rolnaam
+ * (`AGENT_REFINE_MODEL`, `AGENT_DEVELOP_MODEL`, …) — één bron per rol.
  */
 
 /** Model voor agent 1 (refine). */
 export function refineModel(): string {
-  return (
-    process.env.AGENT_REFINE_MODEL ?? process.env.AGENT1_MODEL ?? 'claude-opus-4-8'
-  );
+  return process.env.AGENT_REFINE_MODEL ?? 'claude-opus-4-8';
 }
 
 /** Model voor de beknopte Jira-samenvatting van agent 1 (§5b). */
 export function refineSummaryModel(): string {
-  return (
-    process.env.AGENT_REFINE_SUMMARY_MODEL ??
-    process.env.AGENT1_SUMMARY_MODEL ??
-    'claude-sonnet-4-6'
-  );
+  return process.env.AGENT_REFINE_SUMMARY_MODEL ?? 'claude-sonnet-4-6';
 }
 
 /** Model voor agent 2 (plan). */
 export function planModel(): string {
-  return (
-    process.env.AGENT_PLAN_MODEL ?? process.env.AGENT2_MODEL ?? 'claude-opus-4-8'
-  );
+  return process.env.AGENT_PLAN_MODEL ?? 'claude-opus-4-8';
 }
 
 /** Model voor agent 3 (develop). Bepaalt ook de model-code in run-paden (§10). */
 export function developModel(): string {
-  return (
-    process.env.AGENT_DEVELOP_MODEL ?? process.env.AGENT3_MODEL ?? 'claude-sonnet-4-6'
-  );
+  return process.env.AGENT_DEVELOP_MODEL ?? 'claude-sonnet-4-6';
 }
 
 /** Model voor agent 4 (review). */
 export function reviewModel(): string {
-  return (
-    process.env.AGENT_REVIEW_MODEL ?? process.env.AGENT4_MODEL ?? 'claude-opus-4-8'
-  );
+  return process.env.AGENT_REVIEW_MODEL ?? 'claude-opus-4-8';
 }
 
 /**

@@ -29,6 +29,7 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 import { access, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { log } from './shared/logger.js';
+import { requireEnv } from './shared/env.js';
 import {
   applyGitIdentityFromEnv,
   countCommitsAhead,
@@ -69,12 +70,6 @@ interface Source {
   ticket: TicketState;
   /** Ronde waarin APPROVED viel; review-r<round>.md bestaat op disk. */
   round: number;
-}
-
-function requireEnv(name: string): string {
-  const v = process.env[name];
-  if (!v) throw new Error(`Missing required env var: ${name}`);
-  return v;
 }
 
 function parseArgs(): ConvergeArgs {

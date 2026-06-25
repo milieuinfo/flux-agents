@@ -24,6 +24,7 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { log } from './shared/logger.js';
+import { requireEnv } from './shared/env.js';
 import {
   applyAiProfile,
   applyGitIdentityFromEnv,
@@ -53,12 +54,6 @@ export interface DevelopArgs {
   key: string;
   sprint?: string;
   profile?: string;
-}
-
-function requireEnv(name: string): string {
-  const v = process.env[name];
-  if (!v) throw new Error(`Missing required env var: ${name}`);
-  return v;
 }
 
 /**
@@ -166,7 +161,7 @@ export async function runDevelop({ key, sprint, profile }: DevelopArgs): Promise
     options: {
       model: developModel(),
       maxTurns: Number(
-        process.env.AGENT_DEVELOP_MAX_TURNS ?? process.env.AGENT3_MAX_TURNS ?? 100,
+        process.env.AGENT_DEVELOP_MAX_TURNS ?? 100,
       ),
       cwd: worktree,
       // Agent writes code-changes.md in state/tickets/<KEY>/, outside cwd.

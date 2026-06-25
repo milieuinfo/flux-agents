@@ -107,11 +107,7 @@ async function runReviewExternal(args: ReviewExternalArgs): Promise<void> {
     prompt: userPrompt,
     options: {
       model: reviewExternalModel(),
-      maxTurns: Number(
-        process.env.AGENT_REVIEW_EXTERNAL_MAX_TURNS ??
-          process.env.AGENT4_MAX_TURNS ??
-          100,
-      ),
+      maxTurns: Number(process.env.AGENT_REVIEW_EXTERNAL_MAX_TURNS ?? 100),
       cwd: worktree,
       // Reviewer schrijft de review-md in state/reviews/<KEY>/.
       additionalDirectories: [stateDir],

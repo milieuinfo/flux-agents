@@ -25,6 +25,7 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { log } from './shared/logger.js';
+import { requireEnv } from './shared/env.js';
 import { refineModel, refineSummaryModel } from './shared/model.js';
 import { loadPrompt } from './shared/prompts.js';
 import { SprintState, hashTicketContent, type SprintMeta } from './shared/state.js';
@@ -126,15 +127,6 @@ function parseArgs(): CliArgs {
   }
 
   return args;
-}
-
-function requireEnv(name: string): string {
-  const v = process.env[name];
-  if (!v) {
-    console.error(`Missing required env var: ${name}`);
-    process.exit(1);
-  }
-  return v;
 }
 
 /**
@@ -291,7 +283,7 @@ async function refineTicket(
     // Code exploration (Glob → Read → Grep → Read…) eet snel beurten op.
     // Override via AGENT_REFINE_MAX_TURNS als een ticket telkens tegen de limiet loopt.
     maxTurns: Number(
-      process.env.AGENT_REFINE_MAX_TURNS ?? process.env.AGENT1_MAX_TURNS ?? 30,
+      process.env.AGENT_REFINE_MAX_TURNS ?? 30,
     ),
     cwd: worktreeDir,
     allowedTools: ['Read', 'Glob', 'Grep'],

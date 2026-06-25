@@ -129,7 +129,7 @@ export async function runReview({ key, profile }: ReviewArgs): Promise<void> {
     options: {
       model: reviewModel(),
       maxTurns: Number(
-        process.env.AGENT_REVIEW_MAX_TURNS ?? process.env.AGENT4_MAX_TURNS ?? 100,
+        process.env.AGENT_REVIEW_MAX_TURNS ?? 100,
       ),
       cwd: worktree,
       // Reviewer writes review-r<N>.md and _status.json in state/tickets/<KEY>/.
