@@ -1,16 +1,14 @@
 import * as p from '@clack/prompts';
 import { promptSprint, promptTicketKey } from './prompts.js';
-import { spawnScript } from './run.js';
-import { isDesktop, launchAgent } from './launch.js';
-import { wrapLog } from './format.js';
+import { runOrLaunch } from './launch.js';
 
 /**
  * TUI-actie 'publicatie': publiceert ofwel een volledige sprint (comments +
  * umbrella-ticket) ofwel één individueel ticket (enkel de comment, via
  * `--tickets <KEY> --skip-overview`) naar Jira — exact zoals
- * `npm run jira:publish -- <map> [...]`. Omdat dit outward-facing is staat dry-run
- * als veilige default voorop en wordt een echte publicatie expliciet bevestigd.
- * Keert na afloop terug naar het hoofdmenu.
+ * `npm run jira:publish -- <map> [...]`. Omdat dit outward-facing is staat
+ * dry-run als veilige default voorop en wordt een echte publicatie expliciet
+ * bevestigd. Keert na afloop terug naar het hoofdmenu.
  */
 export async function publishAction(): Promise<void> {
   const scope = await p.select({
@@ -62,17 +60,13 @@ export async function publishAction(): Promise<void> {
   const args = mode === 'dry' ? [...baseArgs, '--dry-run'] : baseArgs;
   const verb = mode === 'dry' ? 'Dry-run' : 'Publiceren';
 
-  if (isDesktop()) {
-    launchAgent(`${verb.toLowerCase()} ${what}`, 'publish', args);
-    p.log.success(wrapLog(`Gestart in een eigen tab: ${verb.toLowerCase()} ${what}.`));
-    return;
-  }
-
-  p.log.step(`${verb} — ${what}…`);
-  const code = await spawnScript('pipeline/jira/publish.ts', args);
-  if (code === 0) {
-    p.log.success(`${verb} klaar — ${what}.`);
-  } else {
-    p.log.error(`${verb} eindigde met code ${code}. Zie de output hierboven.`);
-  }
+  // Bevestiging is hierboven al afgehandeld (alleen voor 'publish'), dus geen
+  // extra confirm in runOrLaunch.
+  await runOrLaunch({
+    scriptKey: 'publish',
+    args,
+    title: `${verb.toLowerCase()} ${what}`,
+    step: `${verb} — ${what}…`,
+    onSuccess: () => p.log.success(`${verb} klaar — ${what}.`),
+  });
 }

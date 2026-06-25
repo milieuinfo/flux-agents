@@ -1,32 +1,14 @@
 import * as p from '@clack/prompts';
 import { promptSprint, promptTicketKey } from './prompts.js';
 import { spawnScript } from './run.js';
-import { isDesktop, launchAgent } from './launch.js';
-import { wrapLog } from './format.js';
-
-/**
- * Bevestigt en draait refine met de gegeven args. Geeft `true` terug als de
- * analyse echt liep en slaagde (exit 0), `false` bij annulering of fout.
- */
-async function runRefine(args: string[], what: string): Promise<boolean> {
-  const confirmed = await p.confirm({ message: `${what} analyseren (refine)?` });
-  if (p.isCancel(confirmed) || !confirmed) return false;
-
-  p.log.step(`Analyseren — ${what}…`);
-  const code = await spawnScript('pipeline/agents/refine.ts', args);
-  if (code === 0) {
-    p.log.success(`Analyse klaar — ${what}.`);
-    return true;
-  }
-  p.log.error(`Analyse eindigde met code ${code}. Zie de output hierboven.`);
-  return false;
-}
+import { runOrLaunch, SCRIPT_PATHS } from './launch.js';
 
 /**
  * Vraagt na een geslaagde ticket-analyse of het ticket ook naar Jira
  * gepubliceerd moet worden. Bij ja: publiceert enkel de comment van dat ene
  * ticket (`--tickets <KEY> --skip-overview`, geen umbrella). Default is nee —
- * publiceren is outward-facing.
+ * publiceren is outward-facing. Alleen in CLI-modus (in de app draait refine in
+ * een eigen tab en kan dit niet op voltooiing wachten).
  */
 async function maybePublishTicket(key: string, folder: string): Promise<void> {
   const publish = await p.confirm({
@@ -36,7 +18,7 @@ async function maybePublishTicket(key: string, folder: string): Promise<void> {
   if (p.isCancel(publish) || !publish) return;
 
   p.log.step(`Publiceren van ${key} naar Jira…`);
-  const code = await spawnScript('pipeline/jira/publish.ts', [
+  const code = await spawnScript(SCRIPT_PATHS.publish, [
     folder,
     '--tickets',
     key,
@@ -70,12 +52,14 @@ export async function refineAction(): Promise<void> {
   if (scope === 'sprint') {
     const sprint = await promptSprint();
     if (sprint === undefined) return;
-    if (isDesktop()) {
-      launchAgent(`refine ${sprint}`, 'refine', [sprint]);
-      p.log.success(wrapLog(`Gestart in een eigen tab: refine ${sprint}.`));
-      return;
-    }
-    await runRefine([sprint], `sprint '${sprint}'`);
+    await runOrLaunch({
+      scriptKey: 'refine',
+      args: [sprint],
+      title: `refine ${sprint}`,
+      confirm: `sprint '${sprint}' analyseren (refine)?`,
+      step: `Analyseren — sprint '${sprint}'…`,
+      onSuccess: () => p.log.success(`Analyse klaar — sprint '${sprint}'.`),
+    });
     return;
   }
 
@@ -84,23 +68,18 @@ export async function refineAction(): Promise<void> {
   const folder = await promptSprint('In welke sprint-map hoort dit ticket?');
   if (folder === undefined) return;
 
-  if (isDesktop()) {
-    // In de app draait refine in een eigen tab; de publiceer-vraag erna kan
-    // niet op voltooiing wachten. Publiceren doe je apart via het menu.
-    launchAgent(`refine ${key}`, 'refine', [folder, '--tickets', key]);
-    p.log.success(
-      wrapLog(
-        `Gestart in een eigen tab: refine ${key} (map '${folder}'). ` +
-          `Publiceren kan daarna via 'publicatie'.`,
-      ),
-    );
-    return;
-  }
-
-  const ok = await runRefine(
-    [folder, '--tickets', key],
-    `ticket ${key} (map '${folder}')`,
-  );
-  if (!ok) return;
-  await maybePublishTicket(key, folder);
+  await runOrLaunch({
+    scriptKey: 'refine',
+    args: [folder, '--tickets', key],
+    title: `refine ${key}`,
+    desktopMessage:
+      `Gestart in een eigen tab: refine ${key} (map '${folder}'). ` +
+      `Publiceren kan daarna via 'publicatie'.`,
+    confirm: `ticket ${key} (map '${folder}') analyseren (refine)?`,
+    step: `Analyseren — ticket ${key} (map '${folder}')…`,
+    onSuccess: async () => {
+      p.log.success(`Analyse klaar — ticket ${key} (map '${folder}').`);
+      await maybePublishTicket(key, folder);
+    },
+  });
 }
