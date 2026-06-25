@@ -4,7 +4,7 @@
  * renderer doorgegeven (zie main/index.ts).
  *
  * node-pty is een native module → in de esbuild-config als `external`
- * gemarkeerd en herbouwd tegen Electron's ABI (`npm run rebuild`).
+ * gemarkeerd en herbouwd tegen Electron's ABI (`npm run app:rebuild`).
  */
 import { spawn, type IPty } from 'node-pty';
 

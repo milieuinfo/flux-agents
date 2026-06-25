@@ -10,7 +10,7 @@
  *     (Task, label `sprint-overview`, story points 0, gekoppeld aan de sprint)
  *
  * Usage:
- *   npm run publish -- <sprintId> [--dry-run] [--tickets KEY-1,KEY-2]
+ *   npm run jira:publish -- <sprintId> [--dry-run] [--tickets KEY-1,KEY-2]
  *                                  [--skip-comments] [--skip-overview]
  *
  * Idempotent: hashes elke gepubliceerde body in `_published.json` zodat een

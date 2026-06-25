@@ -9,13 +9,13 @@
  *  - APPROVED: agent squashes commits against origin/<baseBranch> into one
  *    clean local commit and writes the PR body to _pr-body.md. It does NOT
  *    push and does NOT open a PR — that's done by the deterministic scripts
- *    `npm run push` and `npm run pr`.
+ *    `npm run git:push` and `npm run git:pr`.
  *  - CHANGES_REQUESTED: agent writes review-r<N>.md + updates _status.
- *    Next call to `npm run develop` runs in address-mode (round+1).
+ *    Next call to `npm run pipeline:develop` runs in address-mode (round+1).
  *  - ESCALATED: only possible at round 3 with unresolved blockers.
  *
  * Usage:
- *   npm run review -- <TICKET-KEY>
+ *   npm run pipeline:review -- <TICKET-KEY>
  */
 
 import { config } from 'dotenv';
@@ -64,16 +64,16 @@ export async function runReview({ key, profile }: ReviewArgs): Promise<void> {
   const status = await ticket.readStatus();
   if (!status) {
     const hint = profile
-      ? `npm run develop -- ${key} --profile ${profile}`
-      : `npm run develop -- ${key}`;
+      ? `npm run pipeline:develop -- ${key} --profile ${profile}`
+      : `npm run pipeline:develop -- ${key}`;
     throw new Error(`Geen _status.json voor ${key}. Draai eerst '${hint}'.`);
   }
   if (status.status === 'approved') {
     const profileFlag = profile ? ` --profile ${profile}` : '';
     throw new Error(
       `Ticket ${key} is al gereviewd en goedgekeurd. Draai ` +
-        `'npm run push -- ${key}${profileFlag}' en daarna ` +
-        `'npm run pr -- ${key}${profileFlag}'.`,
+        `'npm run git:push -- ${key}${profileFlag}' en daarna ` +
+        `'npm run git:pr -- ${key}${profileFlag}'.`,
     );
   }
   if (status.status === 'escalated') {
@@ -90,7 +90,7 @@ export async function runReview({ key, profile }: ReviewArgs): Promise<void> {
   if (!profile && status.profile) {
     throw new Error(
       `Ticket ${key} is opgestart met profile '${status.profile}'. ` +
-        `Gebruik 'npm run review -- ${key} --profile ${status.profile}'.`,
+        `Gebruik 'npm run pipeline:review -- ${key} --profile ${status.profile}'.`,
     );
   }
 
@@ -99,8 +99,8 @@ export async function runReview({ key, profile }: ReviewArgs): Promise<void> {
     await access(worktree);
   } catch {
     const hint = profile
-      ? `npm run develop -- ${key} --profile ${profile}`
-      : `npm run develop -- ${key}`;
+      ? `npm run pipeline:develop -- ${key} --profile ${profile}`
+      : `npm run pipeline:develop -- ${key}`;
     throw new Error(`Worktree ontbreekt: ${worktree}. Draai eerst '${hint}'.`);
   }
 
@@ -156,15 +156,15 @@ export async function runReview({ key, profile }: ReviewArgs): Promise<void> {
       const profileFlag = profile ? ` --profile ${profile}` : '';
       log.info(
         `APPROVED — lokale squash + ${ticket.prBodyPath} geschreven. ` +
-          `Draai 'npm run push -- ${key}${profileFlag}' en daarna ` +
-          `'npm run pr -- ${key}${profileFlag}'.`,
+          `Draai 'npm run git:push -- ${key}${profileFlag}' en daarna ` +
+          `'npm run git:pr -- ${key}${profileFlag}'.`,
       );
       break;
     }
     case 'changes_requested': {
       const nextCmd = profile
-        ? `npm run develop -- ${key} --profile ${profile}`
-        : `npm run develop -- ${key}`;
+        ? `npm run pipeline:develop -- ${key} --profile ${profile}`
+        : `npm run pipeline:develop -- ${key}`;
       log.info(
         `CHANGES_REQUESTED — lees ${ticket.reviewPath(after.round)}, dan: ` +
           `${nextCmd}  (start ronde ${after.round + 1}).`,

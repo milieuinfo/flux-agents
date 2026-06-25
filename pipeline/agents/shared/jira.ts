@@ -1,7 +1,7 @@
 /**
  * Gedeelde Jira-helpers voor de publish-scripts (sprint-analyse en
- * code-review). Dunner laag: alleen wat zowel `scripts/publish.ts` als
- * `scripts/publish-review.ts` nodig hebben. Sprint-specifieke helpers
+ * code-review). Dunner laag: alleen wat zowel `pipeline/jira/publish.ts` als
+ * `pipeline/jira/publish-review.ts` nodig hebben. Sprint-specifieke helpers
  * (umbrella-ticket, sprint-field detectie) blijven in publish.ts zelf.
  */
 

@@ -7,7 +7,7 @@
  * aanbevelingen.
  *
  * Usage:
- *   npm run plan -- <sprintId>
+ *   npm run pipeline:plan -- <sprintId>
  *
  * Idempotent: overschrijft _order.md altijd. Deze agent heeft geen Jira
  * of file tools nodig — puur analyse over al lokaal aanwezige markdowns.

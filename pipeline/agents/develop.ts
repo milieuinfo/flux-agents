@@ -8,8 +8,8 @@
  *   review feedback.
  *
  * Usage:
- *   npm run develop -- <TICKET-KEY> [sprintId]
- *   npm run develop -- FLUX-123 backlog-20260422
+ *   npm run pipeline:develop -- <TICKET-KEY> [sprintId]
+ *   npm run pipeline:develop -- FLUX-123 backlog-20260422
  *
  * If sprintId is omitted, the sprint folder containing `<KEY>.md` is
  * discovered automatically (errors if zero or multiple matches).
@@ -177,8 +177,8 @@ export async function runDevelop({ key, sprint, profile }: DevelopArgs): Promise
   const summary = await streamLastAssistantText(q);
   log.info(`Author samenvatting:\n${truncate(summary, 800)}`);
   const nextCmd = profile
-    ? `npm run review -- ${key} --profile ${profile}`
-    : `npm run review -- ${key}`;
+    ? `npm run pipeline:review -- ${key} --profile ${profile}`
+    : `npm run pipeline:review -- ${key}`;
   log.info(`Klaar. Verifieer ${ticket.codeChangesPath}, dan: ${nextCmd}`);
 }
 

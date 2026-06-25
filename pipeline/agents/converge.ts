@@ -4,9 +4,9 @@
  * branch en breng die naar GitHub.
  *
  * Workflow:
- *   npm run iterate -- FLUX-620 --profile no      ┐ twee parallelle, lokale
- *   npm run iterate -- FLUX-620 --profile kris    ┘ ontwikkelingen (APPROVED)
- *   npm run converge -- FLUX-620 --profiles no,kris
+ *   npm run pipeline:iterate -- FLUX-620 --profile no      ┐ twee parallelle, lokale
+ *   npm run pipeline:iterate -- FLUX-620 --profile kris    ┘ ontwikkelingen (APPROVED)
+ *   npm run pipeline:converge -- FLUX-620 --profiles no,kris
  *
  * Wat converge doet:
  *  1. Valideert dat elke bron-profielrun status 'approved' heeft (iterate/
@@ -17,11 +17,11 @@
  *  3. Laat een Opus-agent de twee implementaties vergelijken en het beste
  *     van beide combineren tot één coherente commit + `_pr-body.md`.
  *  4. Pusht de gecombineerde branch en maakt de draft-PR aan (deterministisch,
- *     hergebruikt scripts/push.ts + scripts/pr.ts logica).
+ *     hergebruikt pipeline/git/push.ts + pipeline/git/pr.ts logica).
  *
  * Usage:
- *   npm run converge -- <TICKET-KEY> --profiles <a,b> [sprintId]
- *   npm run converge -- <TICKET-KEY> --profile <a> --profile <b> [sprintId]
+ *   npm run pipeline:converge -- <TICKET-KEY> --profiles <a,b> [sprintId]
+ *   npm run pipeline:converge -- <TICKET-KEY> --profile <a> --profile <b> [sprintId]
  */
 
 import { config } from 'dotenv';
@@ -138,13 +138,13 @@ async function loadSource(
   if (!status) {
     throw new Error(
       `Geen _status.json voor ${key} (profiel ${profile}). ` +
-        `Draai eerst 'npm run iterate -- ${key} --profile ${profile}'.`,
+        `Draai eerst 'npm run pipeline:iterate -- ${key} --profile ${profile}'.`,
     );
   }
   if (status.status !== 'approved') {
     throw new Error(
       `Bron ${key} (profiel ${profile}) heeft status '${status.status}', ` +
-        `niet 'approved'. Laat 'npm run iterate -- ${key} --profile ${profile}' ` +
+        `niet 'approved'. Laat 'npm run pipeline:iterate -- ${key} --profile ${profile}' ` +
         `eerst tot APPROVED lopen.`,
     );
   }
@@ -314,8 +314,8 @@ async function main() {
         }\n\n` +
         `Geen werk verloren. Los de oorzaak op (vaak 'gh auth login' of git-` +
         `credentials) en hervat met de idempotente stappen:\n` +
-        `  npm run push -- ${key}\n` +
-        `  npm run pr   -- ${key}`,
+        `  npm run git:push -- ${key}\n` +
+        `  npm run git:pr   -- ${key}`,
     );
     process.exit(1);
   }

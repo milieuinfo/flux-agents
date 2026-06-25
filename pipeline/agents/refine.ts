@@ -6,9 +6,9 @@
  * markdown-bestand per ticket met een refinement analyse.
  *
  * Usage:
- *   npm run refine -- <sprintName> [folderName]
- *   npm run refine -- --jql "sprint = 42 AND project = FLUX" [folderName]
- *   npm run refine -- [folderName] --tickets FLUX-123,FLUX-124
+ *   npm run pipeline:refine -- <sprintName> [folderName]
+ *   npm run pipeline:refine -- --jql "sprint = 42 AND project = FLUX" [folderName]
+ *   npm run pipeline:refine -- [folderName] --tickets FLUX-123,FLUX-124
  *
  * `sprintName` wordt letterlijk aan Jira doorgegeven (quote als er spaties
  * in zitten: "release sprint - v2.13.0 - AI"). `folderName` bepaalt de

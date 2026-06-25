@@ -2,19 +2,19 @@
 /**
  * PR — maak een draft-PR aan voor een goedgekeurd, gepusht ticket.
  *
- * Deterministisch script (geen LLM), zoals scripts/push.ts. Leest de
+ * Deterministisch script (geen LLM), zoals pipeline/git/push.ts. Leest de
  * PR-body uit `_pr-body.md` (door de review-agent geschreven) en gebruikt
  * de squash-commit-subject als PR-titel. Vereist dat de branch al gepusht
- * is (`npm run push`).
+ * is (`npm run git:push`).
  *
  * Idempotent: bestaat er al een PR voor de branch, dan wordt enkel de URL
  * in `_status.json` bewaard — er wordt geen tweede PR aangemaakt.
  *
- * De orchestratie zit in agents/shared/pr.ts zodat converge.ts ze kan
+ * De orchestratie zit in pipeline/agents/shared/pr.ts zodat converge.ts ze kan
  * hergebruiken; dit bestand is enkel de CLI-wrapper.
  *
  * Usage:
- *   npm run pr -- <TICKET-KEY> [--profile <naam>]
+ *   npm run git:pr -- <TICKET-KEY> [--profile <naam>]
  */
 
 import { config } from 'dotenv';

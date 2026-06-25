@@ -1,6 +1,6 @@
 /**
  * PR-orchestratie: maak een draft-PR aan voor een goedgekeurd, gepusht
- * ticket. Gedeeld tussen de CLI (`scripts/pr.ts` → `npm run pr`) en de
+ * ticket. Gedeeld tussen de CLI (`pipeline/git/pr.ts` → `npm run git:pr`) en de
  * converge-orchestrator (`agents/converge.ts`), die dit na een geslaagde
  * combinatie aanroept.
  *
@@ -81,7 +81,7 @@ export async function runPr({ key, profile }: PrArgs): Promise<string | null> {
   if (!profile && status.profile) {
     throw new Error(
       `Ticket ${key} is opgestart met profile '${status.profile}'. ` +
-        `Gebruik 'npm run pr -- ${key} --profile ${status.profile}'.`,
+        `Gebruik 'npm run git:pr -- ${key} --profile ${status.profile}'.`,
     );
   }
 
@@ -89,7 +89,7 @@ export async function runPr({ key, profile }: PrArgs): Promise<string | null> {
     const profileFlag = profile ? ` --profile ${profile}` : '';
     throw new Error(
       `Ticket ${key} heeft status '${status.status}', niet 'approved'. ` +
-        `Draai eerst 'npm run review -- ${key}${profileFlag}'.`,
+        `Draai eerst 'npm run pipeline:review -- ${key}${profileFlag}'.`,
     );
   }
 
@@ -104,7 +104,7 @@ export async function runPr({ key, profile }: PrArgs): Promise<string | null> {
   if (!(await remoteBranchExists({ worktreePath: worktree, branch: status.branch }))) {
     throw new Error(
       `Branch ${status.branch} bestaat nog niet op origin. ` +
-        `Draai eerst 'npm run push -- ${key}${profileFlag}'.`,
+        `Draai eerst 'npm run git:push -- ${key}${profileFlag}'.`,
     );
   }
 
@@ -123,7 +123,7 @@ export async function runPr({ key, profile }: PrArgs): Promise<string | null> {
     await access(ticket.prBodyPath);
   } catch {
     throw new Error(
-      `PR-body ontbreekt: ${ticket.prBodyPath}. Verwacht dat 'npm run review' ` +
+      `PR-body ontbreekt: ${ticket.prBodyPath}. Verwacht dat 'npm run pipeline:review' ` +
         `(of converge) die bij APPROVED schrijft.`,
     );
   }

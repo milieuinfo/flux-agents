@@ -6,10 +6,10 @@
  *
  * De agent schrijft één review-markdown naar
  * `state/reviews/<KEY>/review-<timestamp>.md`. Publicatie naar Jira
- * gebeurt via `npm run publish-review -- <KEY>`.
+ * gebeurt via `npm run jira:publish-review -- <KEY>`.
  *
  * Usage:
- *   npm run review-external -- <TICKET-KEY> <BRANCH> [--base <baseBranch>]
+ *   npm run pipeline:review-external -- <TICKET-KEY> <BRANCH> [--base <baseBranch>]
  */
 
 import { config } from 'dotenv';
@@ -124,7 +124,7 @@ async function runReviewExternal(args: ReviewExternalArgs): Promise<void> {
 
   log.info(
     `Klaar. Review opgeslagen op ${outputPath}. ` +
-      `Publiceren naar Jira: npm run publish-review -- ${key}`,
+      `Publiceren naar Jira: npm run jira:publish-review -- ${key}`,
   );
 }
 

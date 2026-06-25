@@ -14,7 +14,7 @@
  * de gerenderde comment beter is.
  *
  * Usage:
- *   npm run publish-review -- <TICKET-KEY> [--file <pad>] [--dry-run] [--force]
+ *   npm run jira:publish-review -- <TICKET-KEY> [--file <pad>] [--dry-run] [--force]
  */
 
 import { config } from 'dotenv';
@@ -89,7 +89,7 @@ async function pickLatestReview(reviewsDir: string): Promise<string> {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
       throw new Error(
         `Geen reviews-folder gevonden op ${reviewsDir}. Draai eerst ` +
-          `'npm run review-external -- <KEY> <BRANCH>'.`,
+          `'npm run pipeline:review-external -- <KEY> <BRANCH>'.`,
       );
     }
     throw err;
@@ -100,7 +100,7 @@ async function pickLatestReview(reviewsDir: string): Promise<string> {
   if (reviews.length === 0) {
     throw new Error(
       `Geen review-*.md bestanden gevonden in ${reviewsDir}. Draai eerst ` +
-        `'npm run review-external -- <KEY> <BRANCH>'.`,
+        `'npm run pipeline:review-external -- <KEY> <BRANCH>'.`,
     );
   }
   // Bestandsnaam-format is review-YYYYMMDD-HHMMSS.md → string-sort = chronologisch.

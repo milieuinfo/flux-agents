@@ -2,7 +2,7 @@
  * Dev-only: zet de app-naam in de macOS-menubalk op "Flux Agents".
  *
  * In een *gepackagede* build komt die naam uit het app-bundle (productName in
- * electron-builder.yml) — daar klopt alles. Maar `npm run dev` draait de kale
+ * electron-builder.yml) — daar klopt alles. Maar `npm run app:dev` draait de kale
  * `Electron.app` uit node_modules, en macOS leest de vetgedrukte app-naam in de
  * menubalk uit `CFBundleName` van dát bundle — dat staat letterlijk op
  * "Electron". `app.setName()` in het main-proces verandert wel `app.name`, maar

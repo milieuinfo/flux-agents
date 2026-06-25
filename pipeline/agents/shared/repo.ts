@@ -189,7 +189,7 @@ function gitCapture(cwd: string, args: string[]): Promise<string> {
  * Push the current feature branch to origin (`git push -u origin <branch>`).
  * Idempotent: a push of an already-up-to-date branch is a no-op for git.
  *
- * Used by the deterministic `scripts/push.ts` — de review-agent pusht zelf
+ * Used by the deterministic `pipeline/git/push.ts` — de review-agent pusht zelf
  * niet meer (zie CLAUDE.md harde regels). Draait in de per-ticket worktree
  * zodat de juiste branch wordt geduwd.
  */
@@ -274,7 +274,7 @@ export async function enforceCommitIdentity(opts: {
 /**
  * Read the subject (first line) of HEAD's commit in `worktreePath`
  * (`git log -1 --format=%s`). Na de squash door de reviewer is dit exact
- * de PR-titel — `scripts/pr.ts` leest hem hier zodat titel en
+ * de PR-titel — `pipeline/git/pr.ts` leest hem hier zodat titel en
  * squash-commit gegarandeerd identiek zijn.
  */
 export async function commitSubject(worktreePath: string): Promise<string> {
@@ -284,7 +284,7 @@ export async function commitSubject(worktreePath: string): Promise<string> {
 
 /**
  * Check whether `branch` exists on origin (`git ls-remote --heads`).
- * `scripts/pr.ts` gebruikt dit om te weigeren een PR te maken vóór push.
+ * `pipeline/git/pr.ts` gebruikt dit om te weigeren een PR te maken vóór push.
  */
 export async function remoteBranchExists(opts: {
   worktreePath: string;

@@ -1,6 +1,6 @@
 /**
  * Push-orchestratie: duw de feature-branch van een goedgekeurd ticket naar
- * origin. Gedeeld tussen de CLI (`scripts/push.ts` → `npm run push`) en de
+ * origin. Gedeeld tussen de CLI (`pipeline/git/push.ts` → `npm run git:push`) en de
  * ship-orchestrator (`agents/ship.ts`), die dit na APPROVED aanroept.
  *
  * Deterministisch (geen LLM). De review-agent squasht lokaal en zet status
@@ -47,7 +47,7 @@ export async function runPush({ key, profile }: PushArgs): Promise<void> {
   if (!profile && status.profile) {
     throw new Error(
       `Ticket ${key} is opgestart met profile '${status.profile}'. ` +
-        `Gebruik 'npm run push -- ${key} --profile ${status.profile}'.`,
+        `Gebruik 'npm run git:push -- ${key} --profile ${status.profile}'.`,
     );
   }
 
@@ -55,7 +55,7 @@ export async function runPush({ key, profile }: PushArgs): Promise<void> {
     const profileFlag = profile ? ` --profile ${profile}` : '';
     throw new Error(
       `Ticket ${key} heeft status '${status.status}', niet 'approved'. ` +
-        `Draai eerst 'npm run review -- ${key}${profileFlag}'.`,
+        `Draai eerst 'npm run pipeline:review -- ${key}${profileFlag}'.`,
     );
   }
 
@@ -81,6 +81,6 @@ export async function runPush({ key, profile }: PushArgs): Promise<void> {
   const profileFlag = profile ? ` --profile ${profile}` : '';
   log.info(
     `Gepusht naar origin/${status.branch}. Maak de PR met ` +
-      `'npm run pr -- ${key}${profileFlag}'.`,
+      `'npm run git:pr -- ${key}${profileFlag}'.`,
   );
 }

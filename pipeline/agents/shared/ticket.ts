@@ -65,7 +65,7 @@ export class TicketState {
 
   /**
    * Artifact met de PR-body die de reviewer bij APPROVED schrijft. De
-   * deterministische `scripts/pr.ts` leest dit als `--body-file`. De
+   * deterministische `pipeline/git/pr.ts` leest dit als `--body-file`. De
    * PR-titel wordt niet hier opgeslagen — die is de squash-commit-subject.
    */
   get prBodyPath(): string {
@@ -259,8 +259,8 @@ export async function locateTicketSprint(
       ? `${ticketsRoot}/<sprint>/${key}/${profile}/`
       : `${ticketsRoot}/<sprint>/${key}/`;
     const hint = profile
-      ? `npm run develop -- ${key} --profile ${profile}`
-      : `npm run develop -- ${key}`;
+      ? `npm run pipeline:develop -- ${key} --profile ${profile}`
+      : `npm run pipeline:develop -- ${key}`;
     throw new Error(
       `Geen ticket-state voor ${key} onder ${expected}. Draai eerst '${hint}'.`,
     );
@@ -352,7 +352,7 @@ export async function locateProfileRun(
     throw new Error(
       `Geen profielrun voor ${key} met profiel '${profile}' gevonden onder ` +
         `${ticketsRoot}/${opts.sprint ?? '<sprint>'}/${key}/${profile}-*/. ` +
-        `Draai eerst 'npm run iterate -- ${key} --profile ${profile}'.`,
+        `Draai eerst 'npm run pipeline:iterate -- ${key} --profile ${profile}'.`,
     );
   }
 

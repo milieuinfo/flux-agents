@@ -168,7 +168,7 @@ export const ENV_SCHEMA: EnvField[] = [
     placeholder: 'kris.speltincx@vlaanderen.be',
   },
 
-  // --- Publish (alleen voor npm run publish) ---
+  // --- Publish (alleen voor npm run jira:publish) ---
   {
     key: 'JIRA_SPRINT_FIELD',
     label: 'Sprint-field',
