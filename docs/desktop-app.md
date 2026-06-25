@@ -1,201 +1,87 @@
-# Analyse: flux-agents TUI → distribueerbare desktop-app
+# Desktop-app & TUI
 
-## Context
+Naast de pure CLI is er een **terminal-UI** (`app/tui/`, @clack/prompts) en een
+macOS **Electron desktop-app** (`app/desktop/`) die de TUI inbouwt. De app is bedoeld
+om uit te delen aan teamleden: opstarten, in het ⚙ settings-scherm Jira + repo + een
+Claude OAuth-token invullen, klaar — **geen `.env` nodig** (config in de gebruikersmap,
+secrets in de macOS-keychain).
 
-De agents worden nu aangestuurd via een `@clack/prompts` CLI-TUI (`app/tui/index.ts`,
-gestart met `npm start`). Acties draaien deels inline in de TUI-terminal, deels
-in-process, en multi-profiel `iterate` opent **parallelle macOS Terminal.app-vensters**
-via `osascript` (`app/tui/terminal.ts`) — dat werkt enkel op macOS en is rommelig.
+## De TUI
 
-Kris wil hiervan een **desktop-applicatie** maken die hij aan teamleden kan
-uitdelen en die ze "gewoon kunnen opstarten":
+`npm run app:tui` (of `npm start`) opent een menu met de acties: analyse (refine),
+planning (plan), publicatie (publish), en onder "ontwikkeling": ontwikkel, review,
+itereer, convergeer. Elke keuze vraagt de nodige input (ticket, profiel, sprint) en
+draait dan het bijbehorende `pipeline/...`-script.
 
-- **Split-pane layout**: links (1/4) de bestaande TUI, rechts (3/4) bash-consoles.
-- **Meerdere consoles met tabs**; elke TUI-actie draait áltijd in een eigen console rechts.
-- **Alle ~30 `.env`-variabelen** configureerbaar via een settings-scherm (geen handmatige `.env`).
-- **Claude-account** configureerbaar voor afnemers (zit nu niet in `.env`).
-- Distribueerbaar naar collega's.
+## Eén invocatiemodel: tab óf subprocess
 
-**Gekozen richting (met Kris afgetikt):**
-- **Electron** (één Node-runtime — bestaande TS/agent-code, `node-pty`, `git`/`gh`-spawns draaien ongewijzigd; geen sidecar).
-- **Alleen macOS** (dmg). Geen Windows/Linux → geen cross-platform signing-matrix, AppleScript-tak mag gewoon vervallen.
-- **Alleen OAuth-token** voor Claude: persoonlijk Pro/Max-abonnement via `CLAUDE_CODE_OAUTH_TOKEN` (eenmalig `claude setup-token`), in settings/OS-keychain. Geen API-key/pay-per-use; `ANTHROPIC_API_KEY` wordt uit de pty-env gestript zodat hij de token niet overschrijft. `claude` CLI is prerequisite (alleen voor token-generatie).
-- **Bestaande `@clack` TUI embedden** in een pty links (minste herschrijfwerk), acties openen via een control-signaal een tab rechts.
-- **Geen Docker**: de Jira-MCP wordt geschrapt en `refine` leest via de bestaande REST-client → teamleden vullen enkel Jira-URL + PAT in settings in.
+Een TUI-actie draait op precies één van twee manieren, afhankelijk van de context
+(`app/tui/launch.ts` → `runOrLaunch`):
 
-**Beoogd eindresultaat:** een macOS `.app`/`.dmg` waarin links de vertrouwde TUI
-draait en elke gekozen actie rechts in een eigen, live console-tab loopt — met een
-settings-scherm voor alle config en het Claude OAuth-token. De pure CLI (`npm run *`)
-blijft door alles heen werken dankzij een `FLUX_DESKTOP`-switch.
+- **In de desktop-app** (env `FLUX_DESKTOP=1`): de actie stuurt een control-signaal
+  naar het Electron main-proces, dat rechts een **eigen console-tab** opent met
+  `node --import tsx <script>`. Meerdere acties = meerdere tabs, parallel.
+- **In een gewone terminal**: de actie vraagt bevestiging en draait het script als
+  **subprocess** met live output in dezelfde terminal.
 
----
+Er zijn geen in-process- of Terminal.app-paden meer. Multi-profiel `iterate` draait
+in de desktop-app als N parallelle tabs; vanaf de kale CLI sequentieel (of start zelf
+meerdere `npm run pipeline:iterate` in aparte terminals).
 
-## Huidige architectuur (geverifieerd)
+## Structuur (`app/desktop/`)
 
-| Onderdeel | Bestand | Gedrag nu |
-|---|---|---|
-| TUI menu-loop | `app/tui/index.ts` | `@clack/prompts` `select()` in `while(true)` |
-| Subprocess-spawn | `app/tui/run.ts` | `spawn(tsxBin,[script],{stdio:'inherit'})` — output inline |
-| macOS Terminal-vensters | `app/tui/terminal.ts` | `osascript` + AppleScript `tell application "Terminal"` (macOS-only) |
-| Multi-profiel iterate | `app/tui/iterate.ts` | 1 profiel inline (in-process), 2+ in parallelle Terminal-vensters |
-| In-process acties | `app/tui/develop.ts`, `app/tui/review.ts` | directe `runDevelop()`/`runReview()`-imports |
-| Config-lading | overal | `dotenv` `config()` bovenaan elke entry; `process.env.*` verspreid gelezen; geen centrale module |
-| Claude-auth | SDK intern | `query()` zonder apiKey → SDK gebruikt MAX-sessie of `ANTHROPIC_API_KEY` |
-| Jira lezen (refine) | `pipeline/agents/refine.ts` `jiraMcpConfig()` | Docker MCP `ghcr.io/sooperset/mcp-atlassian` (stdio) — **enige Docker-gebruiker**, wordt geschrapt |
-| Jira REST | `pipeline/agents/shared/jira.ts` | volledige PAT-client (`jiraFetch`, `getIssueFields`, `getIssueComments`, `getIssueAttachments`, `downloadAttachmentAsBase64`, links). refine downloadt attachments/comments al via REST; enkel JQL-sprint-lookup + gebundelde ticket-fetch ontbreken |
+- `main/` — Electron main-proces: venster-lifecycle, PTY-beheer (`node-pty`), config-store, preflight-checks.
+- `preload/` — veilige IPC-brug tussen main en renderer.
+- `renderer/` — de UI (tabs, terminal-view via xterm, settings, about, splash).
+- `shared/` — IPC- en control-protocol-types (o.a. het "open tab"-signaal).
+- `build.mjs` — esbuild-bundeling naar `app/desktop/dist/`.
 
-Verplichte env: `JIRA_URL`, `JIRA_PERSONAL_TOKEN`, `FLUX_REPO_URL`, `STATE_DIR`.
-~25 optionele (modellen, `AGENT_*_MAX_TURNS`, git-identity, Jira-customfields, `LOG_LEVEL`, `JIRA_SSL_VERIFY`).
+De agent-runtime zelf is ongewijzigd: de tabs draaien dezelfde `pipeline/...`-scripts
+als de CLI, met de effectieve config als env meegegeven.
 
----
+## Prerequisites (Mac van het teamlid)
 
-## Doelarchitectuur
+- **Node.js 20+** — de app bundelt `tsx` maar gebruikt de systeem-`node`.
+- **claude CLI** — eenmalig om een OAuth-token te genereren (`claude setup-token`).
+- **git** — voor alle worktree-operaties.
+- **gh CLI** — enkel voor push / pr / converge (`gh auth login`).
 
-```
-Electron main-proces (Node)
- ├─ PtyManager: Map<id, IPty> (node-pty)
- ├─ control-parser (onderschept pty-stdout → "open tab"-signalen)
- ├─ config-store (JSON in userData + safeStorage voor secrets)
- └─ preflight (git/gh + config-checks)
-        │ IPC (contextBridge)
-        ▼
-Renderer (xterm.js)
- ┌──────────┬──────────────────────────────┐
- │ TUI-pane │ [tab1][tab2][+]   ⚙ settings │  ← tabs, exit-code badges
- │ (pty:    │ ┌──────────────────────────┐ │
- │ tsx app/tui/ │ │ npm run pipeline:iterate -- ...   │ │  ← elke actie = eigen pty-tab
- │ index.ts)│ │ (live output)            │ │
- └──────────┴──────────────────────────────┘
+De app checkt deze bij het starten (statusknop **●** rechtsboven) en toont
+installatielinks bij wat ontbreekt. **Docker is niet nodig** — Jira loopt via REST.
+
+## Claude-auth (persoonlijk Pro/Max-abonnement)
+
+De app draait op je eigen Claude Pro/Max-abonnement via een OAuth-token — geen
+API-key, geen pay-per-use:
+
+```bash
+claude setup-token     # opent de browser, log in met je Pro/Max-account
 ```
 
-**Mechanisme "open tab rechts":** de TUI draait links in een pty en kan niet
-direct met Electron-main praten. Oplossing = **sentinel-sequence op stdout**:
-de TUI print een gemarkeerde control-regel (bv. een OSC-achtige sequence met JSON);
-main onderschept toch al elke pty-byte voor de renderer, knipt de marker eruit
-(toont hem niet) en opent een nieuwe pty-tab met het gevraagde commando. Geen
-socket/HTTP nodig.
+Plak het token (1 jaar geldig) in ⚙ Instellingen → Auth → *Claude OAuth-token*. Een
+eventuele `ANTHROPIC_API_KEY` in de omgeving wordt door de app genegeerd (en niet aan
+de agents doorgegeven) zodat er altijd op het abonnement wordt afgerekend. Het token
+is persoonlijk — deel het niet.
 
----
+## Draaien & bouwen
 
-## Fasering
+```bash
+npm run app:dev      # bouwt app/desktop/dist (esbuild) en start Electron
+npm run app:build    # alleen bundelen
+npm run app:dist     # → release/*.dmg (+ zip), arm64
+npm run app:rebuild  # node-pty herbouwen tegen Electron's ABI (draait ook in postinstall)
+```
 
-Elke fase is op zichzelf bruikbaar. De agent-entry-points (`pipeline/agents/*.ts`,
-`pipeline/jira/*.ts`, `pipeline/git/*.ts`) worden **niet** geraakt; de CLI blijft
-werken via de `FLUX_DESKTOP`-switch.
+Zonder Apple-credentials is de dmg **ad-hoc-gesigneerd**: werkt op je eigen Mac, maar
+geeft elders een Gatekeeper-waarschuwing (rechtsklik → Openen, of
+`xattr -dr com.apple.quarantine /Applications/flux-agents.app`). Voor wrijvingsloze
+distributie: code-sign + notarize via een Apple Developer-account — zet `CSC_LINK` +
+`CSC_KEY_PASSWORD` en `APPLE_ID` + `APPLE_APP_SPECIFIC_PASSWORD` + `APPLE_TEAM_ID` vóór
+`npm run app:dist`. Zie de commentaren in `electron-builder.yml`.
 
-### Fase 1 — Jira via REST (Docker schrappen)
-**Doel:** refine zonder Docker-MCP → app heeft géén Docker nodig. Volledig onafhankelijk van het Electron-werk; bewust als eerste zodat de zwaarste prerequisite meteen weg is.
-- `pipeline/agents/shared/jira.ts` uitbreiden met 2 helpers:
-  - `searchJql(client, jql) → Array<{key,summary,status,updated}>` (`GET /rest/api/2/search?jql=...&fields=key,summary,status,updated`).
-  - `getFullIssueDetails(client, key, acFieldId?) → {summary,description,acceptanceCriteria?,status,labels,issuelinks,comments}` (bundelt `getIssueFields` + `getIssueComments` + links).
-- `pipeline/agents/refine.ts` refactoren:
-  - `listSprintTickets()` (≈186-224): MCP-prompt → directe `searchJql()`-call (geen LLM meer voor de lookup).
-  - `refineTicket()` (≈254-333): MCP-fetch-prompt → `getFullIssueDetails()` en die data in het user-prompt injecteren (zoals attachments/comments nu al geïnjecteerd worden, ≈628-694).
-  - `jiraMcpConfig()` (≈140-163) verwijderen; `mcpServers` + `allowedTools:['mcp__mcp-atlassian',...]` uit de `query()`-call (≈502-514) → enkel `['Read','Glob','Grep']`.
-- Behoud `JIRA_AC_FIELD`, AI-comment-filtering (`humanComments`), image-MIME-selectie en idempotente hashing — gedrag identiek, enkel de bron verandert van MCP naar REST.
-- Docs: Docker uit `README.md` + `CLAUDE.md` (§8) halen.
-- **Verificatie:** refine op een bekende sprint → zelfde ticketlijst, comments, AC en images als de MCP-versie; idempotente herstart blijft non-destructief.
-- **Deliverable:** `npm run pipeline:refine` werkt zonder draaiende Docker.
+## Installeren + configureren (teamlid)
 
-### Fase 2 — Electron-skeleton + build-pipeline
-**Doel:** lege app die opent met een split-pane.
-- Deps toevoegen: `electron`, `electron-builder`, `node-pty`, `@xterm/xterm`, `@xterm/addon-fit`, `@xterm/addon-web-links`, `vite`, `esbuild`. *(eerste build-step in dit project — Kris vragen, want "geen deps zonder motivatie" is een harde regel)*
-- Mappen: `app/desktop/main/`, `app/desktop/preload/`, `app/desktop/renderer/`, `app/desktop/shared/`.
-- `tsconfig.main.json` (Node-target) + `tsconfig.renderer.json` (DOM); renderer via Vite, main/preload via esbuild.
-- `package.json`-scripts: `dev`, `build`, `dist`. Bestaande scripts ongemoeid.
-- `nodeIntegration:false`, `contextIsolation:true`.
-- **Deliverable:** `npm run app:dev` opent een venster met 25/75 split (nog leeg).
-
-### Fase 3 — Terminals: PtyManager + xterm + tabs + TUI-pane
-**Doel:** eerste verticale slice — links draait de echte TUI, rechts kunnen tabs.
-- `app/desktop/main/pty-manager.ts`: `spawn`/`write`/`resize`/`kill`/`onData`/`onExit`, `Map<id,IPty>`, kill-all bij quit.
-- `app/desktop/shared/ipc.ts`: kanaalnamen + payload-types (gedeeld main/preload/renderer).
-- `app/desktop/renderer/terminal-view.ts`: xterm-wrapper + fit-addon + resize-observer.
-- `app/desktop/renderer/tabs.ts`: tab-strip, status `running|exited`, exit-code badge (groen 0 / rood ≠0), buffer blijft staan tot sluiten.
-- `app/desktop/renderer/layout.ts`: split-pane 25/75.
-- TUI-pane = permanente pty die `tsx app/tui/index.ts` draait met `TERM=xterm-256color` (clack heeft raw-mode/alt-screen nodig — een echte pty levert dat).
-- **Deliverable:** TUI links bedienbaar; "+"-knop opent handmatig een shell-tab rechts.
-
-### Fase 4 — Control-protocol: TUI-actie → tab rechts
-**Doel:** elke TUI-actie opent automatisch een eigen console-tab rechts.
-- `app/desktop/shared/control.ts`: `emitOpenTab({title,cmd,args,env?})` (schrijft sentinel naar stdout) + `parseControl(chunk)→{clean,messages}` (main filtert sentinel uit de renderer-stream).
-- Refactor achter `FLUX_DESKTOP`-switch (env-var die main zet; zonder var = exact oud gedrag):
-  - `app/tui/run.ts` `spawnScript()` → in desktop-modus `emitOpenTab()` i.p.v. `spawn(...stdio:'inherit')`.
-  - `app/tui/terminal.ts` `openInTerminal()` → in desktop-modus `emitOpenTab()`; AppleScript-tak blijft enkel als CLI-legacy.
-  - `app/tui/iterate.ts` `iterateInTerminals()` → per profiel een `emitOpenTab` (STAGGER blijft, nu in main bij sequentieel pty-starten — git-lock op gedeelde clone).
-  - `app/tui/develop.ts`/`app/tui/review.ts` → de nu in-process `runDevelop()`/`runReview()` worden óók `emitOpenTab({cmd:'npm',args:['run','develop','--',...]})`. Ruimt meteen de in-process/subprocess-tweedeling op; de `runDevelop`-exports blijven voor CLI + `pipeline/agents/shared/loop.ts`.
-  - `app/tui/converge.ts`, `app/tui/refine.ts`, `app/tui/plan.ts`, `app/tui/publish.ts` → idem.
-- Main: control-parser in de pty-data-handler → `PtyManager.createTab()`.
-- **Deliverable:** elke menu-keuze opent rechts een live tab; `npm run *` blijft los werken.
-
-### Fase 5 — Centrale config-laag + settings-scherm
-**Doel:** alle env via UI, opgeslagen per gebruiker.
-- `pipeline/agents/shared/config.ts` (nieuw, non-invasief): één `EnvSchema` (key, label, group, required, default, secret, beschrijving) afgeleid van `.env.example`. Loader **schrijft naar `process.env`** → bestaande lezers (`pipeline/agents/shared/jira.ts`, `model.ts`, `repo.ts`) blijven ongewijzigd werken.
-- `app/desktop/main/config-store.ts`: niet-secret config in `app.getPath('userData')/flux-agents.config.json`; secrets (`JIRA_PERSONAL_TOKEN`, `CLAUDE_CODE_OAUTH_TOKEN`) in Electron `safeStorage` (OS-keychain). Load-volgorde: schema-defaults → JSON → safeStorage → bestaande repo-`.env` (laagste prioriteit, legacy-fallback).
-- **Env-injectie:** main bouwt `mergedEnv = {...process.env, ...effectiveConfig, FLUX_DESKTOP:'1'}` en geeft die aan elke `pty.spawn`. Agents erven alles zonder iets van de app te weten.
-- `app/desktop/renderer/settings.ts`: form uit `EnvSchema`, gegroepeerde secties (Jira / Repo / Modellen / Git / Customfields / Advanced), required-validatie, secrets gemaskeerd, "Test Jira-verbinding"-knop (`jiraFetch /rest/api/2/myself`).
-- IPC: `config:get`, `config:save`, `config:test-jira`.
-- Voorstel: `STATE_DIR` default → `app.getPath('userData')/state` (i.p.v. `../flux-agents-state`), configureerbaar.
-- **Deliverable:** verse gebruiker vult settings in en kan draaien zonder `.env`.
-
-### Fase 6 — Claude-auth (OAuth-token, Pro/Max)
-**Doel:** Claude-account zonder `.env`, op het persoonlijke abonnement.
-- Auth-sectie in settings: `CLAUDE_CODE_OAUTH_TOKEN`-veld (gemaskeerd, safeStorage) + uitleg (`claude setup-token`), geïnjecteerd in elke pty-env → SDK pikt het op. `ANTHROPIC_API_KEY`/`ANTHROPIC_AUTH_TOKEN` worden uit de pty-env gestript (hogere precedentie zou pay-per-use afrekenen).
-- Auth-status-indicator (IPC `auth:status`): goedkope check of de key gezet/geldig is.
-- **Deliverable:** key invoeren in settings → agents draaien op pay-per-token.
-
-### Fase 7 — Preflight & dependency-bundeling
-**Doel:** "gewoon opstarten" met nette foutmeldingen bij ontbrekende deps.
-- Bundelen: Electron's Node + `tsx` + `node_modules` (asar; `node-pty` asar-**unpacked**, per-arch prebuilt via electron-rebuild). Gebruiker hoeft geen Node te installeren.
-- Prerequisites na Docker-eliminatie: enkel `git` (altijd) + `gh` (push/pr/converge). Géén Docker meer.
-- `app/desktop/main/preflight.ts`: checkt `node`/`git`/`gh`/`claude` --version, verplichte config + OAuth-token → renderer dependency-status-scherm met installatielinks.
-- **Deliverable:** app meldt netjes welke system-deps ontbreken i.p.v. cryptisch te falen.
-
-### Fase 8 — Packaging & distributie (macOS)
-**Doel:** dmg die collega's kunnen openen.
-- `electron-builder.yml`: target macOS `dmg` (+ `zip` voor auto-update), arm64 + x64 (wegens native `node-pty`); `asarUnpack` voor `node-pty`/`tsx`; `extraResources` voor `pipeline/`, `app/tui/`, `tools/`, `pipeline/agents/prompts/`.
-- Code-signing + **notarization** (Developer ID) tegen Gatekeeper — anders blokkeert "gewoon opstarten". Voor puur intern eventueel ad-hoc signing + gedocumenteerde Gatekeeper-uitzondering, maar notarization aangeraden.
-- Auto-update: `electron-updater` via GitHub Releases (optioneel; minimaal handmatige dmg-distributie).
-- README-sectie "Installatie als desktop-app" + prerequisite-checklist (git/gh, Jira-PAT, Anthropic-key).
-- **Deliverable:** gesigneerde dmg + installatie-doc.
-
----
-
-## Bestanden die geraakt worden
-
-**Nieuw:**
-- `app/desktop/main/{index,pty-manager,config-store,preflight}.ts`
-- `app/desktop/preload/index.ts`
-- `app/desktop/renderer/{layout,terminal-view,tabs,settings}.ts` + `index.html`
-- `app/desktop/shared/{ipc,control}.ts`
-- `pipeline/agents/shared/config.ts`
-- `electron-builder.yml`, `tsconfig.main.json`, `tsconfig.renderer.json`, `vite.config.ts`
-
-**Aangepast (backwards-compat via `FLUX_DESKTOP`-switch):**
-- `pipeline/agents/shared/jira.ts` (2 nieuwe REST-helpers, Fase 1) + `pipeline/agents/refine.ts` (MCP → REST, Fase 1)
-- `app/tui/run.ts`, `app/tui/terminal.ts`, `app/tui/iterate.ts`, `app/tui/develop.ts`, `app/tui/review.ts`, `app/tui/converge.ts`, `app/tui/refine.ts`, `app/tui/plan.ts`, `app/tui/publish.ts`
-- `package.json` (deps + `dev`/`build`/`dist`-scripts)
-- `README.md` + `CLAUDE.md` §8 (Docker eruit, installatiesectie)
-
-**Niet geraakt:** `pipeline/agents/{plan,develop,review,ship,iterate,converge}.ts`, `pipeline/jira/*.ts`, `pipeline/git/*.ts`, `pipeline/agents/prompts/*`, `pipeline/agents/shared/{model,repo,loop,query,...}.ts` (config-loader schrijft naar `process.env`, lezers blijven gelijk).
-
----
-
-## Harde-regel-check (CLAUDE.md)
-- Geen nieuwe netwerk-endpoints: app praat met dezelfde Jira/Anthropic/GitHub als nu. ✓
-- Geen extra git-push/PR-paden: TUI-acties draaien dezelfde `npm run *` als nu. ✓
-- **Nieuwe deps** (electron, node-pty, xterm, vite…) overtreden "geen deps zonder motivatie" → **expliciet aan Kris vragen vóór Fase 2** (motivatie: kern van de feature).
-- `_status.json`-schema ongewijzigd; state-paden ongewijzigd (behalve default `STATE_DIR`, configureerbaar). ✓
-
----
-
-## Verificatie (end-to-end)
-
-1. **Fase 1:** `refine` op een bekende sprint zonder draaiende Docker → zelfde ticketlijst/comments/AC/images als de MCP-versie; idempotente herstart non-destructief.
-2. **Fase 2:** `npm run app:dev` → venster met 25/75 split opent.
-3. **Fase 3:** TUI links reageert op toetsen (clack-menu rendert correct); "+" opent shell-tab rechts; tab toont exit-code bij sluiten.
-4. **Fase 4:** kies in TUI `refine`/`develop`/`iterate` → telkens nieuwe tab rechts met live output; multi-profiel iterate → meerdere tabs. Controleer dat `npm run pipeline:iterate -- FLUX-x --profile y` in een gewone terminal nog steeds werkt (CLI-pad).
-5. **Fase 5:** verse `userData` (geen `.env`) → settings invullen → "Test Jira" slaagt → `refine` draait.
-6. **Fase 6:** OAuth-token (`claude setup-token`) in settings → een echte agent-run voltooit op het Pro/Max-abonnement.
-7. **Fase 7:** met ontbrekende `gh` → preflight toont duidelijke melding i.p.v. crash.
-8. **Fase 8:** `npm run app:dist` → dmg; op een tweede Mac openen (geen Docker geïnstalleerd), settings invullen, één ticket end-to-end `refine` → `iterate` → `push`/`pr`.
+1. Open de dmg, sleep **flux-agents** naar Applications, start de app.
+2. Klik **⚙**, vul in: Jira-URL + PAT, repo-URL, Claude OAuth-token. Test Jira + Claude-auth.
+3. Opslaan → geldt voor nieuwe tabs.
+4. Kies links een actie → ze draait rechts in een eigen tab. `+` opent een losse shell.
