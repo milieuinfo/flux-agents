@@ -169,6 +169,116 @@ export async function searchJql(
   return out;
 }
 
+// --- Agile: boards & sprints ----------------------------------------------
+
+export interface JiraSprint {
+  id: number;
+  name: string;
+  /** 'active' | 'future' | 'closed' */
+  state: string;
+  boardId: number;
+}
+
+interface AgilePage<T> {
+  values?: T[];
+  isLast?: boolean;
+}
+
+interface AgileBoard {
+  id: number;
+  name: string;
+  type: string;
+}
+
+/**
+ * Pagineer een Jira Agile (GreenHopper) endpoint dat `{ values, isLast }`
+ * teruggeeft. `basePath` mag al query-params bevatten; deze helper voegt
+ * `startAt`/`maxResults` toe en loopt tot `isLast`.
+ */
+async function agilePaged<T>(
+  client: JiraClient,
+  basePath: string,
+  extraParams: Record<string, string> = {},
+): Promise<T[]> {
+  const out: T[] = [];
+  const pageSize = 50;
+  let startAt = 0;
+  for (;;) {
+    const params = new URLSearchParams({
+      ...extraParams,
+      startAt: String(startAt),
+      maxResults: String(pageSize),
+    });
+    const sep = basePath.includes('?') ? '&' : '?';
+    const page = await jiraFetch<AgilePage<T>>(
+      client,
+      'GET',
+      `${basePath}${sep}${params.toString()}`,
+    );
+    const values = page.values ?? [];
+    out.push(...values);
+    if (page.isLast || values.length === 0) break;
+    startAt += values.length;
+  }
+  return out;
+}
+
+/**
+ * Lijst de scrum-boards van een project. Alleen scrum-boards hebben sprints;
+ * kanban-boards geven een 400 op het sprint-endpoint, dus filteren we ze hier
+ * al weg via `type=scrum`.
+ */
+async function listProjectScrumBoards(
+  client: JiraClient,
+  projectKey: string,
+): Promise<AgileBoard[]> {
+  return agilePaged<AgileBoard>(client, '/rest/agile/1.0/board', {
+    projectKeyOrId: projectKey,
+    type: 'scrum',
+  });
+}
+
+/**
+ * Lijst de niet-gesloten sprints (active + future) van een project. Loopt over
+ * alle scrum-boards van het project en dedupliceert op sprint-id — eenzelfde
+ * sprint kan op meerdere boards verschijnen. `closed` sprints worden door de
+ * `state`-filter weggelaten zodat de caller enkel nog-relevante sprints ziet.
+ *
+ * Een board dat (toch) geen sprints ondersteunt geeft een fout op het
+ * sprint-endpoint; die wordt per board opgevangen zodat één kapot board de hele
+ * lijst niet onderuit haalt.
+ */
+export async function listOpenProjectSprints(
+  client: JiraClient,
+  projectKey: string,
+): Promise<JiraSprint[]> {
+  const boards = await listProjectScrumBoards(client, projectKey);
+  const byId = new Map<number, JiraSprint>();
+  for (const board of boards) {
+    let sprints: Array<{ id: number; name: string; state: string }>;
+    try {
+      sprints = await agilePaged(
+        client,
+        `/rest/agile/1.0/board/${board.id}/sprint`,
+        { state: 'active,future' },
+      );
+    } catch {
+      continue;
+    }
+    for (const s of sprints) {
+      if (!byId.has(s.id)) {
+        byId.set(s.id, {
+          id: s.id,
+          name: s.name,
+          state: s.state,
+          boardId: board.id,
+        });
+      }
+    }
+  }
+  return [...byId.values()];
+}
+
 // --- Comments -------------------------------------------------------------
 
 export interface JiraComment {

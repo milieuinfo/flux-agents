@@ -1,5 +1,5 @@
 import * as p from '@clack/prompts';
-import { promptSprint, promptTicketKey } from './prompts.js';
+import { promptSprint, promptSprintFromJira, promptTicketKey } from './prompts.js';
 import { spawnScript } from './run.js';
 import { runOrLaunch, SCRIPT_PATHS } from './launch.js';
 
@@ -50,15 +50,16 @@ export async function refineAction(): Promise<void> {
   if (p.isCancel(scope)) return;
 
   if (scope === 'sprint') {
-    const sprint = await promptSprint();
-    if (sprint === undefined) return;
+    const choice = await promptSprintFromJira();
+    if (choice === undefined) return;
+    const { sprintName, folder } = choice;
     await runOrLaunch({
       scriptKey: 'refine',
-      args: [sprint],
-      title: `refine ${sprint}`,
-      confirm: `sprint '${sprint}' analyseren (refine)?`,
-      step: `Analyseren — sprint '${sprint}'…`,
-      onSuccess: () => p.log.success(`Analyse klaar — sprint '${sprint}'.`),
+      args: [sprintName, folder],
+      title: `refine ${folder}`,
+      confirm: `sprint '${sprintName}' analyseren (map '${folder}', refine)?`,
+      step: `Analyseren — sprint '${sprintName}' (map '${folder}')…`,
+      onSuccess: () => p.log.success(`Analyse klaar — sprint '${folder}'.`),
     });
     return;
   }

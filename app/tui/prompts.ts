@@ -2,6 +2,12 @@ import { readdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import * as p from '@clack/prompts';
 import { baseBranchWorktreePath } from '../../pipeline/agents/shared/repo.js';
+import {
+  applyJiraSslConfig,
+  createJiraClient,
+  listOpenProjectSprints,
+  type JiraSprint,
+} from '../../pipeline/agents/shared/jira.js';
 
 // Een ticket-sleutel zoals FLUX-123 (project-prefix in hoofdletters + nummer).
 const TICKET_KEY_RE = /^[A-Z][A-Z0-9]+-\d+$/;
@@ -179,6 +185,99 @@ export async function promptSprint(
     validate: (v) => (v?.trim() ? undefined : 'Geef een sprint op.'),
   });
   return p.isCancel(typed) ? undefined : typed.trim();
+}
+
+/**
+ * Leidt de state-foldernaam af uit een Jira-sprintnaam volgens de
+ * teamconventie: 'release sprint - v2.17.0 - AI' → 'v2.17.0-AI'. We splitsen op
+ * ' - ', gooien een leidend 'release sprint'-label weg en plakken de rest met
+ * '-'. Faalt zacht naar de kale (getrimde) naam als er na het filteren niets
+ * overblijft.
+ */
+export function sprintFolderFromName(name: string): string {
+  const segments = name
+    .split(/\s*-\s*/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .filter((s) => !/^release sprint$/i.test(s));
+  return segments.length > 0 ? segments.join('-') : name.trim();
+}
+
+export interface SprintChoice {
+  /** Letterlijke Jira-sprintnaam — gaat als JQL `sprint = "<naam>"` naar refine. */
+  sprintName: string;
+  /** Afgeleide state-foldernaam onder STATE_DIR/sprints/. */
+  folder: string;
+}
+
+/** Of een sprintnaam 'AI' als los woord bevat (teamconventie voor AI-sprints). */
+function isAiSprint(name: string): boolean {
+  return /\bAI\b/i.test(name);
+}
+
+/**
+ * Vraagt een volledige sprint voor de refine-analyse, met de keuzelijst
+ * rechtstreeks uit Jira i.p.v. de lokale folders. Toont enkel niet-gesloten
+ * sprints van het Flux-project (`JIRA_PROJECT_KEY`) met 'AI' in de naam — ook
+ * een vers in Jira aangemaakte sprint die nog geen lokale folder heeft. De
+ * gekozen sprint levert zowel de letterlijke Jira-naam (voor de JQL) als de
+ * afgeleide foldernaam.
+ *
+ * Faalt de Jira-call (offline, auth), dan valt deze terug op de oude
+ * folder-gebaseerde keuze zodat de TUI bruikbaar blijft.
+ */
+export async function promptSprintFromJira(
+  message = 'Welke sprint?',
+): Promise<SprintChoice | undefined> {
+  let sprints: JiraSprint[];
+  try {
+    applyJiraSslConfig();
+    const client = createJiraClient();
+    const projectKey = process.env.JIRA_PROJECT_KEY ?? 'FLUX';
+    const all = await listOpenProjectSprints(client, projectKey);
+    sprints = all
+      .filter((s) => isAiSprint(s.name))
+      // Actieve sprints bovenaan, daarna nieuwste naam eerst.
+      .sort((a, b) => {
+        if (a.state !== b.state) return a.state === 'active' ? -1 : 1;
+        return b.name.localeCompare(a.name);
+      });
+  } catch (err) {
+    p.log.warn(
+      `Sprints ophalen uit Jira mislukt (${(err as Error).message}). ` +
+        `Terugval op de lokale sprint-mappen.`,
+    );
+    const folder = await promptSprint(message);
+    return folder === undefined
+      ? undefined
+      : { sprintName: folder, folder };
+  }
+
+  if (sprints.length === 0) {
+    p.log.warn(
+      'Geen open AI-sprints gevonden in Jira. Terugval op de lokale mappen.',
+    );
+    const folder = await promptSprint(message);
+    return folder === undefined
+      ? undefined
+      : { sprintName: folder, folder };
+  }
+
+  const sel = await p.select({
+    message,
+    options: sprints.map((s) => ({
+      value: String(s.id),
+      label: s.state === 'active' ? `${s.name} (actief)` : s.name,
+      hint: sprintFolderFromName(s.name),
+    })),
+  });
+  if (p.isCancel(sel)) return undefined;
+  const chosen = sprints.find((s) => String(s.id) === sel);
+  if (!chosen) return undefined;
+  return {
+    sprintName: chosen.name,
+    folder: sprintFolderFromName(chosen.name),
+  };
 }
 
 export interface TicketAndProfile {
