@@ -18,6 +18,11 @@ tool voor Kris om sprints efficiënter op te nemen.
 
 ## Commit-boodschappen
 
+**Subject-formaat:** `<type>: <scope> - <omschrijving>` (bv.
+`fix: tui - los vroege tekst-wrap op`). Dus **geen** conventional-commits met
+haakjes (`type(scope): …`). Heeft de commit geen zinvolle scope, laat dan het
+`<scope> - `-deel weg (bv. `docs: echte implementatie-documentatie`).
+
 Niet hard-wrappen op 72 tekens — laat regels gewoon doorlopen en de
 terminal soft-wrappen. Hou de boodschap beknopt. Meerdere regels typen mag,
 en lege regels als witruimte voor duidelijkheid mag ook. Eindig nog steeds
@@ -159,9 +164,10 @@ legitieme feedback-cycli zonder eindeloos te worden.
 ### 3. Nieuwe commits per ronde, lokale squash bij APPROVED
 
 Tijdens iteraties committeert agent 3 elke ronde als aparte commit
-(`fix(x): address review ronde 2 (FLUX-123)`). Pas wanneer agent 4
+(`fix: FLUX-123 - address review ronde 2`). Pas wanneer agent 4
 APPROVED geeft, doet die een `git reset --soft <base>` + één nette
-conventional commit. Die squash blijft **lokaal** — agent 4 pusht niet
+commit (subject `<type>: <scope> - <omschrijving>`). Die squash blijft
+**lokaal** — agent 4 pusht niet
 en maakt geen PR. Het pushen en de PR-creatie zijn losgetrokken naar de
 deterministische scripts `npm run git:push` en `npm run git:pr` (zie §11).
 
@@ -548,7 +554,8 @@ Flow:
    `git checkout <branch> -- pad`) — geen aparte worktrees nodig. Hij neemt
    per onderdeel het beste van beide, houdt de probleemstelling opgelost,
    **minimaliseert nieuwe commentaren en respecteert hoe elk bestand al met
-   commentaar omging**, maakt één conventional commit (subject = PR-titel),
+   commentaar omging**, maakt één nette commit (subject `<type>: <scope> -
+   <omschrijving>` = PR-titel),
    schrijft `_pr-body.md` (strikt functioneel, voor GitHub) die de
    gecombineerde branch beschrijft, én een vrije-vorm `_converge.md` waarin
    hij voor Kris uitschrijft wat hij in elke bron vond en welke keuzes hij
@@ -622,7 +629,9 @@ en `ticket-reviewer.md`. Samengevat:
 - **Tests:** Cypress component tests voor gedrag, visuele regressie
   via `@simonsmith/cypress-image-snapshot`
 - **Accessibility:** WCAG 2.1 AA minimum
-- **Conventional commits** met ticket-key in scope of suffix
+- **Commit-subjects** als `<type>: <scope> - <omschrijving>` met de ticket-key
+  in de scope (bv. `fix: FLUX-123 - vl-input-field - focus trap leak`) — niet
+  het conventional-commits-formaat met haakjes
 
 Conventies zijn gebaseerd op Kris' werkgeschiedenis en moeten na
 eerste echte runs verfijnd worden met team-specifieke regels.

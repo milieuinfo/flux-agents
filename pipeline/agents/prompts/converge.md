@@ -78,9 +78,9 @@ Lever één gecombineerde implementatie die:
 
 Als de gecombineerde implementatie klaar en geverifieerd is:
 
-1. **Eén nette commit.** Stage alles en maak precies één conventional commit.
-   Geen meerdere commits, geen merge-commit. Deze commit-subject wordt de
-   PR-titel.
+1. **Eén nette commit.** Stage alles en maak precies één commit met het
+   subject-formaat hieronder. Geen meerdere commits, geen merge-commit. Deze
+   commit-subject wordt de PR-titel.
 
    **First line (strikt):** `<type>: <KEY> - <vl-component> - <korte omschrijving>`
    - `<type>` is `feat` of `fix` (bij een bugfix: `fix`).
