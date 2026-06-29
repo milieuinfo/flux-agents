@@ -85,15 +85,18 @@ function buildSpec(req: PtyCreateRequest): SpawnSpec {
 
   if (req.kind === 'tui') {
     // FLUX_DESKTOP zet de TUI in desktop-modus: acties sturen een control-
-    // signaal i.p.v. inline/Terminal.app te draaien. Login-shell voor PATH.
+    // signaal i.p.v. inline/Terminal.app te draaien. Interactieve login-shell
+    // (`-ilc`) zodat `.zshrc` geladen wordt — daar zetten nvm/Volta/Homebrew
+    // vaak node op de PATH; een GUI-app erft anders een uitgeklede launchd-PATH.
     // `node --import tsx` (één proces) i.p.v. de tsx-binary, zodat SIGWINCH/
     // resize aankomt en clack herwrapt bij een paneel-resize.
     env.FLUX_DESKTOP = '1';
-    return { ...base, shell: userShell, args: ['-lc', 'node --import tsx app/tui/index.ts'] };
+    return { ...base, shell: userShell, args: ['-ilc', 'node --import tsx app/tui/index.ts'] };
   }
   if (req.kind === 'command') {
-    // Eén actie-tab: draait het meegegeven commando in een login-shell.
-    return { ...base, shell: userShell, args: ['-lc', req.command ?? 'true'] };
+    // Eén actie-tab: draait het meegegeven commando in een interactieve login-
+    // shell (`-ilc`), zelfde PATH-reden als de TUI hierboven.
+    return { ...base, shell: userShell, args: ['-ilc', req.command ?? 'true'] };
   }
   // Kale interactieve login-shell voor een handmatige console-tab.
   return { ...base, shell: userShell, args: ['-li'] };

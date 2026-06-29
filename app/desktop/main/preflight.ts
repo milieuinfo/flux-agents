@@ -3,9 +3,11 @@
  * verplichte config aanwezig zijn, zodat de app een nette melding toont i.p.v.
  * cryptisch te falen tijdens een run.
  *
- * Binaries worden via een login-shell gecheckt (zoals de agent-tabs draaien),
- * zodat de PATH-resolutie overeenkomt — een packaged GUI-app erft anders een
- * uitgeklede PATH waarin git/gh niet zichtbaar zijn.
+ * Binaries worden via een interactieve login-shell (`-ilc`) gecheckt, net zoals
+ * de agent-tabs draaien, zodat de PATH-resolutie overeenkomt. Een packaged
+ * GUI-app erft een uitgeklede launchd-PATH; pas `.zshrc` voegt de echte node/
+ * git/gh toe. `-lc` (login, niet-interactief) leest `.zshrc` níét — en juist
+ * daar zetten nvm/Volta/Homebrew vaak hun PATH — dus we draaien interactief.
  */
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -25,7 +27,7 @@ export interface PreflightCheck {
 
 async function checkBin(cmd: string): Promise<string | null> {
   try {
-    const { stdout } = await exec(userShell, ['-lc', cmd], { timeout: 8000 });
+    const { stdout } = await exec(userShell, ['-ilc', cmd], { timeout: 8000 });
     return stdout.trim().split('\n')[0] || 'ok';
   } catch {
     return null;

@@ -8,6 +8,9 @@ directories:
 # Wat in de app komt. .env, state, release en .git blijven er bewust uit.
 files:
   - app/desktop/dist/**
+  # De TUI draait vanuit bron via tsx en importeert app/desktop/shared/control.ts
+  # (control-protocol). Die bron moet dus mee, niet enkel de gebundelde dist.
+  - app/desktop/shared/**
   - pipeline/**
   - app/tui/**
   - tools/**
@@ -27,6 +30,11 @@ files:
 # (postinstall doet dit normaal automatisch).
 npmRebuild: false
 
+# Na het uitpakken (vóór signen): node-pty's `spawn-helper` weer uitvoerbaar
+# maken. De npm-prebuild levert hem zonder +x; zonder die bit faalt posix_spawnp
+# en blijft de TUI leeg + de knoppen dood. Zie app/desktop/after-pack.cjs.
+afterPack: ./app/desktop/after-pack.cjs
+
 asar: true
 # De agent-runtime + node_modules moeten echte bestanden op schijf zijn: de
 # pty-tabs draaien `node --import tsx <script>` als losse processen, en native
@@ -34,6 +42,7 @@ asar: true
 asarUnpack:
   - pipeline/**
   - app/tui/**
+  - app/desktop/shared/**
   - tools/**
   - package.json
   - package-lock.json
