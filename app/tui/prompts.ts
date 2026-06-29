@@ -45,6 +45,20 @@ async function discoverProfiles(): Promise<string[]> {
   }
 }
 
+/**
+ * Vraagt een branch-naam (vrije tekst). Geeft `undefined` bij annulering.
+ * Voor de externe review, waar de branch van een andere developer komt en
+ * dus niet uit lokale state af te leiden valt.
+ */
+export async function promptBranch(): Promise<string | undefined> {
+  const branch = await p.text({
+    message: 'Welke branch?',
+    placeholder: 'feature-v2/iemand-anders-zn-branch',
+    validate: (v) => (v?.trim() ? undefined : 'Geef een branch-naam op.'),
+  });
+  return p.isCancel(branch) ? undefined : branch.trim();
+}
+
 /** Vraagt een profiel (select uit ontdekte profielen, anders vrije tekst). */
 export async function promptProfile(): Promise<string | undefined> {
   const profiles = await discoverProfiles();
@@ -61,6 +75,35 @@ export async function promptProfile(): Promise<string | undefined> {
     validate: (v) => (v?.trim() ? undefined : 'Geef een profiel op.'),
   });
   return p.isCancel(typed) ? undefined : typed.trim();
+}
+
+// Sentinel-waarde voor "geen profiel" in een optionele profielkeuze: zo kan de
+// caller "geannuleerd" (undefined) onderscheiden van "bewust geen profiel".
+export const NO_PROFILE = Symbol('no-profile');
+
+/**
+ * Vraagt een optioneel profiel. Voegt een expliciete "geen profiel"-keuze toe
+ * (default-gedrag van bv. review-external). Geeft `NO_PROFILE` als geen profiel
+ * gekozen is, een profielnaam bij een keuze, of `undefined` bij annulering.
+ */
+export async function promptProfileOptional(): Promise<
+  string | typeof NO_PROFILE | undefined
+> {
+  const profiles = await discoverProfiles();
+  if (profiles.length > 0) {
+    const sel = await p.select<string | 'none'>({
+      message: 'Welk profiel?',
+      options: [
+        { value: 'none', label: 'geen profiel' },
+        ...profiles.map((name) => ({ value: name, label: name })),
+      ],
+    });
+    if (p.isCancel(sel)) return undefined;
+    return sel === 'none' ? NO_PROFILE : sel;
+  }
+  // Geen profielen ontdekt → laat de vrije-tekst-route weg en val terug op
+  // "geen profiel"; de gebruiker kan een profile-run alsnog via de CLI doen.
+  return NO_PROFILE;
 }
 
 /**

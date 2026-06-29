@@ -3,12 +3,12 @@ import { promptSprint, promptTicketKey } from './prompts.js';
 import { runOrLaunch } from './launch.js';
 
 /**
- * TUI-actie 'publicatie': publiceert ofwel een volledige sprint (comments +
- * umbrella-ticket) ofwel één individueel ticket (enkel de comment, via
- * `--tickets <KEY> --skip-overview`) naar Jira — exact zoals
- * `npm run jira:publish -- <map> [...]`. Omdat dit outward-facing is staat
- * dry-run als veilige default voorop en wordt een echte publicatie expliciet
- * bevestigd. Keert na afloop terug naar het hoofdmenu.
+ * TUI-actie 'publicatie': publiceert naar Jira — ofwel een volledige sprint
+ * (comments + umbrella-ticket), ofwel één individueel ticket (enkel de comment,
+ * via `--tickets <KEY> --skip-overview`), ofwel een externe code review (de
+ * nieuwste `review-*.md` via `jira:publish-review`). Omdat dit outward-facing
+ * is staat dry-run als veilige default voorop en wordt een echte publicatie
+ * expliciet bevestigd. Keert na afloop terug naar het hoofdmenu.
  */
 export async function publishAction(): Promise<void> {
   const scope = await p.select({
@@ -16,6 +16,7 @@ export async function publishAction(): Promise<void> {
     options: [
       { value: 'sprint', label: 'een volledige sprint' },
       { value: 'ticket', label: 'een individueel ticket' },
+      { value: 'review', label: 'een externe code review' },
     ],
   });
   if (p.isCancel(scope)) return;
@@ -23,8 +24,18 @@ export async function publishAction(): Promise<void> {
   let baseArgs: string[];
   let what: string;
   let confirmText: string;
+  // Publish-review heeft een eigen script; de sprint/ticket-scopes gebruiken
+  // publish.ts. We onthouden welk script dadelijk moet draaien.
+  let scriptKey: 'publish' | 'publish-review' = 'publish';
 
-  if (scope === 'sprint') {
+  if (scope === 'review') {
+    const key = await promptTicketKey();
+    if (key === undefined) return;
+    scriptKey = 'publish-review';
+    baseArgs = [key];
+    what = `externe review van ${key}`;
+    confirmText = `de externe-review-comment van ticket ${key} naar Jira`;
+  } else if (scope === 'sprint') {
     const sprint = await promptSprint();
     if (sprint === undefined) return;
     baseArgs = [sprint];
@@ -63,7 +74,7 @@ export async function publishAction(): Promise<void> {
   // Bevestiging is hierboven al afgehandeld (alleen voor 'publish'), dus geen
   // extra confirm in runOrLaunch.
   await runOrLaunch({
-    scriptKey: 'publish',
+    scriptKey,
     args,
     title: `${verb.toLowerCase()} ${what}`,
     step: `${verb} — ${what}…`,

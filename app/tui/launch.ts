@@ -26,9 +26,11 @@ export const SCRIPT_PATHS = {
   plan: 'pipeline/agents/plan.ts',
   develop: 'pipeline/agents/develop.ts',
   review: 'pipeline/agents/review.ts',
+  'review-external': 'pipeline/agents/review-external.ts',
   iterate: 'pipeline/agents/iterate.ts',
   converge: 'pipeline/agents/converge.ts',
   publish: 'pipeline/jira/publish.ts',
+  'publish-review': 'pipeline/jira/publish-review.ts',
 } as const;
 
 export type ScriptKey = keyof typeof SCRIPT_PATHS;

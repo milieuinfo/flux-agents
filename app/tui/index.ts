@@ -4,6 +4,7 @@ import * as p from '@clack/prompts';
 import { iterateAction } from './iterate.js';
 import { developAction } from './develop.js';
 import { reviewAction } from './review.js';
+import { reviewExternalAction } from './review-external.js';
 import { convergeAction } from './converge.js';
 import { refineAction } from './refine.js';
 import { planAction } from './plan.js';
@@ -23,13 +24,20 @@ const MENU_OPTIONS: { value: MenuChoice; label: string; hint: string }[] = [
   { value: 'develop', label: 'ontwikkeling', hint: 'na analyse' },
 ];
 
-type DevelopChoice = 'iterate' | 'converge' | 'develop' | 'review' | 'back';
+type DevelopChoice =
+  | 'iterate'
+  | 'converge'
+  | 'develop'
+  | 'review'
+  | 'review-external'
+  | 'back';
 
 const DEVELOP_OPTIONS: { value: DevelopChoice; label: string; hint: string }[] = [
   { value: 'iterate', label: 'itereer', hint: 'ontwikkel & review' },
   { value: 'converge', label: 'convergeer', hint: 'samenvoegen' },
   { value: 'develop', label: 'ontwikkel', hint: '' },
   { value: 'review', label: 'review', hint: 'na ontwikkeling' },
+  { value: 'review-external', label: 'externe review', hint: 'andermans branch' },
   { value: 'back', label: 'terug', hint: '' },
 ];
 
@@ -60,6 +68,10 @@ async function developMenu(): Promise<void> {
     }
     if (choice === 'review') {
       await reviewAction();
+      continue;
+    }
+    if (choice === 'review-external') {
+      await reviewExternalAction();
       continue;
     }
     if (choice === 'converge') {
