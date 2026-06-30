@@ -115,6 +115,25 @@ Valideert dat beide profielruns `approved` zijn, maakt een **profielloze** branc
 één commit + `_pr-body.md`, en **pusht + maakt de draft-PR automatisch aan**. Dit is
 de enige orchestrator die de PR zelf aanmaakt. Zie [profiles.md](profiles.md).
 
+## State-onderhoud: worktrees opruimen
+
+De per-ticket en externe-review worktrees zijn (gitignored) wegwerp-checkouts. Twee
+deterministische scripts ruimen ze op; de gecommitte state (refinement, ticketwerk,
+review-output) blijft **altijd** bewaard. Jira, GitHub en de feature-branches worden
+nooit geraakt.
+
+```bash
+npm run state:close-sprint -- SPRINT-42              # alle worktrees van een afgesloten sprint
+npm run state:close-sprint -- SPRINT-42 --dry-run    # toont enkel wat verwijderd zou worden
+
+npm run state:close-external                         # alle externe-review worktrees
+npm run state:close-external -- FLUX-595-kris-O48    # één specifieke (leaf onder _external/)
+npm run state:close-external -- --dry-run
+```
+
+Beide zijn idempotent (geen worktrees meer = no-op). In de TUI zit dit onder het
+submenu **'opkuis'** → *sprint afsluiten* / *externe reviews*.
+
 ## Zijtak: externe code review
 
 Een feature-branch van iemand anders reviewen, los van de sprint-flow:

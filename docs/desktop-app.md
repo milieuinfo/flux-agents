@@ -9,9 +9,12 @@ secrets in de macOS-keychain).
 ## De TUI
 
 `npm run app:tui` (of `npm start`) opent een menu met de acties: analyse (refine),
-planning (plan), publicatie (publish), en onder "ontwikkeling": ontwikkel, review,
-itereer, convergeer. Elke keuze vraagt de nodige input (ticket, profiel, sprint) en
-draait dan het bijbehorende `pipeline/...`-script.
+planning (plan), publicatie (publish), en twee submenu's. Onder **"ontwikkeling"**:
+ontwikkel, review, externe review, itereer, convergeer. Onder **"opkuis"**: sprint
+afsluiten en externe reviews (de `state:close-*`-scripts, zie
+[workflows.md](workflows.md#state-onderhoud-worktrees-opruimen)). Elke keuze vraagt
+de nodige input (ticket, profiel, sprint) en draait dan het bijbehorende
+`pipeline/...`-script.
 
 ## Eén invocatiemodel: tab óf subprocess
 

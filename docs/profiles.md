@@ -22,7 +22,9 @@ npm run pipeline:converge -- FLUX-123 --profiles no,kris
 
 Het pad-segment is niet het kale profiel maar het label `<profiel>-<modelcode>`,
 waarbij de code uit het **develop-model** (`AGENT_DEVELOP_MODEL`) komt:
-`claude-opus-4-8` → `O48`, `claude-sonnet-4-6` → `S46`, `claude-haiku-4-5` → `H45`.
+`claude-opus-4-8` → `O48`, `claude-sonnet-4-6` → `S46`, `claude-haiku-4-5` → `H45`,
+`claude-fable-5` → `F5` (datum-suffix wordt genegeerd; zie `modelCode` in
+`pipeline/agents/shared/model.ts`).
 
 Voorbeeld met `AGENT_DEVELOP_MODEL=claude-opus-4-8` en `--profile kris` → label `kris-O48`:
 

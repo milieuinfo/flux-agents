@@ -29,6 +29,7 @@ De agents leven in `pipeline/agents/`. Modellen zijn per rol instelbaar — zie
 - `pipeline/jira/publish-review.ts` — externe review naar Jira.
 - `pipeline/git/push.ts` — pusht de feature-branch van een goedgekeurd ticket.
 - `pipeline/git/pr.ts` — maakt de draft-PR aan (`gh pr create --draft`).
+- `pipeline/state/close-sprint.ts` / `close-external.ts` — ruimen de (gitignored) worktrees van een afgesloten sprint resp. externe reviews op; de gecommitte state blijft.
 
 ### Orchestrators
 
@@ -69,7 +70,8 @@ flux-agents/                  ← deze repo (tooling, code, prompts)
 ├── pipeline/                 ← de agent-pipeline
 │   ├── agents/               ← de 4 agents + orchestrators + shared/ prompts/ claude-code/
 │   ├── jira/                 ← deterministische Jira-publicatie (npm run jira:*)
-│   └── git/                  ← deterministische git/GitHub-stappen (npm run git:*)
+│   ├── git/                  ← deterministische git/GitHub-stappen (npm run git:*)
+│   └── state/                ← deterministisch state-onderhoud (npm run state:*)
 ├── app/                      ← de shell om de pipeline te draaien
 │   ├── desktop/              ← Electron-app
 │   ├── tui/                  ← @clack/prompts terminal-UI
@@ -80,7 +82,8 @@ flux-agents/                  ← deze repo (tooling, code, prompts)
 
 De **npm-scripts** zijn per domein geprefixt zodat de map af te leiden is uit het
 commando: `pipeline:*` → `pipeline/agents/`, `jira:*` → `pipeline/jira/`,
-`git:*` → `pipeline/git/`, `app:*` → `app/`, `dev:*` → `tools/`.
+`git:*` → `pipeline/git/`, `state:*` → `pipeline/state/`, `app:*` → `app/`,
+`dev:*` → `tools/`.
 
 ## Markdown als communicatielaag
 
@@ -116,7 +119,9 @@ state/
 
 Een sprint zit zo volledig onder `sprints/<SPRINT>/` (refinement + ticketwerk)
 plus `worktrees/<SPRINT>/`. Een afgesloten sprint kuis je op met
-`npm run state:close-sprint -- <SPRINT>` (verwijdert enkel de worktrees).
+`npm run state:close-sprint -- <SPRINT>`, externe-review worktrees met
+`npm run state:close-external` (beide verwijderen enkel de worktrees, de
+gecommitte state blijft) — zie [workflows.md](workflows.md#state-onderhoud-worktrees-opruimen).
 
 ## Prompts & interactieve variant
 
