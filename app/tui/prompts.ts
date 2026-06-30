@@ -1,7 +1,11 @@
 import { readdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import * as p from '@clack/prompts';
-import { baseBranchWorktreePath } from '../../pipeline/agents/shared/repo.js';
+import {
+  baseBranchWorktreePath,
+  managedRepoPath,
+  prepareWorktree,
+} from '../../pipeline/agents/shared/repo.js';
 import {
   applyJiraSslConfig,
   createJiraClient,
@@ -31,15 +35,29 @@ export async function promptTicketKey(): Promise<string | undefined> {
  * Ontdekt de beschikbare AI-profielen uit de read-only base-branch worktree
  * (`ai/profiles/<naam>/`). Faalt zacht naar een lege lijst zodat de prompt kan
  * terugvallen op vrije tekstinvoer als de worktree er nog niet is.
+ *
+ * Ververst de worktree eerst naar `origin/<baseBranch>` (zelfde fetch+reset als
+ * refine via `prepareWorktree`): de TUI leest de profielen rechtstreeks van disk,
+ * en zonder refresh verschijnt een in de repo toegevoegd profiel pas na een
+ * volgende refine-run (die als enige de worktree anders refresht). Best-effort —
+ * een offline of nog-niet-bestaande clone valt gewoon terug op wat er op disk
+ * staat (geen volledige clone forceren vanuit een prompt).
  */
 async function discoverProfiles(): Promise<string[]> {
   const stateDir = resolve(process.env.STATE_DIR ?? './state');
   const baseBranch = process.env.FLUX_BASE_BRANCH ?? 'develop-v2';
-  const profilesDir = resolve(
-    baseBranchWorktreePath(stateDir, baseBranch),
-    'ai',
-    'profiles',
-  );
+  const worktreePath = baseBranchWorktreePath(stateDir, baseBranch);
+
+  try {
+    const mainRepoDir = resolve(
+      process.env.FLUX_REPO_DIR ?? managedRepoPath(stateDir),
+    );
+    await prepareWorktree({ mainRepoDir, worktreePath, ref: baseBranch, quiet: true });
+  } catch {
+    // best-effort: lees verder met de bestaande worktree-inhoud
+  }
+
+  const profilesDir = resolve(worktreePath, 'ai', 'profiles');
   try {
     const entries = await readdir(profilesDir, { withFileTypes: true });
     return entries

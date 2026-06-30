@@ -97,6 +97,12 @@ export interface WorktreeOptions {
   worktreePath: string;
   /** Branch or ref to check out (e.g. `develop-v2`). */
   ref: string;
+  /**
+   * Onderdruk de voortgangs-logging (`Fetching…`/`Refreshing…`). Default false
+   * (verbose). De TUI zet dit aan zodat de fetch+reset niet door de
+   * clack-prompt-UI heen logt.
+   */
+  quiet?: boolean;
 }
 
 /**
@@ -108,14 +114,15 @@ export interface WorktreeOptions {
  */
 export async function prepareWorktree(opts: WorktreeOptions): Promise<void> {
   const { mainRepoDir, worktreePath, ref } = opts;
+  const info = opts.quiet ? () => {} : log.info;
 
   await assertIsGitRepo(mainRepoDir);
-  log.info(`Fetching ${ref} in ${mainRepoDir}`);
+  info(`Fetching ${ref} in ${mainRepoDir}`);
   await git(mainRepoDir, ['fetch', 'origin', ref]);
 
   const worktreeExists = await pathExists(worktreePath);
   if (!worktreeExists) {
-    log.info(`Creating worktree at ${worktreePath} (detached at origin/${ref})`);
+    info(`Creating worktree at ${worktreePath} (detached at origin/${ref})`);
     await git(mainRepoDir, [
       'worktree',
       'add',
@@ -129,7 +136,7 @@ export async function prepareWorktree(opts: WorktreeOptions): Promise<void> {
   // Existing worktree → fast-forward to the latest origin/<ref>.
   // `reset --hard` is safe here because the worktree is agent-owned;
   // we guarantee nothing else writes to it.
-  log.info(`Refreshing worktree at ${worktreePath} to origin/${ref}`);
+  info(`Refreshing worktree at ${worktreePath} to origin/${ref}`);
   await git(worktreePath, ['fetch', 'origin', ref]);
   await git(worktreePath, ['reset', '--hard', `origin/${ref}`]);
 }
