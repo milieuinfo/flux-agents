@@ -14,16 +14,16 @@
  */
 
 import { config } from 'dotenv';
-import { readdir, rmdir } from 'node:fs/promises';
+import { readdir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { log } from '../agents/shared/logger.js';
-import { git, managedRepoPath, pathExists } from '../agents/shared/repo.js';
+import { pathExists } from '../agents/shared/repo.js';
+import { removeIfEmpty, removeWorktrees } from './worktree-cleanup.js';
 
 config();
 
 export async function runCloseSprint(sprint: string, dryRun: boolean): Promise<void> {
   const stateDir = resolve(process.env.STATE_DIR ?? './state');
-  const clone = managedRepoPath(stateDir);
   const sprintWorktrees = resolve(stateDir, 'worktrees', sprint);
 
   if (!(await pathExists(sprintWorktrees))) {
@@ -45,37 +45,11 @@ export async function runCloseSprint(sprint: string, dryRun: boolean): Promise<v
   log.info(
     `${entries.length} worktree(s) voor sprint '${sprint}'${dryRun ? ' (dry-run)' : ''}:`,
   );
-  let removed = 0;
-  for (const wt of entries) {
-    if (dryRun) {
-      log.info(`  zou verwijderen: ${wt}`);
-      continue;
-    }
-    try {
-      await git(clone, ['worktree', 'remove', '--force', wt]);
-      log.info(`  ✓ verwijderd: ${wt}`);
-      removed++;
-    } catch (err) {
-      log.warn(
-        `  ! kon ${wt} niet via 'git worktree remove' verwijderen: ${(err as Error).message}`,
-      );
-      log.warn(
-        `    (mogelijk geen geregistreerde worktree; ruim manueel op met 'rm -rf' indien gewenst)`,
-      );
-    }
-  }
+  const removed = await removeWorktrees(stateDir, entries, dryRun);
 
   if (dryRun) return;
 
-  await git(clone, ['worktree', 'prune']);
-  // De (nu mogelijk lege) sprint-worktrees-map opruimen; negeer als er nog
-  // niet-verwijderde restanten in zitten.
-  try {
-    await rmdir(sprintWorktrees);
-    log.info(`Lege map verwijderd: ${sprintWorktrees}`);
-  } catch {
-    // niet leeg — laten staan
-  }
+  await removeIfEmpty(sprintWorktrees);
   log.info(
     `Klaar — ${removed} worktree(s) opgeruimd. Committed state onder ` +
       `sprints/${sprint}/ blijft bewaard.`,

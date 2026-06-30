@@ -225,6 +225,44 @@ export async function promptWorktreeSprint(): Promise<string | undefined> {
 }
 
 /**
+ * Ontdekt de externe-review-worktrees (mapnamen onder `state/worktrees/_external/`).
+ * Faalt zacht naar een lege lijst. Gesorteerd op naam.
+ */
+async function discoverExternalReviewWorktrees(): Promise<string[]> {
+  const stateDir = resolve(process.env.STATE_DIR ?? './state');
+  const externalDir = resolve(stateDir, 'worktrees', '_external');
+  try {
+    const entries = await readdir(externalDir, { withFileTypes: true });
+    return entries
+      .filter((e) => e.isDirectory())
+      .map((e) => e.name)
+      .sort();
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Vraagt welke externe-review-worktree(s) op te kuisen (multiselect, standaard
+ * niets geselecteerd). Geeft de gekozen leaf-namen (bv. `FLUX-743-kris-O48`), of
+ * `undefined` bij annulering / als er niets op te kuisen valt.
+ */
+export async function promptExternalReviewTargets(): Promise<string[] | undefined> {
+  const leaves = await discoverExternalReviewWorktrees();
+  if (leaves.length === 0) {
+    p.log.info('Geen externe-review-worktrees gevonden — niets om op te kuisen.');
+    return undefined;
+  }
+  const sel = await p.multiselect({
+    message: 'Welke externe reviews opkuisen?',
+    options: leaves.map((name) => ({ value: name, label: name })),
+    required: true,
+  });
+  if (p.isCancel(sel)) return undefined;
+  return sel;
+}
+
+/**
  * Leidt de state-foldernaam af uit een Jira-sprintnaam volgens de
  * teamconventie: 'release sprint - v2.17.0 - AI' → 'v2.17.0-AI'. We splitsen op
  * ' - ', gooien een leidend 'release sprint'-label weg en plakken de rest met

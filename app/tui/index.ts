@@ -10,20 +10,21 @@ import { refineAction } from './refine.js';
 import { planAction } from './plan.js';
 import { publishAction } from './publish.js';
 import { closeSprintAction } from './close-sprint.js';
+import { closeExternalAction } from './close-external.js';
 import { isDesktop } from './launch.js';
 
 config();
 
 // Optie-`value`s zijn de pipeline-codes zodat latere increments er direct op
 // kunnen routeren; de labels zijn NL voor het menu.
-type MenuChoice = 'refine' | 'plan' | 'publish' | 'develop' | 'close-sprint';
+type MenuChoice = 'refine' | 'plan' | 'publish' | 'develop' | 'opkuis';
 
 const MENU_OPTIONS: { value: MenuChoice; label: string; hint: string }[] = [
   { value: 'refine', label: 'analyse', hint: '' },
   { value: 'plan', label: 'planning', hint: 'van analyses' },
   { value: 'publish', label: 'publicatie', hint: 'van analyse' },
   { value: 'develop', label: 'ontwikkeling', hint: 'na analyse' },
-  { value: 'close-sprint', label: 'sprint afsluiten', hint: 'worktrees opkuisen' },
+  { value: 'opkuis', label: 'opkuis', hint: 'worktrees opruimen' },
 ];
 
 type DevelopChoice =
@@ -40,6 +41,14 @@ const DEVELOP_OPTIONS: { value: DevelopChoice; label: string; hint: string }[] =
   { value: 'develop', label: 'ontwikkel', hint: '' },
   { value: 'review', label: 'review', hint: 'na ontwikkeling' },
   { value: 'review-external', label: 'externe review', hint: 'andermans branch' },
+  { value: 'back', label: 'terug', hint: '' },
+];
+
+type OpkuisChoice = 'close-sprint' | 'close-external' | 'back';
+
+const OPKUIS_OPTIONS: { value: OpkuisChoice; label: string; hint: string }[] = [
+  { value: 'close-sprint', label: 'sprint afsluiten', hint: 'worktrees van een sprint' },
+  { value: 'close-external', label: 'externe reviews', hint: 'externe-review worktrees' },
   { value: 'back', label: 'terug', hint: '' },
 ];
 
@@ -86,6 +95,30 @@ async function developMenu(): Promise<void> {
   }
 }
 
+// Submenu voor 'opkuis': worktrees opruimen (committed state blijft altijd).
+// Keert terug naar het hoofdmenu bij 'terug' of een geannuleerde keuze.
+async function opkuisMenu(): Promise<void> {
+  while (true) {
+    const choice = await p.select<OpkuisChoice>({
+      message: 'Opkuis — wat wil je opruimen?',
+      options: OPKUIS_OPTIONS,
+    });
+
+    if (p.isCancel(choice) || choice === 'back') {
+      return;
+    }
+
+    if (choice === 'close-sprint') {
+      await closeSprintAction();
+      continue;
+    }
+    if (choice === 'close-external') {
+      await closeExternalAction();
+      continue;
+    }
+  }
+}
+
 async function main(): Promise<void> {
   // In de app stop je de TUI door het venster te sluiten, niet met Ctrl-C.
   // Vang SIGINT zodat een Ctrl-C tussen prompts in het node-proces niet doodt
@@ -127,8 +160,8 @@ async function main(): Promise<void> {
       await publishAction();
       continue;
     }
-    if (choice === 'close-sprint') {
-      await closeSprintAction();
+    if (choice === 'opkuis') {
+      await opkuisMenu();
       continue;
     }
   }

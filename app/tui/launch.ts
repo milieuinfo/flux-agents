@@ -32,6 +32,7 @@ export const SCRIPT_PATHS = {
   publish: 'pipeline/jira/publish.ts',
   'publish-review': 'pipeline/jira/publish-review.ts',
   'close-sprint': 'pipeline/state/close-sprint.ts',
+  'close-external': 'pipeline/state/close-external.ts',
 } as const;
 
 export type ScriptKey = keyof typeof SCRIPT_PATHS;

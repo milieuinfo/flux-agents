@@ -46,6 +46,8 @@ Daarnaast zijn er **deterministische scripts** (geen LLM-oordeel nodig):
   squash-commit-subject (titel) + `_pr-body.md` (body) (zie §11)
 - `pipeline/state/close-sprint.ts` (`npm run state:close-sprint`) — ruimt de worktrees
   van een afgesloten sprint op (zie §13)
+- `pipeline/state/close-external.ts` (`npm run state:close-external`) — ruimt de
+  worktrees van externe code-reviews op (zie §13)
 
 En er zijn **orchestrators** die de agents en scripts na elkaar draaien:
 - `pipeline/agents/ship.ts` / `pipeline/agents/iterate.ts` — develop→review-lus voor één ticket
@@ -585,18 +587,27 @@ ticket, en werken `push`/`pr` (en de rest van de downstream) ongewijzigd.
 verschillende sprints), of de PR mergen. `converge` weigert als een bron niet
 `approved` is — het is geen vervanger voor `iterate`, maar de stap erná.
 
-### 13. State-onderhoud: close-sprint (`npm run state:close-sprint`)
+### 13. State-onderhoud: worktrees opkuisen (`npm run state:close-*`)
 
-Een deterministisch script (geen LLM) houdt de state-repo netjes. Het raakt
-nooit Jira, GitHub of de feature-branches — enkel de lokale worktrees.
+Twee deterministische scripts (geen LLM) houden de state-repo netjes. Ze raken
+nooit Jira, GitHub of de feature-branches — enkel de lokale (gitignored)
+worktrees; de committed state blijft altijd bewaard. Gedeelde verwijder-logica
+in `pipeline/state/worktree-cleanup.ts`.
 
 **`npm run state:close-sprint -- <SPRINT>`** — ruimt de worktrees van een
 afgesloten sprint op: `git worktree remove --force` op elke `worktrees/<SPRINT>/*`
-gevolgd door `git worktree prune`. De **committed** state (refinement + ticketwerk
-onder `sprints/<SPRINT>/`) blijft bewaard in de git-historie. Idempotent — geen
-worktrees meer = no-op. Met `--dry-run` toont het enkel wat het zou verwijderen.
-Ook beschikbaar in de TUI als 'sprint afsluiten' (toont enkel sprints die nog
-worktrees hebben).
+gevolgd door `git worktree prune`. De committed sprint-state (refinement +
+ticketwerk onder `sprints/<SPRINT>/`) blijft bewaard. In de TUI: submenu
+'opkuis' → 'sprint afsluiten' (toont enkel sprints die nog worktrees hebben).
+
+**`npm run state:close-external [-- <LEAF>]`** — ruimt de wegwerp-worktrees van
+externe code-reviews op (`worktrees/_external/*`). Zonder argument alle, met een
+argument enkel `worktrees/_external/<LEAF>` (bv. `FLUX-743-kris-O48`). De committed
+review-output onder `external-reviews/<KEY>/` blijft bewaard. In de TUI: submenu
+'opkuis' → 'externe reviews' (multiselect, standaard niets geselecteerd).
+
+Beide nemen `--dry-run` (toont enkel wat ze zouden verwijderen) en zijn
+idempotent — geen worktrees meer = no-op.
 
 **Waarom deterministisch en los:** opkuisen is een puur mechanische
 bestandsoperatie zonder oordeel; het hoort niet in een LLM-run, en het apart
@@ -683,7 +694,9 @@ flux-agents/                      ← deze repo (tooling, code, prompts)
 │   │   ├── push.ts               ← push feature-branch van approved ticket (§11)
 │   │   └── pr.ts                 ← draft-PR aanmaken voor approved ticket (§11)
 │   └── state/                    ← deterministisch state-onderhoud (npm run state:*)
-│       └── close-sprint.ts       ← worktrees van een afgesloten sprint opruimen (§13)
+│       ├── close-sprint.ts       ← worktrees van een afgesloten sprint opruimen (§13)
+│       ├── close-external.ts     ← worktrees van externe code-reviews opruimen (§13)
+│       └── worktree-cleanup.ts   ← gedeelde verwijder-helper voor beide
 ├── app/                          ← de shell om de pipeline te draaien
 │   ├── desktop/                  ← Electron-app (main/preload/renderer + build.mjs)
 │   ├── tui/                      ← @clack/prompts terminal-UI
