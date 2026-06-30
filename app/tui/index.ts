@@ -9,19 +9,21 @@ import { convergeAction } from './converge.js';
 import { refineAction } from './refine.js';
 import { planAction } from './plan.js';
 import { publishAction } from './publish.js';
+import { closeSprintAction } from './close-sprint.js';
 import { isDesktop } from './launch.js';
 
 config();
 
 // Optie-`value`s zijn de pipeline-codes zodat latere increments er direct op
 // kunnen routeren; de labels zijn NL voor het menu.
-type MenuChoice = 'refine' | 'plan' | 'publish' | 'develop';
+type MenuChoice = 'refine' | 'plan' | 'publish' | 'develop' | 'close-sprint';
 
 const MENU_OPTIONS: { value: MenuChoice; label: string; hint: string }[] = [
   { value: 'refine', label: 'analyse', hint: '' },
   { value: 'plan', label: 'planning', hint: 'van analyses' },
   { value: 'publish', label: 'publicatie', hint: 'van analyse' },
   { value: 'develop', label: 'ontwikkeling', hint: 'na analyse' },
+  { value: 'close-sprint', label: 'sprint afsluiten', hint: 'worktrees opkuisen' },
 ];
 
 type DevelopChoice =
@@ -123,6 +125,10 @@ async function main(): Promise<void> {
     }
     if (choice === 'publish') {
       await publishAction();
+      continue;
+    }
+    if (choice === 'close-sprint') {
+      await closeSprintAction();
       continue;
     }
   }

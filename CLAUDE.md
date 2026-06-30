@@ -595,6 +595,8 @@ afgesloten sprint op: `git worktree remove --force` op elke `worktrees/<SPRINT>/
 gevolgd door `git worktree prune`. De **committed** state (refinement + ticketwerk
 onder `sprints/<SPRINT>/`) blijft bewaard in de git-historie. Idempotent — geen
 worktrees meer = no-op. Met `--dry-run` toont het enkel wat het zou verwijderen.
+Ook beschikbaar in de TUI als 'sprint afsluiten' (toont enkel sprints die nog
+worktrees hebben).
 
 **Waarom deterministisch en los:** opkuisen is een puur mechanische
 bestandsoperatie zonder oordeel; het hoort niet in een LLM-run, en het apart

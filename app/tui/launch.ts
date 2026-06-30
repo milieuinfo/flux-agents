@@ -31,6 +31,7 @@ export const SCRIPT_PATHS = {
   converge: 'pipeline/agents/converge.ts',
   publish: 'pipeline/jira/publish.ts',
   'publish-review': 'pipeline/jira/publish-review.ts',
+  'close-sprint': 'pipeline/state/close-sprint.ts',
 } as const;
 
 export type ScriptKey = keyof typeof SCRIPT_PATHS;

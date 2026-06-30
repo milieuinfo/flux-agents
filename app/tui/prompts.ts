@@ -188,6 +188,43 @@ export async function promptSprint(
 }
 
 /**
+ * Ontdekt de sprints die nog worktrees hebben (mapnamen onder
+ * `state/worktrees/`, exclusief de gereserveerde `_base`/`_external`). Faalt
+ * zacht naar een lege lijst. Nieuwste eerst.
+ */
+async function discoverWorktreeSprints(): Promise<string[]> {
+  const stateDir = resolve(process.env.STATE_DIR ?? './state');
+  const worktreesDir = resolve(stateDir, 'worktrees');
+  try {
+    const entries = await readdir(worktreesDir, { withFileTypes: true });
+    return entries
+      .filter((e) => e.isDirectory() && !e.name.startsWith('_'))
+      .map((e) => e.name)
+      .sort()
+      .reverse();
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Vraagt een sprint die nog worktrees heeft (om op te kuisen met close-sprint).
+ * Geeft `undefined` bij annulering of als er geen op te kuisen sprints zijn.
+ */
+export async function promptWorktreeSprint(): Promise<string | undefined> {
+  const sprints = await discoverWorktreeSprints();
+  if (sprints.length === 0) {
+    p.log.info('Geen sprints met worktrees gevonden — niets om op te kuisen.');
+    return undefined;
+  }
+  const sel = await p.select({
+    message: 'Welke sprint afsluiten (worktrees opkuisen)?',
+    options: sprints.map((name) => ({ value: name, label: name })),
+  });
+  return p.isCancel(sel) ? undefined : sel;
+}
+
+/**
  * Leidt de state-foldernaam af uit een Jira-sprintnaam volgens de
  * teamconventie: 'release sprint - v2.17.0 - AI' → 'v2.17.0-AI'. We splitsen op
  * ' - ', gooien een leidend 'release sprint'-label weg en plakken de rest met
