@@ -21,7 +21,7 @@ naast `flux-agents`:
 cd ..
 gh repo create flux-agents-state --private --clone
 cd flux-agents-state
-printf 'logs/\nworktrees/\nrepo/\n' > .gitignore
+printf 'logs/\nworktrees/\nclone/\n' > .gitignore
 git add .gitignore && git commit -m "chore: initial gitignore"
 ```
 
@@ -36,7 +36,7 @@ Vul minstens in: `JIRA_PERSONAL_TOKEN`, `FLUX_REPO_URL`, `FLUX_BASE_BRANCH`
 (default `develop-v2`), `STATE_DIR` (default `../flux-agents-state`).
 
 Bij de eerste run klont de pipeline flux-web-components automatisch onder
-`$STATE_DIR/repo/flux-web-components/` (gitignored) — volledig los van je eigen werkcopie.
+`$STATE_DIR/clone/flux-web-components/` (gitignored) — volledig los van je eigen werkcopie.
 
 ### 4. Claude-authenticatie
 

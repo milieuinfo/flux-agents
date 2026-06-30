@@ -26,9 +26,9 @@ waarbij de code uit het **develop-model** (`AGENT_DEVELOP_MODEL`) komt:
 
 Voorbeeld met `AGENT_DEVELOP_MODEL=claude-opus-4-8` en `--profile kris` → label `kris-O48`:
 
-- **Worktree:** `state/worktrees/flux-web-components-FLUX-123-kris-O48/`
+- **Worktree:** `state/worktrees/<sprint>/FLUX-123-kris-O48/`
 - **Branch:** `feature-v2/kris-O48/FLUX-123-<slug>`
-- **State:** `state/tickets/<sprint>/FLUX-123/kris-O48/{ticket.md, code-changes.md, review-r*.md, _pr-body.md, _status.json}`
+- **State:** `state/sprints/<sprint>/tickets/FLUX-123/kris-O48/{ticket.md, code-changes.md, review-r*.md, _pr-body.md, _status.json}`
 
 Vóór de SDK-call draait `./set-ai-profile.sh kris` in de worktree. Een model-wissel
 in `.env` levert dus een nieuwe, niet-botsende run op naast de vorige.

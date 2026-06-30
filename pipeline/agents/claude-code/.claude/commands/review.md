@@ -8,7 +8,7 @@ Review de branch voor ticket `$1`.
 
 ## Stap 1 — Valideer state
 
-Check dat `state/tickets/<sprint>/$1/_status.json` bestaat en dat:
+Check dat `state/sprints/<sprint>/tickets/$1/_status.json` bestaat en dat:
 - `status` is `"in_progress"` of `"changes_addressed"`
 - Er een `code-changes.md` is
 
@@ -26,9 +26,9 @@ Als er uncommitted changes zijn: STOP.
 Roep de `ticket-reviewer` subagent aan met deze instructie:
 
 > Review de huidige branch voor ticket $1.
-> - Refinement: `state/tickets/<sprint>/$1/ticket.md`
-> - Code changes: `state/tickets/<sprint>/$1/code-changes.md`
-> - Status: `state/tickets/<sprint>/$1/_status.json`
+> - Refinement: `state/sprints/<sprint>/tickets/$1/ticket.md`
+> - Code changes: `state/sprints/<sprint>/tickets/$1/code-changes.md`
+> - Status: `state/sprints/<sprint>/tickets/$1/_status.json`
 >
 > Huidige ronde is {round uit _status.json}. Volg je werkwijze: schrijf
 > `review-r{round}.md`, update `_status.json`, en bij APPROVED: squash

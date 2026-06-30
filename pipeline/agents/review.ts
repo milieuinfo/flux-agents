@@ -94,7 +94,7 @@ export async function runReview({ key, profile }: ReviewArgs): Promise<void> {
     );
   }
 
-  const worktree = ticketWorktreePath(stateDir, key, label);
+  const worktree = ticketWorktreePath(stateDir, ticketSprint, key, label);
   try {
     await access(worktree);
   } catch {
@@ -132,7 +132,7 @@ export async function runReview({ key, profile }: ReviewArgs): Promise<void> {
         process.env.AGENT_REVIEW_MAX_TURNS ?? 100,
       ),
       cwd: worktree,
-      // Reviewer writes review-r<N>.md and _status.json in state/tickets/<KEY>/.
+      // Reviewer writes review-r<N>.md and _status.json in state/sprints/<sprint>/tickets/<KEY>/.
       additionalDirectories: [stateDir],
       systemPrompt: { type: 'preset', preset: 'claude_code', append: systemPrompt },
       allowedTools: ['Read', 'Write', 'Edit', 'Glob', 'Grep', 'Bash'],

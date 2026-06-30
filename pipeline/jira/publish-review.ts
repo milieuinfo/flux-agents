@@ -3,7 +3,7 @@
  * Publish-review — post een externe-review-markdown als comment op een
  * Jira-ticket.
  *
- * Pakt standaard de nieuwste `review-*.md` uit `state/reviews/<KEY>/`.
+ * Pakt standaard de nieuwste `review-*.md` uit `state/external-reviews/<KEY>/`.
  * Comment-header: `## Code review - AI`. Idempotent: een file die al
  * gepost is (zelfde sha-hash van de body) wordt overgeslagen. Een
  * nieuwe of gewijzigde file → nieuwe comment (oude comments worden
@@ -154,7 +154,7 @@ async function fileExists(p: string): Promise<boolean> {
 async function main() {
   const args = parseArgs();
   const stateDir = resolve(process.env.STATE_DIR ?? './state');
-  const reviewsDir = join(stateDir, 'reviews', args.key);
+  const reviewsDir = join(stateDir, 'external-reviews', args.key);
   const publishedPath = join(reviewsDir, '_published.json');
 
   const reviewPath = args.file

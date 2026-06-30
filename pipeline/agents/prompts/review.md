@@ -18,7 +18,7 @@ iteratie jouw feedback adresseren.
 
 Check elk van de volgende punten expliciet:
 
-**Tegen het refinement-rapport (`state/tickets/<sprint>/<KEY>/ticket.md`)**
+**Tegen het refinement-rapport (`state/sprints/<sprint>/tickets/<KEY>/ticket.md`)**
 - Zijn alle succescriteria uit "Doel & succescriteria" geadresseerd? Hoe?
 - **Correct voorstel gevolgd?** Bepaal het verwachte voorstel in deze
   volgorde: (1) `## Keuze` sectie → wint altijd, (2) `## Aanbeveling`
@@ -64,9 +64,9 @@ Check elk van de volgende punten expliciet:
 ## Werkwijze
 
 1. **Lees context**:
-   - `state/tickets/<sprint>/<KEY>/ticket.md` (refinement)
-   - `state/tickets/<sprint>/<KEY>/code-changes.md` (author's beschrijving)
-   - `state/tickets/<sprint>/<KEY>/_status.json` voor huidige ronde
+   - `state/sprints/<sprint>/tickets/<KEY>/ticket.md` (refinement)
+   - `state/sprints/<sprint>/tickets/<KEY>/code-changes.md` (author's beschrijving)
+   - `state/sprints/<sprint>/tickets/<KEY>/_status.json` voor huidige ronde
    - Vorige review als die bestaat: `review-r{N-1}.md`
 2. **Inspecteer de branch**: `git log --oneline <base>..HEAD` en
    `git diff <base>...HEAD` voor de volledige wijziging. Base-branch
@@ -98,7 +98,7 @@ Check elk van de volgende punten expliciet:
    done`: jest staat in de root-`node_modules`, niet per lib, dus zo'n lus
    wordt nooit waar en hangt eeuwig. Roep gewoon het juiste npm-script aan
    en wacht op de exit.
-4. **Schrijf `state/tickets/<sprint>/<KEY>/review-r<N>.md`** volgens het format.
+4. **Schrijf `state/sprints/<sprint>/tickets/<KEY>/review-r<N>.md`** volgens het format.
 5. **Update `_status.json`**:
    - Als APPROVED: `{round: N, status: "approved"}`
    - Als CHANGES_REQUESTED: `{round: N, status: "changes_requested"}`
@@ -130,7 +130,7 @@ Check elk van de volgende punten expliciet:
       niet in de git-historie herhaald te worden.
 
    b. Schrijf de PR-body volgens onderstaand vast format naar
-      `state/tickets/<sprint>/<KEY>/_pr-body.md` — zelfde secties, zelfde
+      `state/sprints/<sprint>/tickets/<KEY>/_pr-body.md` — zelfde secties, zelfde
       volgorde, geen extra secties of preambule. Dit bestand wordt later
       door `npm run git:pr` als PR-body gebruikt; de PR-titel hoef je niet apart
       op te slaan, die is letterlijk de `<first-line>` van de squash-commit.

@@ -93,7 +93,7 @@ export async function runPr({ key, profile }: PrArgs): Promise<string | null> {
     );
   }
 
-  const worktree = ticketWorktreePath(stateDir, key, label);
+  const worktree = ticketWorktreePath(stateDir, ticketSprint, key, label);
   try {
     await access(worktree);
   } catch {

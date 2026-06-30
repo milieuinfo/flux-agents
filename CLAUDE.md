@@ -44,6 +44,10 @@ Daarnaast zijn er **deterministische scripts** (geen LLM-oordeel nodig):
   goedgekeurd ticket naar origin (zie §11)
 - `pipeline/git/pr.ts` (`npm run git:pr`) — maakt de draft-PR aan op basis van de
   squash-commit-subject (titel) + `_pr-body.md` (body) (zie §11)
+- `pipeline/state/migrate.ts` (`npm run state:migrate`) — éénmalige migratie van een
+  oudere state-repo naar de huidige layout (zie §13)
+- `pipeline/state/close-sprint.ts` (`npm run state:close-sprint`) — ruimt de worktrees
+  van een afgesloten sprint op (zie §13)
 
 En er zijn **orchestrators** die de agents en scripts na elkaar draaien:
 - `pipeline/agents/ship.ts` / `pipeline/agents/iterate.ts` — develop→review-lus voor één ticket
@@ -116,10 +120,10 @@ die door agent 1 + 2 verwerkt is, en er is geen `_status.json` of
 
 ```
 npm run pipeline:review-external -- FLUX-XYZ feature-v2/iemand-anders-zn-branch
-    │  per-ticket worktree onder state/worktrees/flux-web-components-FLUX-XYZ-external/
+    │  per-ticket worktree onder state/worktrees/_external/FLUX-XYZ/
     │  detached HEAD op origin/<branch>, leest optioneel ticket.md
     ▼
-state/reviews/FLUX-XYZ/review-<timestamp>.md
+state/external-reviews/FLUX-XYZ/review-<timestamp>.md
     │
     ▼
 npm run jira:publish-review -- FLUX-XYZ          (eventueel met --file <pad>)
@@ -132,9 +136,9 @@ Eigenschappen die haaks staan op de gewone review-flow:
 
 - Géén squash, géén push, géén `gh pr create`.
 - Eén review-md per run (timestamp in bestandsnaam, geen overschrijven).
-- Aparte worktree-naam (`-external` suffix) zodat een lokale develop-state
-  voor hetzelfde ticket niet botst.
-- Idempotency: `state/reviews/<KEY>/_published.json` houdt sha-hashes
+- Aparte worktree-namespace (`worktrees/_external/`) zodat een lokale
+  develop-state voor hetzelfde ticket niet botst.
+- Idempotency: `state/external-reviews/<KEY>/_published.json` houdt sha-hashes
   per gepost bestand bij. Tweede `publish-review` op een ongewijzigd
   bestand = no-op. Een nieuwe review-md → nieuwe comment.
 
@@ -277,18 +281,18 @@ krijgt die gebundeld in het prompt en produceert `_order.md`.
 ### 7. Managed clone + per-ticket worktree (SDK-first voor agents 3/4)
 
 De pipeline beheert zijn eigen clone van flux-web-components onder
-`state/repo/flux-web-components/` (gitignored), opgezet bij de eerste
+`state/clone/flux-web-components/` (gitignored), opgezet bij de eerste
 run op basis van `FLUX_REPO_URL` uit `.env`. Agents 1, 3 en 4 spawnen
-hier worktrees uit:
+hier worktrees uit (alle worktrees zitten onder `state/worktrees/`):
 - Agent 1: één gedeelde worktree op `origin/<FLUX_BASE_BRANCH>`
-  (`state/worktrees/flux-web-components-<baseBranch>/`), detached
-  HEAD, alleen voor code-lezen.
-- Agents 3/4: per-ticket worktree op een feature-branch
-  (`state/worktrees/flux-web-components-<KEY>/`), afgesplitst van
+  (`state/worktrees/_base/<baseBranch>/`), detached HEAD, alleen voor
+  code-lezen.
+- Agents 3/4: per-ticket worktree op een feature-branch, per sprint
+  gegroepeerd (`state/worktrees/<sprint>/<KEY>/`), afgesplitst van
   `origin/<FLUX_BASE_BRANCH>`. Bij een `--profile` (zie §10) zit het
   label `<profiel>-<modelcode>` in de mapnaam —
-  `flux-web-components-<KEY>-<profiel>-<code>/` (bv. `…-kris-O48/`) —
-  zodat profile- én model-runs niet botsen.
+  `state/worktrees/<sprint>/<KEY>-<profiel>-<code>/` (bv. `…/FLUX-463-kris-O48/`)
+  — zodat profile- én model-runs niet botsen.
 
 **Waarom deze managed-clone-aanpak:** (a) Server-ready — fresh install
 heeft alleen `.env` nodig, de clone komt automatisch. (b) Volledige
@@ -403,17 +407,17 @@ vorige. Zonder `--profile` is er geen label en geen model-code → exact het
 oude pad.
 
 Bij een profile-run gebeurt het volgende (`<label>` = `<profiel>-<code>`):
-- **Worktree-pad** krijgt het label als suffix:
-  `state/worktrees/flux-web-components-<KEY>-<label>/`
-  (extern: `flux-web-components-<KEY>-<label>-external/`).
-  Bv. `flux-web-components-FLUX-463-kris-O48/`.
+- **Worktree-pad** krijgt het label als suffix (binnen de sprint-map):
+  `state/worktrees/<sprint>/<KEY>-<label>/`
+  (extern: `state/worktrees/_external/<KEY>-<label>/`).
+  Bv. `state/worktrees/<sprint>/FLUX-463-kris-O48/`.
 - **Branch-naam** krijgt het label als path-segment:
   `feature-v2/<label>/<KEY>-<slug>` (bv.
   `feature-v2/kris-O48/FLUX-463-popover-max-height-scroll`). Het bestaande
   `feature-v2/FLUX-*` pattern voor profile-loze runs verandert niet.
 - **Ticket-state** gaat in een subfolder per label:
-  `state/tickets/<sprint>/<KEY>/<label>/{ticket.md, code-changes.md,
-  review-r*.md, _status.json}` (bv. `.../FLUX-463/kris-O48/`). `ticket.md`
+  `state/sprints/<sprint>/tickets/<KEY>/<label>/{ticket.md, code-changes.md,
+  review-r*.md, _status.json}` (bv. `.../tickets/FLUX-463/kris-O48/`). `ticket.md`
   wordt per label gedupliceerd — bewust, zodat runs mogen divergeren (eigen
   `## Keuze` per profiel/model).
 - **`_status.json`** krijgt een veld `profile: "<naam>"` met het **kale**
@@ -542,9 +546,9 @@ Flow:
    `feature-v2/<KEY>-<slug>` — **géén** profiel-segment en **géén** model-code
    (er is geen profiel gebruikt voor het resultaat). De slug komt uit het
    profielloze refinement-rapport (`sprints/<sprint>/<KEY>.md`), niet uit een
-   per-profiel `ticket.md`. Worktree (`flux-web-components-<KEY>`) en
-   ticket-state (`tickets/<sprint>/<KEY>/`, zonder label-subfolder) zijn dus
-   de profielloze paden — exact wat `npm run git:push`/`npm run git:pr` zonder
+   per-profiel `ticket.md`. Worktree (`worktrees/<sprint>/<KEY>`) en
+   ticket-state (`sprints/<sprint>/tickets/<KEY>/`, zonder label-subfolder) zijn
+   dus de profielloze paden — exact wat `npm run git:push`/`npm run git:pr` zonder
    `--profile` verwachten. De gecombineerde run ís de canonieke ontwikkeling
    van het ticket.
 3. **Combineren (LLM).** Een Opus-agent draait in de verse worktree (op de
@@ -583,6 +587,40 @@ ticket, en werken `push`/`pr` (en de rest van de downstream) ongewijzigd.
 verschillende sprints), of de PR mergen. `converge` weigert als een bron niet
 `approved` is — het is geen vervanger voor `iterate`, maar de stap erná.
 
+### 13. State-onderhoud: migrate + close-sprint (`npm run state:*`)
+
+Twee deterministische scripts (geen LLM) houden de state-repo netjes. Ze raken
+nooit Jira, GitHub of de feature-branches — enkel de lokale state-layout.
+
+**`npm run state:migrate`** — éénmalige migratie van een oudere state-repo naar
+de huidige sprint-centrische layout. Verplaatst:
+- `repo/` → `clone/`
+- `tickets/<SPRINT>/<KEY>/` → `sprints/<SPRINT>/tickets/<KEY>/`
+- `reviews/` → `external-reviews/`
+- `worktrees/flux-web-components-<baseBranch>` → `worktrees/_base/<baseBranch>`
+- `worktrees/flux-web-components-<KEY>[-<label>]` → `worktrees/<sprint>/<KEY>[-<label>]`
+  (sprint afgeleid uit `sprints/`/`tickets/`; worktrees zonder sprint-match —
+  bv. externe of converge-restanten — gaan naar `worktrees/_external/` of worden
+  gerapporteerd)
+
+Verplaatsen gebeurt met `git worktree move` zodat de git-registraties in de
+managed clone geldig blijven; de rest met gewone `rename`. Het script werkt
+**niet-destructief**: bij een botsing (doel bestaat al) laat het de bron staan en
+rapporteert het, en het **commit niet** — de verplaatste mappen blijven als
+working-tree-wijziging staan zodat Kris ze kan inspecteren en zelf committen. Het
+herschrijft ook de `.gitignore` van de state-repo naar `logs/ worktrees/ clone/`.
+Idempotent: een tweede run op een al-gemigreerde repo is een no-op.
+
+**`npm run state:close-sprint -- <SPRINT>`** — ruimt de worktrees van een
+afgesloten sprint op: `git worktree remove --force` op elke `worktrees/<SPRINT>/*`
+gevolgd door `git worktree prune`. De **committed** state (refinement + ticketwerk
+onder `sprints/<SPRINT>/`) blijft bewaard in de git-historie. Idempotent — geen
+worktrees meer = no-op.
+
+**Waarom deterministisch en los:** opkuisen en migreren zijn puur mechanische
+bestandsoperaties zonder oordeel; ze horen niet in een LLM-run, en het apart
+houden betekent dat een fout in dit pad de agent-output nooit raakt.
+
 ## Harde regels — agents mogen deze NOOIT overtreden
 
 - **Geen `git push` behalve** via `pipeline/git/push.ts` (`npm run git:push`) op een
@@ -604,7 +642,7 @@ verschillende sprints), of de PR mergen. `converge` weigert als een bron niet
   (b) het umbrella-ticket per sprint, beide door `publish.ts`. Verder
   blijft alles lokale markdown.
 - **Geen comments posten op GitHub PR's** — review-feedback blijft in
-  `state/tickets/<sprint>/<KEY>/review-r*.md`
+  `state/sprints/<sprint>/tickets/<KEY>/review-r*.md`
 - **Geen dependencies installeren** zonder Kris expliciet te vragen
   en te motiveren waarom
 - **Geen secrets loggen** — tokens in `.env` blijven daar
@@ -660,9 +698,12 @@ flux-agents/                      ← deze repo (tooling, code, prompts)
 │   ├── jira/                     ← deterministische Jira-publicatie (npm run jira:*)
 │   │   ├── publish.ts            ← sprint-publicatie (directe Jira REST)
 │   │   └── publish-review.ts     ← review-publicatie (1 ticket, 1 comment per run)
-│   └── git/                      ← deterministische git/GitHub-stappen (npm run git:*)
-│       ├── push.ts               ← push feature-branch van approved ticket (§11)
-│       └── pr.ts                 ← draft-PR aanmaken voor approved ticket (§11)
+│   ├── git/                      ← deterministische git/GitHub-stappen (npm run git:*)
+│   │   ├── push.ts               ← push feature-branch van approved ticket (§11)
+│   │   └── pr.ts                 ← draft-PR aanmaken voor approved ticket (§11)
+│   └── state/                    ← deterministisch state-onderhoud (npm run state:*)
+│       ├── migrate.ts            ← éénmalige migratie naar de huidige layout (§13)
+│       └── close-sprint.ts       ← worktrees van een afgesloten sprint opruimen (§13)
 ├── app/                          ← de shell om de pipeline te draaien
 │   ├── desktop/                  ← Electron-app (main/preload/renderer + build.mjs)
 │   ├── tui/                      ← @clack/prompts terminal-UI
@@ -674,35 +715,48 @@ flux-agents/                      ← deze repo (tooling, code, prompts)
 
 flux-agents-state/                ← aparte repo (STATE_DIR)
 ├── logs/                         ← gitignored
-├── repo/                         ← gitignored (managed clone, bij eerste run aangemaakt)
+├── clone/                        ← gitignored (managed clone, bij eerste run aangemaakt)
 │   └── flux-web-components/      ← volledig los van Kris' eigen werkclone
-├── worktrees/                    ← gitignored (per-ticket + base-branch worktrees)
-│   ├── flux-web-components-develop-v2/        ← agent 1 leest hieruit
-│   ├── flux-web-components-FLUX-<KEY>/        ← agents 3/4 werken hier (geen profile)
-│   └── flux-web-components-FLUX-<KEY>-<profiel>-<code>/  ← mét --profile, code uit model (§10)
-├── sprints/<SPRINT>/             ← gecommit (refinement-output)
+├── worktrees/                    ← gitignored (álle worktrees in één tree)
+│   ├── <SPRINT>/<KEY>[-<label>]/              ← agents 3/4, per sprint gegroepeerd (§7)
+│   ├── _base/<baseBranch>/                    ← agent 1 leest hieruit (read-only)
+│   └── _external/<KEY>[-<label>]/             ← externe-review worktrees (zijtak)
+├── sprints/<SPRINT>/             ← gecommit (sprint = refinement + ticketwerk)
 │   ├── _meta.json                ← agent 1 hashes
 │   ├── _order.md                 ← agent 2 output
 │   ├── _published.json           ← pipeline/jira/publish.ts state (hashes per ticket + umbrella key)
 │   ├── FLUX-*.md                 ← agent 1 output per ticket (uitgebreid, Opus)
-│   └── FLUX-*.jira.md            ← agent 1 beknopte versie (Sonnet, voor Jira-comment)
-├── tickets/<SPRINT>/<KEY>/       ← gecommit (per-ticket werk, gegroepeerd per sprint)
-│   ├── ticket.md                 ← kopie van refinement (zonder profile)
-│   ├── code-changes.md           ← agent 3 per ronde (zonder profile)
-│   ├── review-r<N>.md            ← agent 4 per ronde (zonder profile)
-│   ├── _pr-body.md               ← agent 4 bij APPROVED; body voor `npm run git:pr` (§11)
-│   ├── _converge.md              ← converge: verslag van bronnen + keuzes (§12)
-│   ├── _status.json              ← round, status, baseBranch, branch, prUrl, profile?
-│   └── <profiel>-<code>/         ← mét --profile: eigen kopie per profiel+model (§10)
-│       ├── ticket.md
-│       ├── code-changes.md
-│       ├── review-r<N>.md
-│       ├── _pr-body.md
-│       └── _status.json
-└── reviews/<KEY>/                ← gecommit (externe code-reviews)
+│   ├── FLUX-*.jira.md            ← agent 1 beknopte versie (Sonnet, voor Jira-comment)
+│   └── tickets/<KEY>/            ← gecommit (per-ticket werk onder de sprint)
+│       ├── ticket.md             ← kopie van refinement (zonder profile)
+│       ├── code-changes.md       ← agent 3 per ronde (zonder profile)
+│       ├── review-r<N>.md        ← agent 4 per ronde (zonder profile)
+│       ├── _pr-body.md           ← agent 4 bij APPROVED; body voor `npm run git:pr` (§11)
+│       ├── _converge.md          ← converge: verslag van bronnen + keuzes (§12)
+│       ├── _status.json          ← round, status, baseBranch, branch, prUrl, profile?
+│       └── <profiel>-<code>/     ← mét --profile: eigen kopie per profiel+model (§10)
+│           ├── ticket.md
+│           ├── code-changes.md
+│           ├── review-r<N>.md
+│           ├── _pr-body.md
+│           └── _status.json
+└── external-reviews/<KEY>/       ← gecommit (externe code-reviews)
     ├── review-<timestamp>.md     ← review-external output (1 per run)
     └── _published.json           ← publish-review state (hash per bestand)
 ```
+
+**Sprint-centrisch:** alles wat aan een sprint hangt zit op één plek —
+refinement én ticketwerk onder `sprints/<SPRINT>/`, en de (gitignored)
+worktrees onder `worktrees/<SPRINT>/`. Een afgesloten sprint kuis je op met
+`npm run state:close-sprint -- <SPRINT>` (zie §13): dat doet `git worktree
+remove` op alle `worktrees/<SPRINT>/*` en laat de committed state staan. De
+base-branch- en externe-review-worktrees hangen niet aan een sprint en zitten
+daarom onder de gereserveerde `worktrees/_base/` en `worktrees/_external/`.
+
+**Migratie:** een oudere state-repo (met `repo/`, top-level `tickets/<SPRINT>/`,
+platte `worktrees/flux-web-components-*`, `reviews/`) breng je éénmalig naar deze
+layout met `npm run state:migrate` (verplaatst mappen + `git worktree move`; zie
+§13). De code leest enkel de nieuwe layout.
 
 **Waarom gesplitst:** tooling en work-product hebben verschillende
 commit-cadans (zeldzaam vs dagelijks), verschillende retention (tool:
@@ -743,9 +797,9 @@ Als je (Claude in een toekomstige sessie) iets aanpast, valideer:
 
 1. **Harde regels hierboven** — nog steeds afdwingbaar?
 2. **State-compatibiliteit** — kunnen bestaande
-   `state/tickets/<SPRINT>/*` folders nog door de nieuwe code gelezen
-   worden? `_status.json` schema-wijzigingen vereisen een
-   migratie-strategie.
+   `state/sprints/<SPRINT>/tickets/*` folders nog door de nieuwe code gelezen
+   worden? Layout- of `_status.json`-schemawijzigingen vereisen een
+   migratie-strategie (zie `pipeline/state/migrate.ts`, §13).
 3. **Idempotentie agent 1** — herstart blijft non-destructief?
 4. **Max rondes** — blijft escalatie-logica intact?
 5. **Geen nieuwe netwerk-endpoints** — we praten alleen met Jira REST
@@ -809,8 +863,9 @@ Veel waarschijnlijke foutmodes:
   sprint weg en dan spoort agent 3 hem zelf op (werkt alleen als het
   ticket in exact één sprint-folder voorkomt)
 - **Per-ticket worktree botst** → bestaat al van een eerdere poging?
-  Kijk onder `state/worktrees/flux-web-components-<KEY>/`, ruim op met
-  `git -C state/repo/flux-web-components worktree remove <path>` wanneer
-  je echt opnieuw wil beginnen
+  Kijk onder `state/worktrees/<sprint>/<KEY>/`, ruim op met
+  `git -C state/clone/flux-web-components worktree remove <path>` wanneer
+  je echt opnieuw wil beginnen (of `npm run state:close-sprint -- <sprint>`
+  voor alle worktrees van een sprint, §13)
 - **(CC-variant) Claude Code vindt `.claude/` niet** → alleen relevant
   voor interactieve debugging; check `ls -la flux-web-components/.claude`

@@ -59,7 +59,7 @@ export async function runPush({ key, profile }: PushArgs): Promise<void> {
     );
   }
 
-  const worktree = ticketWorktreePath(stateDir, key, label);
+  const worktree = ticketWorktreePath(stateDir, ticketSprint, key, label);
   try {
     await access(worktree);
   } catch {

@@ -1,5 +1,5 @@
 ---
-description: Start ontwikkeling van een ticket. Kopieert het refinement-rapport naar state/tickets/<sprint>/, maakt een branch, delegeert naar ticket-author subagent.
+description: Start ontwikkeling van een ticket. Kopieert het refinement-rapport naar state/sprints/<sprint>/tickets/, maakt een branch, delegeert naar ticket-author subagent.
 argument-hint: "<TICKET-KEY> [sprintId]"
 allowed-tools: Read, Write, Edit, Bash(git:*), Bash(mkdir:*), Bash(cp:*), Bash(ls:*), Bash(test:*)
 ---
@@ -14,7 +14,7 @@ dat agent 1 eerst gedraaid moet zijn.
 
 ## Stap 2 — Initialiseer ticket state
 
-Zorg dat `state/tickets/<sprint>/$1/` bestaat met:
+Zorg dat `state/sprints/<sprint>/tickets/$1/` bestaat met:
 - `ticket.md` — kopie van het refinement-rapport
 - `_status.json` — `{"key": "$1", "round": 1, "status": "in_progress", "baseBranch": "<huidige branch>", "startedAt": "<ISO>"}`
 
@@ -39,9 +39,9 @@ Stop met een duidelijke foutmelding.
 
 Roep de `ticket-author` subagent aan met deze instructie:
 
-> Implementeer ticket $1. Context vind je in `state/tickets/<sprint>/$1/ticket.md`.
+> Implementeer ticket $1. Context vind je in `state/sprints/<sprint>/tickets/$1/ticket.md`.
 > Dit is ronde 1 (geen vorige review om te adresseren). Volg je werkwijze
-> en schrijf `state/tickets/<sprint>/$1/code-changes.md` als je klaar bent.
+> en schrijf `state/sprints/<sprint>/tickets/$1/code-changes.md` als je klaar bent.
 
 ## Stap 5 — Samenvatting
 

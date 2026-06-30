@@ -10,7 +10,7 @@ import { log } from './logger.js';
  * branches or staging state.
  */
 export function managedRepoPath(stateDir: string): string {
-  return resolve(stateDir, 'repo', 'flux-web-components');
+  return resolve(stateDir, 'clone', 'flux-web-components');
 }
 
 /** Lees een globale git-config-waarde synchroon; leeg als niet gezet. */
@@ -142,7 +142,7 @@ async function assertIsGitRepo(dir: string): Promise<void> {
   }
 }
 
-async function pathExists(p: string): Promise<boolean> {
+export async function pathExists(p: string): Promise<boolean> {
   try {
     await access(p);
     return true;
@@ -151,7 +151,7 @@ async function pathExists(p: string): Promise<boolean> {
   }
 }
 
-function git(cwd: string, args: string[]): Promise<void> {
+export function git(cwd: string, args: string[]): Promise<void> {
   return new Promise((resolvePromise, rejectPromise) => {
     const child = spawn('git', args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
     let stderr = '';
@@ -167,7 +167,7 @@ function git(cwd: string, args: string[]): Promise<void> {
   });
 }
 
-function gitCapture(cwd: string, args: string[]): Promise<string> {
+export function gitCapture(cwd: string, args: string[]): Promise<string> {
   return new Promise((resolvePromise, rejectPromise) => {
     const child = spawn('git', args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
     let stdout = '';
@@ -301,16 +301,22 @@ export async function remoteBranchExists(opts: {
 
 /**
  * Resolve the worktree path for the base-branch refinement checkout.
- * Lives under the state dir so it's naturally gitignored with the rest.
+ * Lives onder `worktrees/_base/<baseBranch>` zodat alle worktrees in één
+ * gitignored tree zitten; `_base` is een gereserveerde namespace naast de
+ * per-sprint mappen.
  */
 export function baseBranchWorktreePath(stateDir: string, baseBranch: string): string {
-  return resolve(stateDir, 'worktrees', `flux-web-components-${baseBranch}`);
+  return resolve(stateDir, 'worktrees', '_base', baseBranch);
 }
 
 /**
  * Resolve the per-ticket worktree path. Each ticket gets its own worktree
  * so agents 3/4 (author/reviewer) can work in parallel without clobbering
  * each other's branches and working states.
+ *
+ * Worktrees zijn per sprint gegroepeerd (`worktrees/<sprint>/<KEY>`) zodat
+ * "alle worktrees van een sprint" één map is — handig om op te kuisen als een
+ * sprint afgesloten wordt (`npm run state:close-sprint`).
  *
  * Met een `profile` wordt het profile-segment als suffix in de mapnaam
  * opgenomen, zodat dezelfde ticket-actie parallel met verschillende
@@ -321,32 +327,32 @@ export function baseBranchWorktreePath(stateDir: string, baseBranch: string): st
  */
 export function ticketWorktreePath(
   stateDir: string,
+  sprint: string,
   ticketKey: string,
   profile?: string,
 ): string {
-  const suffix = profile ? `${ticketKey}-${profile}` : ticketKey;
-  return resolve(stateDir, 'worktrees', `flux-web-components-${suffix}`);
+  const leaf = profile ? `${ticketKey}-${profile}` : ticketKey;
+  return resolve(stateDir, 'worktrees', sprint, leaf);
 }
 
 /**
  * Resolve the worktree path used by review-external (review op een branch
- * van een andere developer). Bewust een andere naam dan
- * `ticketWorktreePath` zodat een externe review niet botst met een
- * eventuele develop/review-state voor hetzelfde ticket.
+ * van een andere developer). Een externe review hangt niet aan een sprint,
+ * dus die worktrees zitten onder de gereserveerde `worktrees/_external/`
+ * namespace — los van de per-sprint worktrees, zodat een externe review niet
+ * botst met een eventuele develop/review-state voor hetzelfde ticket.
  *
- * Met een `profile`-segment schuift dat tussen ticket-key en `external`
- * (`<KEY>-<profile>-external`), zodat de `-external` suffix altijd het
- * eindstuk blijft en bestaande paden zonder profile ongewijzigd zijn.
- * Callers geven doorgaans een samengesteld label `<profiel>-<modelcode>`
- * (zie `runPathLabel` in shared/model.ts).
+ * Met een `profile`-segment komt dat als suffix in de mapnaam
+ * (`<KEY>-<profile>`). Callers geven doorgaans een samengesteld label
+ * `<profiel>-<modelcode>` (zie `runPathLabel` in shared/model.ts).
  */
 export function externalReviewWorktreePath(
   stateDir: string,
   ticketKey: string,
   profile?: string,
 ): string {
-  const middle = profile ? `${ticketKey}-${profile}` : ticketKey;
-  return resolve(stateDir, 'worktrees', `flux-web-components-${middle}-external`);
+  const leaf = profile ? `${ticketKey}-${profile}` : ticketKey;
+  return resolve(stateDir, 'worktrees', '_external', leaf);
 }
 
 /**

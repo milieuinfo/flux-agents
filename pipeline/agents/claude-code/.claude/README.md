@@ -58,7 +58,7 @@ Drie slash commands voor een interactieve CC-sessie: `/develop`, `/review`,
 — de glue rond een subagent:
 
 - **`/develop`** — lokaliseer het refinement-rapport, init
-  `state/tickets/<sprint>/<KEY>/` + `_status.json`, maak de feature-branch,
+  `state/sprints/<sprint>/tickets/<KEY>/` + `_status.json`, maak de feature-branch,
   delegeer naar de `ticket-author` subagent, vat samen.
 - **`/review`** — valideer state + branch, delegeer naar `ticket-reviewer`,
   lees `_status.json` terug, toon de volgende stap.

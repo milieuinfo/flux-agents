@@ -124,7 +124,7 @@ npm run pipeline:review-external -- FLUX-595 feature-v2/iemands-branch
 npm run pipeline:review-external -- FLUX-595 feature-v2/branch --base develop-v3 --profile kris
 ```
 
-Output: `state/reviews/FLUX-595/review-<timestamp>.md` (één per run, geen squash/push/PR).
+Output: `state/external-reviews/FLUX-595/review-<timestamp>.md` (één per run, geen squash/push/PR).
 Publiceren naar Jira (comment `## Code review - AI`, idempotent):
 
 ```bash

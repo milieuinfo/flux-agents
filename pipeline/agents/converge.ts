@@ -50,7 +50,6 @@ import {
   extractTitle,
   locateProfileRun,
   locateRefinement,
-  migrateLegacyTicketDir,
 } from './shared/ticket.js';
 import { runPush } from './shared/push.js';
 import { runPr } from './shared/pr.js';
@@ -163,7 +162,6 @@ async function main() {
   );
 
   await ensureRepoClone({ repoUrl, cloneDir: mainRepoDir });
-  await migrateLegacyTicketDir(stateDir, key);
 
   // Bronnen valideren (allemaal 'approved') vóór we iets aanmaken.
   const sources: Source[] = [];
@@ -185,7 +183,7 @@ async function main() {
   log.info(`Gecombineerde branch: ${combinedBranch} (base ${baseBranch})`);
 
   // Profielloze worktree/state — push & pr vinden dit zonder --profile.
-  const worktree = ticketWorktreePath(stateDir, key);
+  const worktree = ticketWorktreePath(stateDir, refinement.sprint, key);
   const created = await ensureTicketWorktree({
     mainRepoDir,
     worktreePath: worktree,

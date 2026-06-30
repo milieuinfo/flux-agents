@@ -16,11 +16,7 @@ import {
   worktreeHasTrackedChanges,
 } from './repo.js';
 import { developModel, runPathLabel } from './model.js';
-import {
-  TicketState,
-  locateRefinement,
-  migrateLegacyTicketDir,
-} from './ticket.js';
+import { TicketState, locateRefinement } from './ticket.js';
 import { runDevelop } from '../develop.js';
 import { runReview } from '../review.js';
 
@@ -58,7 +54,6 @@ export async function runDevelopReviewLoop({
   // Sprint vooraf opzoeken zodat we ticket-state in de geneste layout
   // kunnen lezen vanaf ronde 1.
   const refinement = await locateRefinement(stateDir, key, sprint);
-  await migrateLegacyTicketDir(stateDir, key);
   // Label = profiel + develop-model-code; moet matchen met wat runDevelop/
   // runReview intern berekenen (beide via developModel()).
   const label = runPathLabel(profile, developModel());
@@ -80,7 +75,7 @@ export async function runDevelopReviewLoop({
     // vaststellen zodat de post-review deadlock-detectie netjes escaleert.
     // Alleen 0 commits MÉT ongecommitte tracked-wijzigingen is de kapotte
     // toestand die we hier afvangen.
-    const worktreePath = ticketWorktreePath(stateDir, key, label);
+    const worktreePath = ticketWorktreePath(stateDir, refinement.sprint, key, label);
     const postDev = await ticket.readStatus();
     if (postDev) {
       const commitsAhead = await countCommitsAhead({
@@ -125,7 +120,7 @@ export async function runDevelopReviewLoop({
       // geen `## Keuze` in ticket.md). Nog een ronde lost dat niet op —
       // escaleer meteen i.p.v. turns verspillen.
       const commitsAhead = await countCommitsAhead({
-        worktreePath: ticketWorktreePath(stateDir, key, label),
+        worktreePath: ticketWorktreePath(stateDir, refinement.sprint, key, label),
         baseBranch: status.baseBranch,
       });
       if (commitsAhead === 0) {

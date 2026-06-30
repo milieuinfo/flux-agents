@@ -44,7 +44,6 @@ import {
   extractBranchSlug,
   extractTitle,
   locateRefinement,
-  migrateLegacyTicketDir,
   seedTicketMd,
 } from './shared/ticket.js';
 
@@ -82,7 +81,6 @@ export async function runDevelop({ key, sprint, profile }: DevelopArgs): Promise
   // niet botst met een eerdere run.
   const label = runPathLabel(profile, developModel());
 
-  await migrateLegacyTicketDir(stateDir, key);
   const ticket = new TicketState(stateDir, refinement.sprint, key, label);
   await ticket.ensureDir();
   await seedTicketMd(ticket, refinement.path);
@@ -123,7 +121,7 @@ export async function runDevelop({ key, sprint, profile }: DevelopArgs): Promise
     );
   }
 
-  const worktree = ticketWorktreePath(stateDir, key, label);
+  const worktree = ticketWorktreePath(stateDir, refinement.sprint, key, label);
   const created = await ensureTicketWorktree({
     mainRepoDir,
     worktreePath: worktree,
@@ -164,7 +162,7 @@ export async function runDevelop({ key, sprint, profile }: DevelopArgs): Promise
         process.env.AGENT_DEVELOP_MAX_TURNS ?? 100,
       ),
       cwd: worktree,
-      // Agent writes code-changes.md in state/tickets/<KEY>/, outside cwd.
+      // Agent writes code-changes.md in state/sprints/<sprint>/tickets/<KEY>/, outside cwd.
       additionalDirectories: [stateDir],
       systemPrompt: { type: 'preset', preset: 'claude_code', append: systemPrompt },
       allowedTools: ['Read', 'Write', 'Edit', 'Glob', 'Grep', 'Bash'],

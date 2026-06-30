@@ -14,7 +14,7 @@ import { runOrLaunch } from './launch.js';
  * branch en een optioneel profiel, en draait dan review-external, exact zoals
  * `npm run pipeline:review-external -- <KEY> <BRANCH> [--profile <naam>]`.
  *
- * De review-md komt onder `state/reviews/<KEY>/`; publiceren naar Jira gebeurt
+ * De review-md komt onder `state/external-reviews/<KEY>/`; publiceren naar Jira gebeurt
  * daarna via 'publicatie' → 'externe review' (publish-review). Keert na afloop
  * terug naar het submenu.
  */
@@ -41,7 +41,7 @@ export async function reviewExternalAction(): Promise<void> {
     onSuccess: () =>
       p.log.success(
         `Externe review klaar voor ${key}. De review-md staat onder ` +
-          `state/reviews/${key}/. Publiceren naar Jira: 'publicatie' → ` +
+          `state/external-reviews/${key}/. Publiceren naar Jira: 'publicatie' → ` +
           `'externe review'.`,
       ),
   });

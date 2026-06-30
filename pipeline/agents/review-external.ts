@@ -5,7 +5,7 @@
  * sprint-context, geen `_status.json`, geen squash/push/PR.
  *
  * De agent schrijft één review-markdown naar
- * `state/reviews/<KEY>/review-<timestamp>.md`. Publicatie naar Jira
+ * `state/external-reviews/<KEY>/review-<timestamp>.md`. Publicatie naar Jira
  * gebeurt via `npm run jira:publish-review -- <KEY>`.
  *
  * Usage:
@@ -20,6 +20,7 @@ import { fileURLToPath } from 'node:url';
 import { log } from './shared/logger.js';
 import {
   applyAiProfile,
+  baseBranchWorktreePath,
   ensureRepoClone,
   externalReviewWorktreePath,
   managedRepoPath,
@@ -72,7 +73,7 @@ async function runReviewExternal(args: ReviewExternalArgs): Promise<void> {
   // tegen `<base>..HEAD` werkt vanuit de worktree.
   await prepareWorktree({
     mainRepoDir: cloneDir,
-    worktreePath: resolve(stateDir, 'worktrees', `flux-web-components-${baseBranch}`),
+    worktreePath: baseBranchWorktreePath(stateDir, baseBranch),
     ref: baseBranch,
   });
 
@@ -80,7 +81,7 @@ async function runReviewExternal(args: ReviewExternalArgs): Promise<void> {
     await applyAiProfile(worktree, profile);
   }
 
-  const reviewsDir = resolve(stateDir, 'reviews', key);
+  const reviewsDir = resolve(stateDir, 'external-reviews', key);
   await mkdir(reviewsDir, { recursive: true });
   const outputPath = resolve(reviewsDir, `review-${timestampSlug()}.md`);
 
@@ -109,7 +110,7 @@ async function runReviewExternal(args: ReviewExternalArgs): Promise<void> {
       model: reviewExternalModel(),
       maxTurns: Number(process.env.AGENT_REVIEW_EXTERNAL_MAX_TURNS ?? 100),
       cwd: worktree,
-      // Reviewer schrijft de review-md in state/reviews/<KEY>/.
+      // Reviewer schrijft de review-md in state/external-reviews/<KEY>/.
       additionalDirectories: [stateDir],
       systemPrompt: { type: 'preset', preset: 'claude_code', append: systemPrompt },
       allowedTools: ['Read', 'Write', 'Edit', 'Glob', 'Grep', 'Bash'],

@@ -97,19 +97,26 @@ commits), los van deze tooling-repo. `STATE_DIR` wijst daarheen (default
 
 ```
 state/
-├── repo/flux-web-components/         ← managed clone (gitignored), bij 1e run aangemaakt
-├── worktrees/                        ← per-ticket + base-branch worktrees (gitignored)
+├── clone/flux-web-components/         ← managed clone (gitignored), bij 1e run aangemaakt
+├── worktrees/                         ← alle worktrees (gitignored)
+│   ├── <SPRINT>/<KEY>[-<label>]/      ← per-ticket worktrees, per sprint gegroepeerd
+│   ├── _base/<baseBranch>/            ← read-only refine-checkout
+│   └── _external/<KEY>[-<label>]/     ← externe-review worktrees
 ├── sprints/<SPRINT>/
-│   ├── _meta.json                    ← refine: content-hashes (idempotency)
-│   ├── _order.md                     ← plan
-│   ├── _published.json               ← jira:publish state
-│   ├── FLUX-*.md / FLUX-*.jira.md     ← refine (uitgebreid / beknopt)
-├── tickets/<SPRINT>/<KEY>/
-│   ├── ticket.md  code-changes.md  review-r<N>.md  _pr-body.md  _status.json
-│   └── <profiel>-<code>/             ← mét --profile: eigen kopie (zie profiles.md)
-└── reviews/<KEY>/                    ← externe code-reviews
+│   ├── _meta.json                     ← refine: content-hashes (idempotency)
+│   ├── _order.md                      ← plan
+│   ├── _published.json                ← jira:publish state
+│   ├── FLUX-*.md / FLUX-*.jira.md      ← refine (uitgebreid / beknopt)
+│   └── tickets/<KEY>/
+│       ├── ticket.md  code-changes.md  review-r<N>.md  _pr-body.md  _status.json
+│       └── <profiel>-<code>/          ← mét --profile: eigen kopie (zie profiles.md)
+└── external-reviews/<KEY>/            ← externe code-reviews
     ├── review-<timestamp>.md  _published.json
 ```
+
+Een sprint zit zo volledig onder `sprints/<SPRINT>/` (refinement + ticketwerk)
+plus `worktrees/<SPRINT>/`. Een afgesloten sprint kuis je op met
+`npm run state:close-sprint -- <SPRINT>` (verwijdert enkel de worktrees).
 
 ## Prompts & interactieve variant
 

@@ -4,10 +4,9 @@ import {
   mkdir,
   readFile,
   readdir,
-  rename,
   writeFile,
 } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { log } from './logger.js';
 
 export type TicketStatus =
@@ -47,7 +46,7 @@ export class TicketState {
   ) {}
 
   get ticketDir(): string {
-    const base = resolve(this.stateDir, 'tickets', this.sprint, this.key);
+    const base = resolve(this.stateDir, 'sprints', this.sprint, 'tickets', this.key);
     return this.profile ? join(base, this.profile) : base;
   }
 
@@ -209,15 +208,14 @@ export function extractBranchSlug(ticketMd: string): string | null {
 }
 
 /**
- * Vind de sprint-folder waaronder dit ticket onder `state/tickets/` staat.
- * Migreert eerst stilletjes een eventuele legacy locatie
- * (`tickets/<KEY>/`) naar de geneste layout (`tickets/<sprint>/<KEY>/`).
+ * Vind de sprint-folder waaronder dit ticket-werk staat
+ * (`state/sprints/<sprint>/tickets/<KEY>/`).
  *
  * Met een `profile`-segment zoeken we naar
- * `tickets/<sprint>/<KEY>/<profile>/_status.json` — profile-runs zitten in
- * een subfolder zodat parallelle runs niet botsen. Callers geven doorgaans
- * een samengesteld label `<profiel>-<modelcode>` (zie shared/model.ts).
- * Zonder profile valt het scannen terug op het oude pad.
+ * `sprints/<sprint>/tickets/<KEY>/<profile>/_status.json` — profile-runs
+ * zitten in een subfolder zodat parallelle runs niet botsen. Callers geven
+ * doorgaans een samengesteld label `<profiel>-<modelcode>` (zie shared/model.ts).
+ * Zonder profile valt het scannen terug op het profielloze pad.
  *
  * Gooit als het ticket nog niet bestaat (develop heeft nog niet gedraaid)
  * of als het in meerdere sprint-folders voorkomt.
@@ -227,15 +225,13 @@ export async function locateTicketSprint(
   key: string,
   profile?: string,
 ): Promise<string> {
-  await migrateLegacyTicketDir(stateDir, key);
-
-  const ticketsRoot = resolve(stateDir, 'tickets');
+  const sprintsRoot = resolve(stateDir, 'sprints');
   let entries;
   try {
-    entries = await readdir(ticketsRoot, { withFileTypes: true });
+    entries = await readdir(sprintsRoot, { withFileTypes: true });
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-      throw new Error(`Geen tickets-folder onder ${stateDir}.`);
+      throw new Error(`Geen sprints-folder onder ${stateDir}.`);
     }
     throw err;
   }
@@ -244,8 +240,8 @@ export async function locateTicketSprint(
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
     const candidate = profile
-      ? join(ticketsRoot, entry.name, key, profile, '_status.json')
-      : join(ticketsRoot, entry.name, key, '_status.json');
+      ? join(sprintsRoot, entry.name, 'tickets', key, profile, '_status.json')
+      : join(sprintsRoot, entry.name, 'tickets', key, '_status.json');
     try {
       await access(candidate);
       matches.push(entry.name);
@@ -256,8 +252,8 @@ export async function locateTicketSprint(
 
   if (matches.length === 0) {
     const expected = profile
-      ? `${ticketsRoot}/<sprint>/${key}/${profile}/`
-      : `${ticketsRoot}/<sprint>/${key}/`;
+      ? `${sprintsRoot}/<sprint>/tickets/${key}/${profile}/`
+      : `${sprintsRoot}/<sprint>/tickets/${key}/`;
     const hint = profile
       ? `npm run pipeline:develop -- ${key} --profile ${profile}`
       : `npm run pipeline:develop -- ${key}`;
@@ -301,18 +297,18 @@ export async function locateProfileRun(
   profile: string,
   opts: { sprint?: string; preferredLabel?: string } = {},
 ): Promise<{ sprint: string; label: string }> {
-  const ticketsRoot = resolve(stateDir, 'tickets');
+  const sprintsRoot = resolve(stateDir, 'sprints');
 
   let sprints: string[];
   if (opts.sprint) {
     sprints = [opts.sprint];
   } else {
     try {
-      const entries = await readdir(ticketsRoot, { withFileTypes: true });
+      const entries = await readdir(sprintsRoot, { withFileTypes: true });
       sprints = entries.filter((e) => e.isDirectory()).map((e) => e.name);
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-        throw new Error(`Geen tickets-folder onder ${stateDir}.`);
+        throw new Error(`Geen sprints-folder onder ${stateDir}.`);
       }
       throw err;
     }
@@ -324,7 +320,7 @@ export async function locateProfileRun(
     status: TicketStateJson;
   }> = [];
   for (const sprint of sprints) {
-    const ticketDir = join(ticketsRoot, sprint, key);
+    const ticketDir = join(sprintsRoot, sprint, 'tickets', key);
     let entries;
     try {
       entries = await readdir(ticketDir, { withFileTypes: true });
@@ -351,7 +347,7 @@ export async function locateProfileRun(
   if (candidates.length === 0) {
     throw new Error(
       `Geen profielrun voor ${key} met profiel '${profile}' gevonden onder ` +
-        `${ticketsRoot}/${opts.sprint ?? '<sprint>'}/${key}/${profile}-*/. ` +
+        `${sprintsRoot}/${opts.sprint ?? '<sprint>'}/tickets/${key}/${profile}-*/. ` +
         `Draai eerst 'npm run pipeline:iterate -- ${key} --profile ${profile}'.`,
     );
   }
@@ -384,49 +380,9 @@ export async function locateProfileRun(
         .map((c) => `${c.label} (status ${c.status.status})`)
         .join(', ') +
       `. Ruim de overbodige run-folders op onder ` +
-      `${ticketsRoot}/${candidates[0].sprint}/${key}/, of zet ` +
+      `${sprintsRoot}/${candidates[0].sprint}/tickets/${key}/, of zet ` +
       `AGENT_DEVELOP_MODEL op het model van de bedoelde run.`,
   );
-}
-
-/**
- * Verplaats `tickets/<KEY>/` naar `tickets/<sprint>/<KEY>/` op basis van
- * de `sprint`-veld in `_status.json`. No-op als de legacy folder niet
- * bestaat of geen `_status.json` heeft.
- */
-export async function migrateLegacyTicketDir(
-  stateDir: string,
-  key: string,
-): Promise<void> {
-  const legacyDir = resolve(stateDir, 'tickets', key);
-  const legacyStatus = join(legacyDir, '_status.json');
-  let raw: string;
-  try {
-    raw = await readFile(legacyStatus, 'utf-8');
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return;
-    throw err;
-  }
-  const status = JSON.parse(raw) as TicketStateJson;
-  if (!status.sprint) {
-    log.warn(
-      `Legacy ${legacyDir}/_status.json mist 'sprint'-veld; geen migratie.`,
-    );
-    return;
-  }
-  const targetDir = resolve(stateDir, 'tickets', status.sprint, key);
-  try {
-    await access(targetDir);
-    log.warn(
-      `Legacy ${legacyDir} en doel ${targetDir} bestaan beide; legacy laten staan, repareer manueel.`,
-    );
-    return;
-  } catch {
-    // doel bestaat nog niet, verplaats
-  }
-  await mkdir(dirname(targetDir), { recursive: true });
-  await rename(legacyDir, targetDir);
-  log.info(`Migrated ${legacyDir} → ${targetDir}`);
 }
 
 async function assertExists(path: string, message: string): Promise<void> {
