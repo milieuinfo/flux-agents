@@ -20,6 +20,7 @@ import type { SpawnSpec } from './pty-manager';
 import { ControlParser } from '../shared/control';
 import {
   checkAnthropicAuth,
+  fetchClaudeUsage,
   getConfigForRenderer,
   loadEffectiveConfig,
   migrateLegacyUserData,
@@ -318,6 +319,7 @@ function registerIpc(): void {
   ipcMain.handle(IPC.authStatus, (_e, input: { token?: string }) =>
     checkAnthropicAuth(repoRoot, input),
   );
+  ipcMain.handle(IPC.usageGet, () => fetchClaudeUsage(repoRoot));
   ipcMain.handle(IPC.preflightRun, () => runPreflight(repoRoot));
   ipcMain.on(IPC.openExternal, (_e, url: string) => {
     if (/^https?:\/\//.test(url)) void shell.openExternal(url);

@@ -16,6 +16,7 @@ export const IPC = {
   configSave: 'config:save', // renderer → main (invoke)
   configTestJira: 'config:test-jira', // renderer → main (invoke)
   authStatus: 'auth:status', // renderer → main (invoke)
+  usageGet: 'usage:get', // renderer → main (invoke): Claude-abonnement usage-limieten
   preflightRun: 'preflight:run', // renderer → main (invoke)
   openExternal: 'shell:open-external', // renderer → main (send)
   appReady: 'app:ready', // renderer → main (send): UI klaar, splash mag sluiten
@@ -43,6 +44,29 @@ export interface TestJiraResult {
 
 export interface AuthStatus {
   state: 'ok' | 'invalid' | 'missing';
+  detail?: string;
+}
+
+/** Eén usage-venster van het Claude-abonnement (5-uurs of 7-daags). */
+export interface UsageWindow {
+  /** Percentage verbruikt, 0–100. */
+  utilization: number;
+  /** ISO 8601-timestamp waarop het venster reset (UTC). */
+  resetsAt: string;
+}
+
+/**
+ * Usage-limieten van het Pro/Max-abonnement, opgehaald via de OAuth-usage-API.
+ * `state: 'missing'` = geen token; `'error'` = ophalen mislukt (detail bevat de
+ * reden). Bij `'ok'` zijn de vensters gevuld (een venster mag ontbreken als de
+ * API het niet teruggeeft).
+ */
+export interface UsageStatus {
+  state: 'ok' | 'missing' | 'error';
+  /** Het korte 5-uurs-venster (wat Claude Code als sessielimiet toont). */
+  fiveHour?: UsageWindow;
+  /** Het 7-daagse (week-)venster, gecombineerd over alle modellen. */
+  sevenDay?: UsageWindow;
   detail?: string;
 }
 
@@ -128,6 +152,8 @@ export interface FluxDesktopApi {
     checkAuth(input: { token?: string }): Promise<AuthStatus>;
   };
   preflight(): Promise<PreflightCheck[]>;
+  /** Haal de actuele usage-limieten van het Claude-abonnement op. */
+  usage(): Promise<UsageStatus>;
   openExternal(url: string): void;
   /** Sein main dat de UI klaar is met opstarten (splash-window mag sluiten). */
   notifyReady(): void;

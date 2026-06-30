@@ -97,6 +97,82 @@ body.resizing .terminal-host {
   color: #888888;
 }
 
+/* Statusbalk onderaan het TUI-paneel met de Claude-usage-limieten. */
+.usage-bar {
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 5px 12px;
+  min-height: 28px;
+  border-top: 1px solid #2a2a2a;
+  background: #141414;
+  font-size: 11px;
+  color: #9a9a9a;
+  user-select: none;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.usage-bar--message {
+  color: #777777;
+  font-style: italic;
+}
+
+.usage-bar__title {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6f6f6f;
+}
+
+.usage-metric {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.usage-metric__label {
+  color: #888888;
+}
+
+.usage-metric__track {
+  position: relative;
+  width: 64px;
+  height: 6px;
+  border-radius: 3px;
+  background: #2c2c2c;
+  overflow: hidden;
+}
+
+.usage-metric__fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+.usage-metric__fill--ok {
+  background: #3fb950;
+}
+
+.usage-metric__fill--warn {
+  background: #d29922;
+}
+
+.usage-metric__fill--danger {
+  background: #f85149;
+}
+
+.usage-metric__value {
+  min-width: 30px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: #c8c8c8;
+}
+
 /* Tab-strip rechts. */
 .tab-strip-wrap {
   display: flex;

@@ -7,6 +7,7 @@ import './styles.css';
 import { TerminalView } from './terminal-view';
 import { TabManager } from './tabs';
 import { InfoPanel } from './info-panel';
+import { UsageBar } from './usage-bar';
 import { setupSplitter } from './splitter';
 
 function el(id: string): HTMLElement {
@@ -49,6 +50,10 @@ async function main(): Promise<void> {
   };
   window.addEventListener('focus', refocusTui);
   tui.focus();
+
+  // Statusbalk onderaan het TUI-paneel: de Claude-usage-limieten (5-uurs + week).
+  const usage = new UsageBar(el('usage-bar'));
+  usage.start();
 
   // Rechts: console-tabs + de "+"-knop voor een nieuwe shell.
   const tabs = new TabManager(el('tab-strip'), el('console-body'));

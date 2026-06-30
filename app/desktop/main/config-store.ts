@@ -25,6 +25,7 @@ import {
   SECRET_KEYS,
   schemaDefaults,
 } from '../../../pipeline/agents/shared/config';
+import type { UsageStatus, UsageWindow } from '../shared/ipc';
 
 const SECRET_SET = new Set(SECRET_KEYS);
 
@@ -197,6 +198,107 @@ export async function checkAnthropicAuth(
     state: 'ok',
     detail: 'OAuth-token ingesteld — agents draaien op je Pro/Max-abonnement.',
   };
+}
+
+/**
+ * User-Agent waarmee we ons als Claude Code voordoen. Zonder een
+ * `claude-code/<versie>`-User-Agent val je bij Anthropic in een agressief
+ * gerate-limite bucket; de exacte versie is niet kritisch.
+ */
+const CLAUDE_CODE_USER_AGENT = 'claude-code/2.0.1';
+
+/**
+ * Het identiteits-systeemblok dat een subscription-OAuth-call vereist. Een
+ * `/v1/messages`-request met het Pro/Max-OAuth-token wordt geweigerd tenzij het
+ * eerste system-blok exact deze tekst is — zo herkent Anthropic de call als
+ * afkomstig van de Claude Code-surface.
+ */
+const CLAUDE_CODE_SYSTEM = "You are Claude Code, Anthropic's official CLI for Claude.";
+
+/**
+ * Klein, goedkoop model voor de probe-call. We hebben enkel de
+ * rate-limit-responseheaders nodig, niet de inhoud — `max_tokens: 1` houdt de
+ * kost verwaarloosbaar (~1 output-token).
+ */
+const USAGE_PROBE_MODEL = 'claude-haiku-4-5';
+
+/**
+ * Lees één unified rate-limit-venster (`5h` of `7d`) uit de responseheaders.
+ * `utilization` is een decimaal 0–1 (we tonen het als percentage); `reset` is
+ * een unix-seconden-timestamp of ISO-string.
+ */
+function readUnifiedWindow(headers: Headers, bucket: '5h' | '7d'): UsageWindow | undefined {
+  const raw = headers.get(`anthropic-ratelimit-unified-${bucket}-utilization`);
+  if (raw == null) return undefined;
+  const value = Number(raw);
+  if (Number.isNaN(value)) return undefined;
+  // Documenteerd als decimaal 0–1; tolereer ook een reeds-percentage (>1).
+  const pct = value <= 1 ? value * 100 : value;
+  return {
+    utilization: Math.max(0, Math.min(100, pct)),
+    resetsAt: normalizeReset(headers.get(`anthropic-ratelimit-unified-${bucket}-reset`)),
+  };
+}
+
+/** Normaliseer een reset-header (unix-seconden of ISO) naar een ISO-string. */
+function normalizeReset(raw: string | null): string {
+  if (!raw) return '';
+  const num = Number(raw);
+  if (!Number.isNaN(num) && num > 0) return new Date(num * 1000).toISOString();
+  return raw;
+}
+
+/**
+ * Haal de usage-limieten van het Pro/Max-abonnement op uit de
+ * `anthropic-ratelimit-unified-*`-responseheaders van een minimale probe-call.
+ *
+ * Waarom geen `/api/oauth/usage`: dat endpoint vereist de `user:profile`-scope,
+ * die een `claude setup-token`-token (enkel `user:inference`) niet heeft → 403.
+ * De rate-limit-headers komen terug op elke inference-call met datzelfde token,
+ * dus dit werkt met de auth die de agents al gebruiken. De probe is
+ * `max_tokens: 1` (≈1 output-token), dus verwaarloosbaar voor het budget dat we
+ * meten. Read-only t.o.v. de disk; faalt soft (geen token → 'missing',
+ * HTTP/netwerkfout → 'error').
+ */
+export async function fetchClaudeUsage(repoRoot: string): Promise<UsageStatus> {
+  const eff = loadEffectiveConfig(repoRoot);
+  const token = eff.CLAUDE_CODE_OAUTH_TOKEN || '';
+  if (!token) {
+    return { state: 'missing', detail: 'Geen OAuth-token ingesteld.' };
+  }
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'anthropic-version': '2023-06-01',
+        'anthropic-beta': 'claude-code-20250219,oauth-2025-04-20',
+        'User-Agent': CLAUDE_CODE_USER_AGENT,
+        'content-type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({
+        model: USAGE_PROBE_MODEL,
+        max_tokens: 1,
+        system: [{ type: 'text', text: CLAUDE_CODE_SYSTEM }],
+        messages: [{ role: 'user', content: 'ping' }],
+      }),
+    });
+    if (!res.ok) {
+      const body = (await res.text().catch(() => '')).slice(0, 300);
+      console.error(`[usage] HTTP ${res.status} bij probe-call: ${body}`);
+      return { state: 'error', detail: `HTTP ${res.status}` };
+    }
+    const fiveHour = readUnifiedWindow(res.headers, '5h');
+    const sevenDay = readUnifiedWindow(res.headers, '7d');
+    if (!fiveHour && !sevenDay) {
+      console.error('[usage] probe-call gelukt maar geen unified rate-limit-headers gevonden');
+      return { state: 'error', detail: 'Geen rate-limit-headers' };
+    }
+    return { state: 'ok', fiveHour, sevenDay };
+  } catch (err) {
+    return { state: 'error', detail: err instanceof Error ? err.message : String(err) };
+  }
 }
 
 /** Test een Jira-verbinding met de opgegeven (of bewaarde) credentials. */
