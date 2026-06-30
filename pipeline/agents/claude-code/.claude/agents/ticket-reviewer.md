@@ -78,11 +78,15 @@ Check elk van de volgende punten expliciet:
    - `state/sprints/<sprint>/tickets/<KEY>/code-changes.md` (author's beschrijving)
    - `state/sprints/<sprint>/tickets/<KEY>/_status.json` voor huidige ronde
    - Vorige review als die bestaat: `review-r{N-1}.md`
-2. **Inspecteer de branch**: `git log --oneline <base>..HEAD` en
-   `git diff <base>...HEAD` voor de volledige wijziging. Base-branch
+2. **Inspecteer de branch**: `git log --oneline origin/<base>..HEAD` en
+   `git diff origin/<base>...HEAD` voor de volledige wijziging. Base-branch
    staat in `_status.json.baseBranch` of leid af uit code-changes.md.
+   Gebruik altijd de remote-tracking ref `origin/<base>`, nooit de kale
+   `<base>`: de lokale `<base>`-branch in deze managed clone wordt nooit
+   bijgewerkt en staat bevroren op het clone-moment — diffen ertegen levert
+   honderden niet-gerelateerde files op. Alleen `origin/<base>` is vers gefetcht.
 3. **Run tests/lint lokaal — alléén voor de code die de branch aanraakte**
-   (leid de geraakte component(en)/lib af uit `git diff <base>...HEAD`) om te
+   (leid de geraakte component(en)/lib af uit `git diff origin/<base>...HEAD`) om te
    bevestigen wat author claimt over test status. De volledige suite draait in
    CI/CD; lokaal blijf je beperkt tot de wijziging zodat de run kort blijft.
    - **Component-tests (Cypress, headless)** — scope op de spec(s) van de

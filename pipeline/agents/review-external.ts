@@ -146,9 +146,13 @@ function buildPrompt(opts: {
     `Externe review van ticket ${key} op branch ${branch}.\n\n` +
     `**Belangrijke context:**\n` +
     `- Cwd is een worktree (detached HEAD) op origin/${branch}.\n` +
-    `- Base-branch: ${baseBranch}. Gebruik die in alle git-commando's ` +
-    `(bv. \`git log --oneline ${baseBranch}..HEAD\`, ` +
-    `\`git diff ${baseBranch}...HEAD\`).\n` +
+    `- Base-branch: ${baseBranch}. Gebruik in alle git-commando's de ` +
+    `remote-tracking ref \`origin/${baseBranch}\`, NIET de kale ` +
+    `\`${baseBranch}\` (bv. \`git log --oneline origin/${baseBranch}..HEAD\`, ` +
+    `\`git diff origin/${baseBranch}...HEAD\`). De lokale \`${baseBranch}\`-branch ` +
+    `in deze managed clone wordt nooit bijgewerkt (ze staat bevroren op het ` +
+    `clone-moment); enkel \`origin/${baseBranch}\` is vers gefetcht en geeft de ` +
+    `juiste, beperkte diff.\n` +
     refinementLine +
     `\n**Output:** schrijf één markdown-bestand naar exact dit pad ` +
     `(letterlijk overnemen, niet zelf samenstellen):\n` +

@@ -68,11 +68,15 @@ refinement-pad meegeeft)**
    - Refinement-rapport (optioneel — pad staat in de user-prompt; sla
      over als de user-prompt zegt dat er geen refinement is)
 2. **Inspecteer de branch**:
-   - `git log --oneline <base>..HEAD` (commits op de branch t.o.v. base)
-   - `git diff <base>...HEAD` (volledige wijziging)
+   - `git log --oneline origin/<base>..HEAD` (commits op de branch t.o.v. base)
+   - `git diff origin/<base>...HEAD` (volledige wijziging)
    - `git status` voor sanity-check (worktree moet schoon zijn)
 
-   De base-branch staat in de user-prompt.
+   De base-branch staat in de user-prompt. Gebruik altijd de remote-tracking
+   ref `origin/<base>`, nooit de kale `<base>`: de lokale `<base>`-branch in
+   deze managed clone wordt nooit bijgewerkt en staat bevroren op het
+   clone-moment — diffen ertegen levert honderden niet-gerelateerde files op.
+   Alleen `origin/<base>` is vers gefetcht.
 3. **Run tests/lint lokaal** als dat haalbaar is:
    - Eerst `npm ci` (of `npm install`) als `node_modules` ontbreekt
    - Dan `npm run lint` (of equivalent)
