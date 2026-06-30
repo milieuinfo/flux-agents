@@ -23,8 +23,6 @@
     "jira:publish-review:dry": "DRY_RUN=1 tsx pipeline/jira/publish-review.ts",
     "git:push": "tsx pipeline/git/push.ts",
     "git:pr": "tsx pipeline/git/pr.ts",
-    "state:migrate": "tsx pipeline/state/migrate.ts",
-    "state:migrate:dry": "tsx pipeline/state/migrate.ts --dry-run",
     "state:close-sprint": "tsx pipeline/state/close-sprint.ts",
     "start": "tsx app/tui/index.ts",
     "app:tui": "tsx app/tui/index.ts",

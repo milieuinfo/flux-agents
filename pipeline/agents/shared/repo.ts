@@ -167,7 +167,7 @@ export function git(cwd: string, args: string[]): Promise<void> {
   });
 }
 
-export function gitCapture(cwd: string, args: string[]): Promise<string> {
+function gitCapture(cwd: string, args: string[]): Promise<string> {
   return new Promise((resolvePromise, rejectPromise) => {
     const child = spawn('git', args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
     let stdout = '';

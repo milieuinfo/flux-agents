@@ -44,8 +44,6 @@ Daarnaast zijn er **deterministische scripts** (geen LLM-oordeel nodig):
   goedgekeurd ticket naar origin (zie §11)
 - `pipeline/git/pr.ts` (`npm run git:pr`) — maakt de draft-PR aan op basis van de
   squash-commit-subject (titel) + `_pr-body.md` (body) (zie §11)
-- `pipeline/state/migrate.ts` (`npm run state:migrate`) — éénmalige migratie van een
-  oudere state-repo naar de huidige layout (zie §13)
 - `pipeline/state/close-sprint.ts` (`npm run state:close-sprint`) — ruimt de worktrees
   van een afgesloten sprint op (zie §13)
 
@@ -587,38 +585,19 @@ ticket, en werken `push`/`pr` (en de rest van de downstream) ongewijzigd.
 verschillende sprints), of de PR mergen. `converge` weigert als een bron niet
 `approved` is — het is geen vervanger voor `iterate`, maar de stap erná.
 
-### 13. State-onderhoud: migrate + close-sprint (`npm run state:*`)
+### 13. State-onderhoud: close-sprint (`npm run state:close-sprint`)
 
-Twee deterministische scripts (geen LLM) houden de state-repo netjes. Ze raken
-nooit Jira, GitHub of de feature-branches — enkel de lokale state-layout.
-
-**`npm run state:migrate`** — éénmalige migratie van een oudere state-repo naar
-de huidige sprint-centrische layout. Verplaatst:
-- `repo/` → `clone/`
-- `tickets/<SPRINT>/<KEY>/` → `sprints/<SPRINT>/tickets/<KEY>/`
-- `reviews/` → `external-reviews/`
-- `worktrees/flux-web-components-<baseBranch>` → `worktrees/_base/<baseBranch>`
-- `worktrees/flux-web-components-<KEY>[-<label>]` → `worktrees/<sprint>/<KEY>[-<label>]`
-  (sprint afgeleid uit `sprints/`/`tickets/`; worktrees zonder sprint-match —
-  bv. externe of converge-restanten — gaan naar `worktrees/_external/` of worden
-  gerapporteerd)
-
-Verplaatsen gebeurt met `git worktree move` zodat de git-registraties in de
-managed clone geldig blijven; de rest met gewone `rename`. Het script werkt
-**niet-destructief**: bij een botsing (doel bestaat al) laat het de bron staan en
-rapporteert het, en het **commit niet** — de verplaatste mappen blijven als
-working-tree-wijziging staan zodat Kris ze kan inspecteren en zelf committen. Het
-herschrijft ook de `.gitignore` van de state-repo naar `logs/ worktrees/ clone/`.
-Idempotent: een tweede run op een al-gemigreerde repo is een no-op.
+Een deterministisch script (geen LLM) houdt de state-repo netjes. Het raakt
+nooit Jira, GitHub of de feature-branches — enkel de lokale worktrees.
 
 **`npm run state:close-sprint -- <SPRINT>`** — ruimt de worktrees van een
 afgesloten sprint op: `git worktree remove --force` op elke `worktrees/<SPRINT>/*`
 gevolgd door `git worktree prune`. De **committed** state (refinement + ticketwerk
 onder `sprints/<SPRINT>/`) blijft bewaard in de git-historie. Idempotent — geen
-worktrees meer = no-op.
+worktrees meer = no-op. Met `--dry-run` toont het enkel wat het zou verwijderen.
 
-**Waarom deterministisch en los:** opkuisen en migreren zijn puur mechanische
-bestandsoperaties zonder oordeel; ze horen niet in een LLM-run, en het apart
+**Waarom deterministisch en los:** opkuisen is een puur mechanische
+bestandsoperatie zonder oordeel; het hoort niet in een LLM-run, en het apart
 houden betekent dat een fout in dit pad de agent-output nooit raakt.
 
 ## Harde regels — agents mogen deze NOOIT overtreden
@@ -702,7 +681,6 @@ flux-agents/                      ← deze repo (tooling, code, prompts)
 │   │   ├── push.ts               ← push feature-branch van approved ticket (§11)
 │   │   └── pr.ts                 ← draft-PR aanmaken voor approved ticket (§11)
 │   └── state/                    ← deterministisch state-onderhoud (npm run state:*)
-│       ├── migrate.ts            ← éénmalige migratie naar de huidige layout (§13)
 │       └── close-sprint.ts       ← worktrees van een afgesloten sprint opruimen (§13)
 ├── app/                          ← de shell om de pipeline te draaien
 │   ├── desktop/                  ← Electron-app (main/preload/renderer + build.mjs)
@@ -753,11 +731,6 @@ remove` op alle `worktrees/<SPRINT>/*` en laat de committed state staan. De
 base-branch- en externe-review-worktrees hangen niet aan een sprint en zitten
 daarom onder de gereserveerde `worktrees/_base/` en `worktrees/_external/`.
 
-**Migratie:** een oudere state-repo (met `repo/`, top-level `tickets/<SPRINT>/`,
-platte `worktrees/flux-web-components-*`, `reviews/`) breng je éénmalig naar deze
-layout met `npm run state:migrate` (verplaatst mappen + `git worktree move`; zie
-§13). De code leest enkel de nieuwe layout.
-
 **Waarom gesplitst:** tooling en work-product hebben verschillende
 commit-cadans (zeldzaam vs dagelijks), verschillende retention (tool:
 permanent; state: mag gesnoeid worden), en potentieel verschillende
@@ -799,7 +772,7 @@ Als je (Claude in een toekomstige sessie) iets aanpast, valideer:
 2. **State-compatibiliteit** — kunnen bestaande
    `state/sprints/<SPRINT>/tickets/*` folders nog door de nieuwe code gelezen
    worden? Layout- of `_status.json`-schemawijzigingen vereisen een
-   migratie-strategie (zie `pipeline/state/migrate.ts`, §13).
+   migratie-strategie (eenmalig migratiescript dat Kris zelf draait).
 3. **Idempotentie agent 1** — herstart blijft non-destructief?
 4. **Max rondes** — blijft escalatie-logica intact?
 5. **Geen nieuwe netwerk-endpoints** — we praten alleen met Jira REST
