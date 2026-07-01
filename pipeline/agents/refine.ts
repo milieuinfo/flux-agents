@@ -3,7 +3,11 @@
  * Agent 1: Refine
  *
  * Leest alle tickets van een sprint via de Jira REST API en produceert een
- * markdown-bestand per ticket met een refinement analyse.
+ * markdown-bestand per ticket met een refinement analyse. Output gaat in een
+ * label-folder `sprints/<sprint>/analyses/no-<modelcode>/` (profiel vast op
+ * 'no', model uit AGENT_REFINE_MODEL) zodat dezelfde sprint met meerdere
+ * modellen naast elkaar geanalyseerd kan worden; downstream kiest er één (zie
+ * shared/analysis.ts).
  *
  * Usage:
  *   npm run pipeline:refine -- <sprintName> [folderName]
@@ -26,7 +30,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { log } from './shared/logger.js';
 import { requireEnv } from './shared/env.js';
-import { refineModel, refineSummaryModel } from './shared/model.js';
+import { refineModel, refineSummaryModel, runPathLabel } from './shared/model.js';
 import { loadPrompt } from './shared/prompts.js';
 import { SprintState, hashTicketContent, type SprintMeta } from './shared/state.js';
 import {
@@ -650,7 +654,14 @@ async function main() {
 
   const systemPrompt = await loadPrompt('refine');
   const summaryPrompt = await loadPrompt('refine-summary');
-  const state = new SprintState(stateDir, folderName);
+  // Analyse-output gaat in een label-folder onder `analyses/`, net als
+  // ontwikkeling. Voor analyse varieert het model, niet het profiel: profiel
+  // staat vast op 'no', dus label = `no-<modelcode>` (bv. `no-O48`). Zo kan
+  // dezelfde sprint met twee modellen naast elkaar geanalyseerd worden zonder
+  // dat de tweede run de eerste overschrijft. Downstream kiest er één (zie
+  // shared/analysis.ts). Altijd gezet want profiel is niet-leeg.
+  const analysisLabel = runPathLabel('no', refineModel())!;
+  const state = new SprintState(stateDir, folderName, analysisLabel);
   await state.ensureDir();
 
   const jira = createJiraClient();

@@ -21,10 +21,16 @@ export class SprintState {
   constructor(
     private readonly stateDir: string,
     private readonly sprintId: string,
+    // Analyse-label (`<profiel>-<modelcode>`, bv. `no-O48`). Zonder =
+    // de oude platte sprint-root (backwards-compat, alleen voor legacy-lezen);
+    // refine geeft voortaan altijd een label mee zodat elke analyse-run in een
+    // eigen folder onder `analyses/` zit (zie shared/analysis.ts).
+    private readonly analysisLabel?: string,
   ) {}
 
   get sprintDir(): string {
-    return join(this.stateDir, 'sprints', this.sprintId);
+    const root = join(this.stateDir, 'sprints', this.sprintId);
+    return this.analysisLabel ? join(root, 'analyses', this.analysisLabel) : root;
   }
 
   get metaPath(): string {

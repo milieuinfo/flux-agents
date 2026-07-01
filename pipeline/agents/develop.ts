@@ -53,13 +53,20 @@ export interface DevelopArgs {
   key: string;
   sprint?: string;
   profile?: string;
+  /**
+   * Welke analyse-run (bv. `no-O48`) als refinement gebruikt wordt wanneer een
+   * sprint er meerdere heeft. Leeg → de enige/gekozen analyse (zie
+   * shared/analysis.ts). Los van het develop-`profile`, dat de code-config in
+   * de worktree bepaalt.
+   */
+  analysis?: string;
 }
 
 /**
  * Run the develop agent for a single ticket. Exported so the ship
  * orchestrator can invoke it directly without spawning a subprocess.
  */
-export async function runDevelop({ key, sprint, profile }: DevelopArgs): Promise<void> {
+export async function runDevelop({ key, sprint, profile, analysis }: DevelopArgs): Promise<void> {
   const stateDir = resolve(process.env.STATE_DIR ?? './state');
   const repoUrl = requireEnv('FLUX_REPO_URL');
   const baseBranch = process.env.FLUX_BASE_BRANCH ?? 'develop-v2';
@@ -72,7 +79,7 @@ export async function runDevelop({ key, sprint, profile }: DevelopArgs): Promise
 
   await ensureRepoClone({ repoUrl, cloneDir: mainRepoDir });
 
-  const refinement = await locateRefinement(stateDir, key, sprint);
+  const refinement = await locateRefinement(stateDir, key, sprint, analysis);
   log.info(`Refinement: ${refinement.path} (sprint ${refinement.sprint})`);
 
   // Pad-label = profiel + model-code (bv. `kris-O48`). Het ruwe `profile`
@@ -216,6 +223,7 @@ function truncate(s: string, n: number): string {
 function parseArgs(): DevelopArgs {
   const argv = process.argv.slice(2);
   let profile: string | undefined;
+  let analysis: string | undefined;
   const positionals: string[] = [];
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -226,16 +234,25 @@ function parseArgs(): DevelopArgs {
         process.exit(1);
       }
       profile = next;
+    } else if (a === '--analysis') {
+      const next = argv[++i];
+      if (!next) {
+        console.error('--analysis verwacht een argument');
+        process.exit(1);
+      }
+      analysis = next;
     } else if (!a.startsWith('--')) {
       positionals.push(a);
     }
   }
   const key = positionals[0];
   if (!key) {
-    console.error('Usage: develop <TICKET-KEY> [sprintId] [--profile <naam>]');
+    console.error(
+      'Usage: develop <TICKET-KEY> [sprintId] [--profile <naam>] [--analysis <label>]',
+    );
     process.exit(1);
   }
-  return { key, sprint: positionals[1], profile };
+  return { key, sprint: positionals[1], profile, analysis };
 }
 
 // Only run as CLI when invoked directly (not when imported by ship.ts).

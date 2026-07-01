@@ -451,6 +451,46 @@ implementeren.
 gebruikt enkel een read-only worktree op de base-branch en raakt geen
 profile-specifieke config; plan heeft geen worktree.
 
+### 10b. Analyse per model-label + expliciete keuze (`analyses/<label>/`)
+
+`refine` (agent 1) schrijft zijn output niet meer plat in de sprint-root maar
+in een **label-folder** `sprints/<SPRINT>/analyses/<label>/`, analoog aan de
+per-profiel dev-runs (§10). Voor analyse varieert niet het profiel maar het
+**model**: het profiel staat vast op `no`, dus het label is `no-<modelcode>`
+(bv. `no-O48`, `no-F5`), berekend met `runPathLabel('no', refineModel())`. Zo
+kan dezelfde sprint (of hetzelfde ticket, in `--tickets`-modus) met twee
+modellen naast elkaar geanalyseerd worden zonder dat de tweede run de eerste
+overschrijft. Per label een eigen `_meta.json` (idempotency-hashes),
+`FLUX-*.md`, `FLUX-*.jira.md`, en — na plan/publish — `_order.md` /
+`_published.json`.
+
+**Eén expliciete keuze vóór downstream.** Omdat een sprint nu meerdere analyses
+kan hebben, moet er precies één gekozen worden vóór `plan`, `publish`,
+`develop` (en `converge`/`review-external`). Die keuze wordt vastgelegd via een
+**pointer** `sprints/<SPRINT>/_chosen.json` (`{ analysis, chosenAt }`) — geen
+bestanden verplaatsen; de niet-gekozen analyses blijven zichtbaar in hun eigen
+label-folder. De centrale resolver `resolveAnalysisDir` (in
+`pipeline/agents/shared/analysis.ts`) bepaalt overal de actieve analyse-dir met
+prioriteit: expliciet `--analysis <label>` → legacy platte sprint (geen
+`analyses/`-map) → precies één analyse → `_chosen.json` → anders een harde
+"kies eerst één"-fout. `plan`/`publish`/`develop` accepteren `--analysis
+<label>`; `locateRefinement` (shared/ticket.ts) is label-aware.
+
+**TUI presenteert de keuze op het moment zelf.** De acties `planning`,
+`publicatie` en `ontwikkeling` roepen `promptAnalysis`/`promptAnalysisForTicket`
+aan: bij meerdere analyses een selectielijst (die `_chosen.json` schrijft), bij
+precies één automatisch die, bij een legacy platte sprint niets. De CLI zonder
+`--analysis` faalt bij ambiguïteit met dezelfde hint.
+
+**Backwards-compat:** bestaande platte sprints (`sprints/<SPRINT>/FLUX-*.md`
+zonder `analyses/`-map) blijven werken — de resolver behandelt de sprint-root
+dan als analyse-dir (label `null`). Geen migratiescript nodig.
+
+**Los van de dev-dimensie:** het analyse-label (`no-<code>`) staat naast het
+develop-label (`<profiel>-<code>`, §10). Dev-werk blijft onder
+`tickets/<KEY>/<devLabel>/`; de analyse-keuze bepaalt enkel welke refinement
+als `ticket.md` geseed wordt.
+
 ### 11. Push en PR als aparte deterministische scripts
 
 Agent 4 (review) doet bij APPROVED enkel de **lokale** squash en schrijft
@@ -723,11 +763,13 @@ flux-agents-state/                ← aparte repo (STATE_DIR)
 │   ├── _base/<baseBranch>/                    ← agent 1 leest hieruit (read-only)
 │   └── _external/<KEY>[-<label>]/             ← externe-review worktrees (zijtak)
 ├── sprints/<SPRINT>/             ← gecommit (sprint = refinement + ticketwerk)
-│   ├── _meta.json                ← agent 1 hashes
-│   ├── _order.md                 ← agent 2 output
-│   ├── _published.json           ← pipeline/jira/publish.ts state (hashes per ticket + umbrella key)
-│   ├── FLUX-*.md                 ← agent 1 output per ticket (uitgebreid, Opus)
-│   ├── FLUX-*.jira.md            ← agent 1 beknopte versie (Sonnet, voor Jira-comment)
+│   ├── _chosen.json              ← pointer naar de gekozen analyse (§10b)
+│   ├── analyses/<label>/         ← agent 1 output per model-label (`no-<code>`, §10b)
+│   │   ├── _meta.json            ← agent 1 hashes (per analyse)
+│   │   ├── _order.md             ← agent 2 output (per analyse)
+│   │   ├── _published.json       ← publish.ts state (per analyse)
+│   │   ├── FLUX-*.md             ← agent 1 output per ticket (uitgebreid, Opus)
+│   │   └── FLUX-*.jira.md        ← agent 1 beknopte versie (Sonnet, voor Jira-comment)
 │   └── tickets/<KEY>/            ← gecommit (per-ticket werk onder de sprint)
 │       ├── ticket.md             ← kopie van refinement (zonder profile)
 │       ├── code-changes.md       ← agent 3 per ronde (zonder profile)
@@ -753,6 +795,13 @@ worktrees onder `worktrees/<SPRINT>/`. Een afgesloten sprint kuis je op met
 remove` op alle `worktrees/<SPRINT>/*` en laat de committed state staan. De
 base-branch- en externe-review-worktrees hangen niet aan een sprint en zitten
 daarom onder de gereserveerde `worktrees/_base/` en `worktrees/_external/`.
+
+**Analyse-labels (§10b):** de refinement-output zit sinds kort onder
+`sprints/<SPRINT>/analyses/<label>/` (bv. `no-O48`) i.p.v. plat in de
+sprint-root, zodat dezelfde sprint met meerdere modellen geanalyseerd kan
+worden; `_chosen.json` legt vast welke gebruikt wordt door plan/publish/develop.
+Legacy platte sprints (`sprints/<SPRINT>/FLUX-*.md` zonder `analyses/`) blijven
+werken.
 
 **Waarom gesplitst:** tooling en work-product hebben verschillende
 commit-cadans (zeldzaam vs dagelijks), verschillende retention (tool:

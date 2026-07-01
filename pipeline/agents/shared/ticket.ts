@@ -8,6 +8,7 @@ import {
 } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { log } from './logger.js';
+import { findTicketSprints, resolveAnalysisDir } from './analysis.js';
 
 export type TicketStatus =
   | 'in_progress'
@@ -110,52 +111,55 @@ export class TicketState {
 }
 
 /**
- * Locate the refinement markdown for a ticket. If `sprint` is given, look
- * directly in that sprint folder. Otherwise scan all sprint folders for
- * a `<KEY>.md` file and return the first match.
+ * Locate the refinement markdown for a ticket. If `sprint` is given, resolve
+ * its active analyse-folder (`analyses/<label>/`, of legacy sprint-root) en
+ * lees `<KEY>.md` daar. Otherwise scan all sprint folders for the one that
+ * contains the ticket, then resolve that sprint's analyse-folder.
  *
- * Returns both the path and the sprint ID (so callers can persist which
- * sprint a ticket came from in _status.json).
+ * `analysisLabel` kiest expliciet welke analyse-run gebruikt wordt als een
+ * sprint er meerdere heeft; anders valt `resolveAnalysisDir` terug op de
+ * enige/gekozen analyse (en faalt bij ambiguïteit met een "kies eerst"-hint).
+ *
+ * Returns the path plus the sprint ID (so callers can persist which sprint a
+ * ticket came from in _status.json).
  */
 export async function locateRefinement(
   stateDir: string,
   key: string,
   sprint?: string,
+  analysisLabel?: string,
 ): Promise<{ path: string; sprint: string }> {
   const sprintsRoot = resolve(stateDir, 'sprints');
 
   if (sprint) {
-    const path = join(sprintsRoot, sprint, `${key}.md`);
+    const { dir } = await resolveAnalysisDir(stateDir, sprint, { label: analysisLabel });
+    const path = join(dir, `${key}.md`);
     await assertExists(path, `No refinement at ${path}`);
     return { path, sprint };
   }
 
-  const entries = await readdir(sprintsRoot, { withFileTypes: true });
-  const matches: Array<{ path: string; sprint: string }> = [];
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    const candidate = join(sprintsRoot, entry.name, `${key}.md`);
-    try {
-      await access(candidate);
-      matches.push({ path: candidate, sprint: entry.name });
-    } catch {
-      // not present in this sprint, continue
-    }
-  }
+  const sprintsWithTicket = await findTicketSprints(stateDir, key);
 
-  if (matches.length === 0) {
+  if (sprintsWithTicket.length === 0) {
     throw new Error(
       `No refinement markdown for ${key} found in any sprint under ${sprintsRoot}. ` +
         `Run agent 1 (refine) first, or pass the sprint id explicitly.`,
     );
   }
-  if (matches.length > 1) {
-    const names = matches.map((m) => m.sprint).join(', ');
+  if (sprintsWithTicket.length > 1) {
+    const names = sprintsWithTicket.join(', ');
     throw new Error(
       `Ticket ${key} appears in multiple sprints (${names}). Pass the sprint id explicitly.`,
     );
   }
-  return matches[0];
+
+  const foundSprint = sprintsWithTicket[0];
+  // Kies de analyse binnen deze sprint (mag throwen bij meerdere analyses
+  // zonder keuze — dat is de "kies eerst één"-fout).
+  const { dir } = await resolveAnalysisDir(stateDir, foundSprint, { label: analysisLabel });
+  const path = join(dir, `${key}.md`);
+  await assertExists(path, `No refinement at ${path}`);
+  return { path, sprint: foundSprint };
 }
 
 /**

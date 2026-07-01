@@ -1,5 +1,5 @@
 import * as p from '@clack/prompts';
-import { promptSprint } from './prompts.js';
+import { NO_ANALYSIS, promptAnalysis, promptSprint } from './prompts.js';
 import { runOrLaunch } from './launch.js';
 
 /**
@@ -11,9 +11,15 @@ export async function planAction(): Promise<void> {
   const sprint = await promptSprint();
   if (sprint === undefined) return;
 
+  // Bij meerdere analyses moet er één gekozen worden vóór we plannen; de keuze
+  // wordt in _chosen.json vastgelegd en als --analysis meegegeven.
+  const analysis = await promptAnalysis(sprint);
+  if (analysis === undefined) return;
+  const analysisArgs = analysis === NO_ANALYSIS ? [] : ['--analysis', analysis];
+
   await runOrLaunch({
     scriptKey: 'plan',
-    args: [sprint],
+    args: [sprint, ...analysisArgs],
     title: `plan ${sprint}`,
     confirm: `Sprint '${sprint}' plannen?`,
     step: `Plannen van sprint ${sprint}…`,

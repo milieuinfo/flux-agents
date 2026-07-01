@@ -3,6 +3,12 @@ import { resolve } from 'node:path';
 import * as p from '@clack/prompts';
 import { baseBranchWorktreePath } from '../../pipeline/agents/shared/repo.js';
 import {
+  findTicketSprints,
+  listAnalyses,
+  readChosenAnalysis,
+  writeChosenAnalysis,
+} from '../../pipeline/agents/shared/analysis.js';
+import {
   applyJiraSslConfig,
   createJiraClient,
   listOpenProjectSprints,
@@ -355,6 +361,78 @@ export async function promptSprintFromJira(
     sprintName: chosen.name,
     folder: sprintFolderFromName(chosen.name),
   };
+}
+
+// Sentinel voor "geen analyse-keuze nodig" (legacy platte sprint of geen
+// analyses) — te onderscheiden van `undefined` (geannuleerd).
+export const NO_ANALYSIS = Symbol('no-analysis');
+
+/**
+ * Presenteert de analyse-keuze voor een sprint op het moment van
+ * publicatie/planning/ontwikkeling. Legt de keuze vast in `_chosen.json` zodra
+ * er meerdere analyses zijn (bv. `no-O48`, `no-F5`). Retourneert:
+ *   - het label bij een keuze (en bij precies één analyse — dan geen vraag);
+ *   - `NO_ANALYSIS` als er (nog) geen analyse-folders zijn (legacy layout);
+ *   - `undefined` bij annulering.
+ */
+export async function promptAnalysis(
+  sprint: string,
+): Promise<string | typeof NO_ANALYSIS | undefined> {
+  const stateDir = resolve(process.env.STATE_DIR ?? './state');
+  const labels = await listAnalyses(stateDir, sprint);
+
+  if (labels.length === 0) return NO_ANALYSIS;
+  if (labels.length === 1) {
+    await writeChosenAnalysis(stateDir, sprint, labels[0]);
+    return labels[0];
+  }
+
+  const current = await readChosenAnalysis(stateDir, sprint);
+  const sel = await p.select({
+    message: `Meerdere analyses voor '${sprint}' — welke gebruiken?`,
+    options: labels.map((name) => ({ value: name, label: name })),
+    initialValue: current && labels.includes(current) ? current : undefined,
+  });
+  if (p.isCancel(sel)) return undefined;
+  await writeChosenAnalysis(stateDir, sprint, sel);
+  return sel;
+}
+
+export interface TicketAnalysis {
+  sprint: string;
+  /** Het gekozen analyse-label, of `null` bij een legacy platte sprint. */
+  label: string | null;
+}
+
+/**
+ * Analyse-keuze voor de develop-flow, die geen sprint apart vraagt: zoekt de
+ * sprint(s) met dit ticket, kiest er één (prompt bij meerdere), en presenteert
+ * dan de analyse-keuze binnen die sprint. Retourneert de sprint + het gekozen
+ * label (of `null` voor legacy), of `undefined` bij annulering / niet gevonden.
+ */
+export async function promptAnalysisForTicket(
+  key: string,
+): Promise<TicketAnalysis | undefined> {
+  const stateDir = resolve(process.env.STATE_DIR ?? './state');
+  const sprints = await findTicketSprints(stateDir, key);
+  if (sprints.length === 0) {
+    p.log.error(`Geen analyse voor ${key} gevonden. Draai eerst 'analyse'.`);
+    return undefined;
+  }
+
+  let sprint = sprints[0];
+  if (sprints.length > 1) {
+    const sel = await p.select({
+      message: `Ticket ${key} zit in meerdere sprints — welke?`,
+      options: sprints.map((name) => ({ value: name, label: name })),
+    });
+    if (p.isCancel(sel)) return undefined;
+    sprint = sel;
+  }
+
+  const analysis = await promptAnalysis(sprint);
+  if (analysis === undefined) return undefined;
+  return { sprint, label: analysis === NO_ANALYSIS ? null : analysis };
 }
 
 export interface TicketAndProfile {

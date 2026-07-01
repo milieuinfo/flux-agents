@@ -1,5 +1,5 @@
 import * as p from '@clack/prompts';
-import { promptTicketAndProfile } from './prompts.js';
+import { promptAnalysisForTicket, promptTicketAndProfile } from './prompts.js';
 import { runOrLaunch } from './launch.js';
 
 /**
@@ -12,9 +12,16 @@ export async function developAction(): Promise<void> {
   if (!sel) return;
   const { key, profile } = sel;
 
+  // Welke analyse als refinement seeden? Bij meerdere analyses moet er één
+  // gekozen worden (legt _chosen.json vast). We geven de gevonden sprint als
+  // positional mee zodat develop niet zelf hoeft te scannen.
+  const analysis = await promptAnalysisForTicket(key);
+  if (analysis === undefined) return;
+  const analysisArgs = analysis.label ? ['--analysis', analysis.label] : [];
+
   await runOrLaunch({
     scriptKey: 'develop',
-    args: [key, '--profile', profile],
+    args: [key, analysis.sprint, '--profile', profile, ...analysisArgs],
     title: `develop ${key} (${profile})`,
     confirm: `Ontwikkelen op ${key} met profiel '${profile}'?`,
     step: `Ontwikkelen op ${key} (profiel: ${profile})…`,

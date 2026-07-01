@@ -1,5 +1,5 @@
 import * as p from '@clack/prompts';
-import { promptSprint, promptTicketKey } from './prompts.js';
+import { NO_ANALYSIS, promptAnalysis, promptSprint, promptTicketKey } from './prompts.js';
 import { runOrLaunch } from './launch.js';
 
 /**
@@ -38,7 +38,11 @@ export async function publishAction(): Promise<void> {
   } else if (scope === 'sprint') {
     const sprint = await promptSprint();
     if (sprint === undefined) return;
-    baseArgs = [sprint];
+    // Bij meerdere analyses één kiezen vóór publicatie (legt _chosen.json vast).
+    const analysis = await promptAnalysis(sprint);
+    if (analysis === undefined) return;
+    const analysisArgs = analysis === NO_ANALYSIS ? [] : ['--analysis', analysis];
+    baseArgs = [sprint, ...analysisArgs];
     what = `sprint '${sprint}'`;
     confirmText = `comments + het umbrella-ticket naar Jira voor sprint '${sprint}'`;
   } else {
@@ -46,7 +50,10 @@ export async function publishAction(): Promise<void> {
     if (key === undefined) return;
     const folder = await promptSprint('In welke sprint-map staat dit ticket?');
     if (folder === undefined) return;
-    baseArgs = [folder, '--tickets', key, '--skip-overview'];
+    const analysis = await promptAnalysis(folder);
+    if (analysis === undefined) return;
+    const analysisArgs = analysis === NO_ANALYSIS ? [] : ['--analysis', analysis];
+    baseArgs = [folder, ...analysisArgs, '--tickets', key, '--skip-overview'];
     what = `ticket ${key} (map '${folder}')`;
     confirmText = `de comment van ticket ${key} naar Jira`;
   }

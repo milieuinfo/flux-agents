@@ -7,7 +7,10 @@
  * aanbevelingen.
  *
  * Usage:
- *   npm run pipeline:plan -- <sprintId>
+ *   npm run pipeline:plan -- <sprintId> [--analysis <label>]
+ *
+ * `--analysis <label>` kiest welke analyse-run (bv. `no-O48`) geplant wordt als
+ * de sprint er meerdere heeft; anders de enige/gekozen (zie shared/analysis.ts).
  *
  * Idempotent: overschrijft _order.md altijd. Deze agent heeft geen Jira
  * of file tools nodig — puur analyse over al lokaal aanwezige markdowns.
@@ -19,6 +22,7 @@ import { readFile, readdir, writeFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { log } from './shared/logger.js';
 import { planModel } from './shared/model.js';
+import { resolveAnalysisDir } from './shared/analysis.js';
 import { loadPrompt } from './shared/prompts.js';
 import {
   extractAnchoredDocument,
@@ -28,14 +32,23 @@ import {
 
 config();
 
-function parseArgs(): { sprintId: string } {
+function parseArgs(): { sprintId: string; analysis?: string } {
   const argv = process.argv.slice(2);
-  const sprintId = argv[0];
+  let sprintId: string | undefined;
+  let analysis: string | undefined;
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === '--analysis') {
+      analysis = argv[++i];
+    } else if (!a.startsWith('--') && sprintId === undefined) {
+      sprintId = a;
+    }
+  }
   if (!sprintId) {
-    console.error('Usage: plan <sprintId>');
+    console.error('Usage: plan <sprintId> [--analysis <label>]');
     process.exit(1);
   }
-  return { sprintId };
+  return { sprintId, analysis };
 }
 
 async function loadSprintMarkdowns(sprintDir: string): Promise<string> {
@@ -79,11 +92,18 @@ async function runQuery(prompt: string, systemPrompt: string): Promise<string> {
 }
 
 async function main() {
-  const { sprintId } = parseArgs();
+  const { sprintId, analysis } = parseArgs();
   const stateDir = resolve(process.env.STATE_DIR ?? './state');
-  const sprintDir = join(stateDir, 'sprints', sprintId);
+  // Welke analyse-run plannen we? Bij meerdere analyses en geen keuze faalt
+  // dit met een "kies eerst één"-hint (zie shared/analysis.ts).
+  const { label, dir: sprintDir } = await resolveAnalysisDir(stateDir, sprintId, {
+    label: analysis,
+  });
 
-  log.info(`Agent 2 (plan) starting — sprint: ${sprintId}`);
+  log.info(
+    `Agent 2 (plan) starting — sprint: ${sprintId}` +
+      (label ? `, analyse: ${label}` : ''),
+  );
 
   const systemPrompt = await loadPrompt('plan');
   const bundle = await loadSprintMarkdowns(sprintDir);

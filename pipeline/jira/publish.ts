@@ -10,8 +10,13 @@
  *     (Task, label `sprint-overview`, story points 0, gekoppeld aan de sprint)
  *
  * Usage:
- *   npm run jira:publish -- <sprintId> [--dry-run] [--tickets KEY-1,KEY-2]
+ *   npm run jira:publish -- <sprintId> [--analysis <label>] [--dry-run]
+ *                                  [--tickets KEY-1,KEY-2]
  *                                  [--skip-comments] [--skip-overview]
+ *
+ * `--analysis <label>` kiest welke analyse-run (bv. `no-O48`) gepubliceerd
+ * wordt als een sprint er meerdere heeft; anders wordt de enige/gekozen
+ * gebruikt (zie shared/analysis.ts).
  *
  * Idempotent: hashes elke gepubliceerde body in `_published.json` zodat een
  * tweede run zonder content-wijziging niets dubbel post. Het umbrella-ticket
@@ -27,6 +32,7 @@ import { createHash } from 'node:crypto';
 import { access, readFile, readdir, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { log } from '../agents/shared/logger.js';
+import { resolveAnalysisDir } from '../agents/shared/analysis.js';
 import {
   addComment,
   addIssueLink,
@@ -54,6 +60,7 @@ const OVERVIEW_LABEL = 'sprint-overview';
 
 interface CliArgs {
   sprintId: string;
+  analysis?: string;
   tickets?: string[];
   dryRun: boolean;
   skipComments: boolean;
@@ -85,6 +92,7 @@ function parseArgs(): CliArgs {
     if (a === '--dry-run') args.dryRun = true;
     else if (a === '--skip-comments') args.skipComments = true;
     else if (a === '--skip-overview') args.skipOverview = true;
+    else if (a === '--analysis') args.analysis = argv[++i];
     else if (a === '--tickets') {
       args.tickets = argv[++i]
         .split(',')
@@ -98,8 +106,8 @@ function parseArgs(): CliArgs {
   args.sprintId = positionals[0] ?? '';
   if (!args.sprintId) {
     console.error(
-      'Usage: publish <sprintId> [--dry-run] [--tickets KEY-1,KEY-2] ' +
-        '[--skip-comments] [--skip-overview]',
+      'Usage: publish <sprintId> [--analysis <label>] [--dry-run] ' +
+        '[--tickets KEY-1,KEY-2] [--skip-comments] [--skip-overview]',
     );
     process.exit(1);
   }
@@ -770,12 +778,21 @@ async function publishOverview(
 async function main() {
   const args = parseArgs();
   const stateDir = resolve(process.env.STATE_DIR ?? './state');
-  const sprintDir = join(stateDir, 'sprints', args.sprintId);
+  // Welke analyse-run publiceren we? Bij meerdere analyses en geen keuze faalt
+  // dit met een "kies eerst één"-hint (zie shared/analysis.ts). Alle reads en
+  // writes (comments, umbrella, _published.json, previews) draaien op deze dir.
+  const { label, dir: sprintDir } = await resolveAnalysisDir(
+    stateDir,
+    args.sprintId,
+    { label: args.analysis },
+  );
   const projectKey = process.env.JIRA_PROJECT_KEY ?? 'FLUX';
   const publishedPath = join(sprintDir, '_published.json');
 
   log.info(
-    `Publish starting — sprint: ${args.sprintId}, dryRun: ${args.dryRun}, ` +
+    `Publish starting — sprint: ${args.sprintId}` +
+      (label ? ` (analyse ${label})` : '') +
+      `, dryRun: ${args.dryRun}, ` +
       `skipComments: ${args.skipComments}, skipOverview: ${args.skipOverview}`,
   );
 
