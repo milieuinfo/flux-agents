@@ -73,39 +73,20 @@ export async function promptBranch(): Promise<string | undefined> {
   return p.isCancel(branch) ? undefined : branch.trim();
 }
 
-// Placeholder-optie die de gebruiker dwingt bewust een profiel te kiezen: hij
-// staat vooraan en is voorgeselecteerd, maar is zelf geen geldige keuze. Zo
-// pikt een blinde Enter geen profiel per ongeluk — 'no' moet, net als elk
-// ander profiel, bewust geselecteerd worden.
-const PICK_PROFILE = '__pick__';
-
 /**
- * Vraagt een profiel — een bewuste keuze uit de ontdekte profielen (incl.
- * `no`). Géén impliciete default en géén "geen profiel"-snelkoppeling: de
- * placeholder-optie vooraan is geen geldige keuze, dus je moet actief een
- * profiel selecteren. Wil je het no-op-gedrag ("geen AI-config"), kies dan
- * expliciet `no`. Valt terug op vrije tekst als er (nog) geen profielen
- * ontdekt zijn (base-worktree niet klaar). `undefined` bij annulering.
+ * Vraagt een profiel — een keuze uit de ontdekte profielen (incl. `no`). Wil je
+ * het no-op-gedrag ("geen AI-config"), kies dan expliciet `no`. Valt terug op
+ * vrije tekst als er (nog) geen profielen ontdekt zijn (base-worktree niet
+ * klaar). `undefined` bij annulering.
  */
 export async function promptProfile(): Promise<string | undefined> {
   const profiles = await discoverProfiles();
   if (profiles.length > 0) {
-    for (;;) {
-      const sel = await p.select<string>({
-        message: "Welk profiel? (bewuste keuze — ook 'no')",
-        options: [
-          { value: PICK_PROFILE, label: '— kies een profiel —' },
-          ...profiles.map((name) => ({ value: name, label: name })),
-        ],
-        initialValue: PICK_PROFILE,
-      });
-      if (p.isCancel(sel)) return undefined;
-      if (sel === PICK_PROFILE) {
-        p.log.warn("Kies bewust een profiel (bv. 'no').");
-        continue;
-      }
-      return sel;
-    }
+    const sel = await p.select<string>({
+      message: "Welk profiel? (ook 'no' voor geen AI-config)",
+      options: profiles.map((name) => ({ value: name, label: name })),
+    });
+    return p.isCancel(sel) ? undefined : sel;
   }
   const typed = await p.text({
     message: 'Welk profiel?',

@@ -33,8 +33,7 @@ type DevelopChoice =
   | 'converge'
   | 'develop'
   | 'review'
-  | 'review-external'
-  | 'back';
+  | 'review-external';
 
 const DEVELOP_OPTIONS: { value: DevelopChoice; label: string; hint: string }[] = [
   { value: 'iterate', label: 'itereer', hint: 'ontwikkel & review' },
@@ -42,28 +41,25 @@ const DEVELOP_OPTIONS: { value: DevelopChoice; label: string; hint: string }[] =
   { value: 'develop', label: 'ontwikkel', hint: '' },
   { value: 'review', label: 'review', hint: 'na ontwikkeling' },
   { value: 'review-external', label: 'externe review', hint: 'andermans branch' },
-  { value: 'back', label: 'terug', hint: '' },
 ];
 
 type OnderhoudChoice =
   | 'refresh-profiles'
   | 'close-sprint'
-  | 'close-external'
-  | 'back';
+  | 'close-external';
 
 const ONDERHOUD_OPTIONS: { value: OnderhoudChoice; label: string; hint: string }[] = [
   { value: 'refresh-profiles', label: 'profielen verversen', hint: 'develop-v2 ophalen' },
   { value: 'close-sprint', label: 'sprint afsluiten', hint: 'worktrees van een sprint' },
   { value: 'close-external', label: 'opkuis externe reviews', hint: 'externe-review worktrees' },
-  { value: 'back', label: 'terug', hint: '' },
 ];
 
 function notImplemented(label: string): void {
   p.note('Nog niet geïmplementeerd - komt in een volgende stap.', label);
 }
 
-// Submenu voor 'ontwikkeling'. Keert terug naar het hoofdmenu bij 'terug' of
-// een geannuleerde keuze (Esc/Ctrl-C); sluit de app niet af.
+// Submenu voor 'ontwikkeling'. Keert terug naar het hoofdmenu bij een
+// geannuleerde keuze (Esc/Ctrl-C); sluit de app niet af.
 async function developMenu(): Promise<void> {
   while (true) {
     const choice = await p.select<DevelopChoice>({
@@ -71,7 +67,7 @@ async function developMenu(): Promise<void> {
       options: DEVELOP_OPTIONS,
     });
 
-    if (p.isCancel(choice) || choice === 'back') {
+    if (p.isCancel(choice)) {
       return;
     }
 
@@ -103,7 +99,7 @@ async function developMenu(): Promise<void> {
 
 // Submenu voor 'onderhoud': worktrees opruimen (committed state blijft altijd)
 // en de base-branch verversen voor nieuwe profielen. Keert terug naar het
-// hoofdmenu bij 'terug' of een geannuleerde keuze.
+// hoofdmenu bij een geannuleerde keuze (Esc/Ctrl-C).
 async function onderhoudMenu(): Promise<void> {
   while (true) {
     const choice = await p.select<OnderhoudChoice>({
@@ -111,7 +107,7 @@ async function onderhoudMenu(): Promise<void> {
       options: ONDERHOUD_OPTIONS,
     });
 
-    if (p.isCancel(choice) || choice === 'back') {
+    if (p.isCancel(choice)) {
       return;
     }
 
