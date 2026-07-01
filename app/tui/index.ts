@@ -11,20 +11,21 @@ import { planAction } from './plan.js';
 import { publishAction } from './publish.js';
 import { closeSprintAction } from './close-sprint.js';
 import { closeExternalAction } from './close-external.js';
+import { refreshProfilesAction } from './refresh-profiles.js';
 import { isDesktop } from './launch.js';
 
 config();
 
 // Optie-`value`s zijn de pipeline-codes zodat latere increments er direct op
 // kunnen routeren; de labels zijn NL voor het menu.
-type MenuChoice = 'refine' | 'plan' | 'publish' | 'develop' | 'opkuis';
+type MenuChoice = 'refine' | 'plan' | 'publish' | 'develop' | 'onderhoud';
 
 const MENU_OPTIONS: { value: MenuChoice; label: string; hint: string }[] = [
   { value: 'refine', label: 'analyse', hint: '' },
   { value: 'plan', label: 'planning', hint: 'van analyses' },
   { value: 'publish', label: 'publicatie', hint: 'van analyse' },
   { value: 'develop', label: 'ontwikkeling', hint: 'na analyse' },
-  { value: 'opkuis', label: 'opkuis', hint: 'worktrees opruimen' },
+  { value: 'onderhoud', label: 'onderhoud', hint: 'opruimen & verversen' },
 ];
 
 type DevelopChoice =
@@ -44,11 +45,16 @@ const DEVELOP_OPTIONS: { value: DevelopChoice; label: string; hint: string }[] =
   { value: 'back', label: 'terug', hint: '' },
 ];
 
-type OpkuisChoice = 'close-sprint' | 'close-external' | 'back';
+type OnderhoudChoice =
+  | 'refresh-profiles'
+  | 'close-sprint'
+  | 'close-external'
+  | 'back';
 
-const OPKUIS_OPTIONS: { value: OpkuisChoice; label: string; hint: string }[] = [
+const ONDERHOUD_OPTIONS: { value: OnderhoudChoice; label: string; hint: string }[] = [
+  { value: 'refresh-profiles', label: 'profielen verversen', hint: 'develop-v2 ophalen' },
   { value: 'close-sprint', label: 'sprint afsluiten', hint: 'worktrees van een sprint' },
-  { value: 'close-external', label: 'externe reviews', hint: 'externe-review worktrees' },
+  { value: 'close-external', label: 'opkuis externe reviews', hint: 'externe-review worktrees' },
   { value: 'back', label: 'terug', hint: '' },
 ];
 
@@ -95,19 +101,24 @@ async function developMenu(): Promise<void> {
   }
 }
 
-// Submenu voor 'opkuis': worktrees opruimen (committed state blijft altijd).
-// Keert terug naar het hoofdmenu bij 'terug' of een geannuleerde keuze.
-async function opkuisMenu(): Promise<void> {
+// Submenu voor 'onderhoud': worktrees opruimen (committed state blijft altijd)
+// en de base-branch verversen voor nieuwe profielen. Keert terug naar het
+// hoofdmenu bij 'terug' of een geannuleerde keuze.
+async function onderhoudMenu(): Promise<void> {
   while (true) {
-    const choice = await p.select<OpkuisChoice>({
-      message: 'Opkuis — wat wil je opruimen?',
-      options: OPKUIS_OPTIONS,
+    const choice = await p.select<OnderhoudChoice>({
+      message: 'Onderhoud — wat wil je doen?',
+      options: ONDERHOUD_OPTIONS,
     });
 
     if (p.isCancel(choice) || choice === 'back') {
       return;
     }
 
+    if (choice === 'refresh-profiles') {
+      await refreshProfilesAction();
+      continue;
+    }
     if (choice === 'close-sprint') {
       await closeSprintAction();
       continue;
@@ -160,8 +171,8 @@ async function main(): Promise<void> {
       await publishAction();
       continue;
     }
-    if (choice === 'opkuis') {
-      await opkuisMenu();
+    if (choice === 'onderhoud') {
+      await onderhoudMenu();
       continue;
     }
   }

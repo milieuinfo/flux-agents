@@ -132,7 +132,9 @@ npm run state:close-external -- --dry-run
 ```
 
 Beide zijn idempotent (geen worktrees meer = no-op). In de TUI zit dit onder het
-submenu **'opkuis'** → *sprint afsluiten* / *externe reviews*.
+submenu **'onderhoud'** → *sprint afsluiten* / *opkuis externe reviews*. Datzelfde
+submenu heeft ook *profielen verversen* (haalt de laatste develop-v2 op zodat
+nieuw toegevoegde AI-profielen in de profiel-prompts verschijnen).
 
 ## Zijtak: externe code review
 

@@ -598,16 +598,24 @@ in `pipeline/state/worktree-cleanup.ts`.
 afgesloten sprint op: `git worktree remove --force` op elke `worktrees/<SPRINT>/*`
 gevolgd door `git worktree prune`. De committed sprint-state (refinement +
 ticketwerk onder `sprints/<SPRINT>/`) blijft bewaard. In de TUI: submenu
-'opkuis' → 'sprint afsluiten' (toont enkel sprints die nog worktrees hebben).
+'onderhoud' → 'sprint afsluiten' (toont enkel sprints die nog worktrees hebben).
 
 **`npm run state:close-external [-- <LEAF>]`** — ruimt de wegwerp-worktrees van
 externe code-reviews op (`worktrees/_external/*`). Zonder argument alle, met een
 argument enkel `worktrees/_external/<LEAF>` (bv. `FLUX-743-kris-O48`). De committed
 review-output onder `external-reviews/<KEY>/` blijft bewaard. In de TUI: submenu
-'opkuis' → 'externe reviews' (multiselect, standaard niets geselecteerd).
+'onderhoud' → 'opkuis externe reviews' (multiselect, standaard niets geselecteerd).
 
 Beide nemen `--dry-run` (toont enkel wat ze zouden verwijderen) en zijn
 idempotent — geen worktrees meer = no-op.
+
+Naast de opkuis-acties heeft het 'onderhoud'-submenu ook **'profielen
+verversen'**: dat doet een fetch+reset van de base-branch worktree
+(`worktrees/_base/<baseBranch>`, zelfde logica als refine via `prepareWorktree`)
+zodat in `develop-v2` nieuw toegevoegde AI-profielen (`ai/profiles/<naam>/`) in
+de profiel-prompts verschijnen. Het is bewust een aparte, expliciete actie omdat
+de fetch+reset te traag is om bij elke profiel-prompt te draaien — de prompts
+zelf lezen `ai/profiles/` puur van disk.
 
 **Waarom deterministisch en los:** opkuisen is een puur mechanische
 bestandsoperatie zonder oordeel; het hoort niet in een LLM-run, en het apart
