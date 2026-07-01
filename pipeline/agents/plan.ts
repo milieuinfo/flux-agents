@@ -21,7 +21,7 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 import { readFile, readdir, writeFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { log } from './shared/logger.js';
-import { planModel } from './shared/model.js';
+import { planEffort, planModel } from './shared/model.js';
 import { resolveAnalysisDir } from './shared/analysis.js';
 import { loadPrompt } from './shared/prompts.js';
 import {
@@ -76,6 +76,7 @@ async function runQuery(prompt: string, systemPrompt: string): Promise<string> {
     prompt,
     options: {
       model,
+      effort: planEffort(),
       maxTurns: 3,
       // Use our prompt as the full system prompt (no `claude_code` preset):
       // the preset makes the model think it's a tool-using agent and triggers

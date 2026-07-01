@@ -41,7 +41,7 @@ import {
   ticketWorktreePath,
 } from './shared/repo.js';
 import { loadPrompt, commitConventions } from './shared/prompts.js';
-import { convergeModel, developModel, runPathLabel } from './shared/model.js';
+import { convergeEffort, convergeModel, developModel, runPathLabel } from './shared/model.js';
 import { bashAgentHooks } from './shared/observability.js';
 import { streamLastAssistantText } from './shared/query.js';
 import {
@@ -227,6 +227,7 @@ async function main() {
     prompt: userPrompt,
     options: {
       model: convergeModel(),
+      effort: convergeEffort(),
       maxTurns: Number(process.env.AGENT_CONVERGE_MAX_TURNS ?? 150),
       cwd: worktree,
       // Agent leest bron-md's en schrijft _pr-body.md onder stateDir.

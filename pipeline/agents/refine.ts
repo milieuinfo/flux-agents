@@ -30,7 +30,13 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { log } from './shared/logger.js';
 import { requireEnv } from './shared/env.js';
-import { refineModel, refineSummaryModel, runPathLabel } from './shared/model.js';
+import {
+  refineEffort,
+  refineModel,
+  refineSummaryEffort,
+  refineSummaryModel,
+  runPathLabel,
+} from './shared/model.js';
 import { loadPrompt } from './shared/prompts.js';
 import { SprintState, hashTicketContent, type SprintMeta } from './shared/state.js';
 import {
@@ -329,6 +335,7 @@ async function summarizeRefinement(
     prompt,
     options: {
       model,
+      effort: refineSummaryEffort(),
       maxTurns: 2,
       systemPrompt: { type: 'preset', preset: 'claude_code', append: systemPrompt },
       // Geen MCP, geen Read/Glob/Grep — de samenvatting heeft alleen het
@@ -475,6 +482,7 @@ async function runQuery(
     prompt: promptArg,
     options: {
       model,
+      effort: refineEffort(),
       maxTurns: opts.maxTurns ?? 10,
       systemPrompt: opts.systemPrompt
         ? { type: 'preset', preset: 'claude_code', append: opts.systemPrompt }

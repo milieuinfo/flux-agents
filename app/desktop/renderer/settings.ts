@@ -5,10 +5,13 @@
  * keychain (main); "Test Jira" valideert de verbinding.
  */
 import {
+  compareModels,
   CONFIG_GROUPS,
   ENV_SCHEMA,
+  prettyModelName,
   type EnvField,
 } from '../../../pipeline/agents/shared/config';
+import type { ModelOption } from '../shared/ipc';
 
 /** Absoluut pad (posix `/…` of Windows `C:\…`/`C:/…`). */
 function isAbsolutePath(value: string): boolean {
@@ -17,11 +20,22 @@ function isAbsolutePath(value: string): boolean {
 
 export class SettingsPanel {
   readonly element = document.createElement('div');
-  private readonly inputs = new Map<string, HTMLInputElement>();
+  private readonly inputs = new Map<
+    string,
+    HTMLInputElement | HTMLSelectElement
+  >();
   private stateDirWarning?: HTMLElement;
   private readonly status = document.createElement('div');
   private readonly authStatus = document.createElement('span');
   private readonly jiraStatus = document.createElement('span');
+  // Model-dropdowns worden dynamisch gevuld met de SDK-modellijst (geen
+  // hardgecodeerde lijst). We houden de selects apart bij zodat we ze na het
+  // async ophalen (of een handmatige verversing) kunnen herpopuleren.
+  private readonly modelSelects = new Map<string, HTMLSelectElement>();
+  private readonly modelsStatus = document.createElement('span');
+  private models: ModelOption[] | null = null;
+  private modelsLoading = false;
+  private lastValues: Record<string, string> = {};
   private readonly api = window.fluxDesktop;
 
   constructor() {
@@ -59,7 +73,15 @@ export class SettingsPanel {
     h.textContent = group;
     section.appendChild(h);
 
+    // Effort-velden worden inline naast hun model gerenderd (via `effortKey`),
+    // dus sla ze over als eigen rij.
+    const inlineKeys = new Set(
+      ENV_SCHEMA.map((x) => x.effortKey).filter((k): k is string => !!k),
+    );
+
     for (const f of fields) {
+      if (inlineKeys.has(f.key)) continue;
+
       const row = document.createElement('label');
       row.className = 'settings-row';
 
@@ -67,14 +89,33 @@ export class SettingsPanel {
       labelText.className = 'settings-label';
       labelText.textContent = f.required ? `${f.label} *` : f.label;
 
-      const input = document.createElement('input');
-      input.type = f.secret ? 'password' : 'text';
-      input.className = 'settings-input';
-      input.placeholder = f.placeholder ?? '';
-      input.autocomplete = 'off';
+      const input = f.dynamicModels
+        ? this.buildModelSelect()
+        : f.options
+          ? this.buildSelect(f.options)
+          : this.buildTextInput(f);
       this.inputs.set(f.key, input);
+      if (f.dynamicModels && input instanceof HTMLSelectElement) {
+        this.modelSelects.set(f.key, input);
+      }
 
-      row.append(labelText, input);
+      // Model + effort op één rij: input links, effort-dropdown ernaast.
+      const effortField = f.effortKey
+        ? ENV_SCHEMA.find((x) => x.key === f.effortKey)
+        : undefined;
+      if (effortField?.options) {
+        const effort = this.buildSelect(effortField.options);
+        effort.classList.add('settings-effort');
+        effort.title = 'reasoning-effort';
+        this.inputs.set(effortField.key, effort);
+        const inline = document.createElement('div');
+        inline.className = 'settings-field-inline';
+        inline.append(input, effort);
+        row.append(labelText, inline);
+      } else {
+        row.append(labelText, input);
+      }
+
       if (f.description) {
         const desc = document.createElement('span');
         desc.className = 'settings-desc';
@@ -107,6 +148,21 @@ export class SettingsPanel {
       test.addEventListener('click', () => void this.testJira());
       this.jiraStatus.className = 'settings-status';
       cell.append(this.jiraStatus, test);
+      row.appendChild(cell);
+      section.appendChild(row);
+    }
+
+    if (group === 'Modellen') {
+      const row = document.createElement('div');
+      row.className = 'settings-row';
+      const cell = document.createElement('div');
+      cell.className = 'settings-actions';
+      const refresh = document.createElement('button');
+      refresh.className = 'btn';
+      refresh.textContent = 'Modellen vernieuwen';
+      refresh.addEventListener('click', () => void this.loadModels(true));
+      this.modelsStatus.className = 'settings-status';
+      cell.append(this.modelsStatus, refresh);
       row.appendChild(cell);
       section.appendChild(row);
     }
@@ -144,6 +200,101 @@ export class SettingsPanel {
     return section;
   }
 
+  private buildTextInput(f: EnvField): HTMLInputElement {
+    const input = document.createElement('input');
+    input.type = f.secret ? 'password' : 'text';
+    input.className = 'settings-input';
+    input.placeholder = f.placeholder ?? '';
+    input.autocomplete = 'off';
+    return input;
+  }
+
+  private buildSelect(options: string[]): HTMLSelectElement {
+    const select = document.createElement('select');
+    select.className = 'settings-input';
+    for (const opt of options) {
+      const o = document.createElement('option');
+      o.value = opt;
+      o.textContent = opt;
+      select.appendChild(o);
+    }
+    return select;
+  }
+
+  /** Lege model-dropdown; gevuld door `fillModelSelect` zodra de lijst er is. */
+  private buildModelSelect(): HTMLSelectElement {
+    const select = document.createElement('select');
+    select.className = 'settings-input';
+    return select;
+  }
+
+  /**
+   * (Her)vul een model-dropdown. Elke keuze is één `{ value, label }`: de lege
+   * keuze (= env niet ingesteld, de pipeline gebruikt dan zijn ingebouwde
+   * model), de SDK-modellen, en — als de ingestelde waarde niet in de SDK-lijst
+   * zit (offline of een gepinde id) — die waarde als gewone extra keuze. Ze
+   * worden allemaal identiek gerenderd; enkel de bron van het label verschilt
+   * (SDK-`description` vs `prettyModelName` voor een gepinde id).
+   */
+  private fillModelSelect(select: HTMLSelectElement, stored: string): void {
+    const models: ModelOption[] = [...(this.models ?? [])];
+    // Een ingestelde waarde die niet in de SDK-lijst zit (gepinde id) als gewone
+    // keuze toevoegen — en meesorteren, niet onderaan plakken.
+    if (stored && !models.some((m) => m.value === stored)) {
+      models.push({ value: stored, label: prettyModelName(stored) });
+    }
+    models.sort(compareModels);
+
+    // De lege keuze staat altijd vooraan, buiten de sortering.
+    const options: ModelOption[] = [
+      { value: '', label: '— niet ingesteld —' },
+      ...models,
+    ];
+    select.replaceChildren();
+    for (const o of options) {
+      const el = document.createElement('option');
+      el.value = o.value;
+      el.textContent = o.label;
+      select.appendChild(el);
+    }
+    select.value = stored || '';
+  }
+
+  /**
+   * Haal de SDK-modellijst op en (her)vul alle model-dropdowns. Cachet het
+   * resultaat voor de paneelsessie; `force` omzeilt de cache (vernieuw-knop).
+   */
+  private async loadModels(force = false): Promise<void> {
+    if (this.modelsLoading) return;
+    if (this.models && !force) {
+      this.setModelsStatus('Modellen geladen.', 'ok');
+      return;
+    }
+    this.modelsLoading = true;
+    this.setModelsStatus('Modellen laden…', '');
+    try {
+      const res = await this.api.config.listModels();
+      if (res.state === 'ok' && res.models?.length) {
+        this.models = res.models;
+        for (const [key, select] of this.modelSelects) {
+          this.fillModelSelect(select, select.value || this.lastValues[key] || '');
+        }
+        this.setModelsStatus('Modellen geladen.', 'ok');
+      } else if (res.state === 'missing') {
+        this.setModelsStatus('Geen OAuth-token — modellen niet op te halen.', 'err');
+      } else {
+        this.setModelsStatus(`Ophalen mislukt: ${res.detail ?? 'onbekende fout'}`, 'err');
+      }
+    } finally {
+      this.modelsLoading = false;
+    }
+  }
+
+  private setModelsStatus(text: string, kind: '' | 'ok' | 'err'): void {
+    this.modelsStatus.textContent = text;
+    this.modelsStatus.className = `settings-status${kind ? ` ${kind}` : ''}`;
+  }
+
   private updateStateDirWarning(): void {
     if (!this.stateDirWarning) return;
     const v = (this.inputs.get('STATE_DIR')?.value ?? '').trim();
@@ -170,20 +321,28 @@ export class SettingsPanel {
     this.jiraStatus.textContent = '';
     this.jiraStatus.className = 'settings-status';
     const { values, secretsSet } = await this.api.config.get();
+    this.lastValues = values;
     for (const f of ENV_SCHEMA) {
       const input = this.inputs.get(f.key);
       if (!input) continue;
-      if (f.secret) {
+      if (f.secret && input instanceof HTMLInputElement) {
         input.value = '';
         input.placeholder = secretsSet[f.key]
           ? '•••••••• (ingesteld — leeg laten om te behouden)'
           : (f.placeholder ?? '');
+      } else if (f.dynamicModels && input instanceof HTMLSelectElement) {
+        // Toon meteen de bewaarde waarde; de volledige lijst komt async binnen.
+        this.fillModelSelect(input, values[f.key] ?? '');
+      } else if (f.options) {
+        // Dropdown: geen opgeslagen waarde → val terug op de schema-default.
+        input.value = values[f.key] || f.default || '';
       } else {
         input.value = values[f.key] ?? '';
       }
     }
     this.updateStateDirWarning();
     void this.checkAuth();
+    void this.loadModels();
   }
 
   private collect(): Record<string, string> {

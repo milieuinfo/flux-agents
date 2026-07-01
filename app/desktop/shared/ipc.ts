@@ -15,6 +15,7 @@ export const IPC = {
   configGet: 'config:get', // renderer → main (invoke)
   configSave: 'config:save', // renderer → main (invoke)
   configTestJira: 'config:test-jira', // renderer → main (invoke)
+  configListModels: 'config:list-models', // renderer → main (invoke): SDK-modellijst
   authStatus: 'auth:status', // renderer → main (invoke)
   usageGet: 'usage:get', // renderer → main (invoke): Claude-abonnement usage-limieten
   preflightRun: 'preflight:run', // renderer → main (invoke)
@@ -44,6 +45,23 @@ export interface TestJiraResult {
 
 export interface AuthStatus {
   state: 'ok' | 'invalid' | 'missing';
+  detail?: string;
+}
+
+/** Eén keuze voor een model-dropdown: de model-id + een weergavenaam. */
+export interface ModelOption {
+  value: string;
+  label: string;
+}
+
+/**
+ * Door de SDK ondersteunde modellen (bron voor de model-dropdowns in het
+ * settings-scherm). `missing` = geen OAuth-token; `error` = ophalen mislukt
+ * (detail bevat de reden). Bij `ok` is `models` gevuld.
+ */
+export interface ModelsStatus {
+  state: 'ok' | 'missing' | 'error';
+  models?: ModelOption[];
   detail?: string;
 }
 
@@ -150,6 +168,8 @@ export interface FluxDesktopApi {
       sslVerify?: string;
     }): Promise<TestJiraResult>;
     checkAuth(input: { token?: string }): Promise<AuthStatus>;
+    /** Haal de door de SDK ondersteunde modellen op voor de dropdowns. */
+    listModels(): Promise<ModelsStatus>;
   };
   preflight(): Promise<PreflightCheck[]>;
   /** Haal de actuele usage-limieten van het Claude-abonnement op. */

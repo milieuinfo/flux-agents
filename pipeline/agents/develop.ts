@@ -36,7 +36,7 @@ import {
   ticketWorktreePath,
 } from './shared/repo.js';
 import { loadPrompt, commitConventions } from './shared/prompts.js';
-import { developModel, runPathLabel } from './shared/model.js';
+import { developEffort, developModel, runPathLabel } from './shared/model.js';
 import { bashAgentHooks } from './shared/observability.js';
 import { streamLastAssistantText } from './shared/query.js';
 import {
@@ -165,6 +165,7 @@ export async function runDevelop({ key, sprint, profile, analysis }: DevelopArgs
     prompt: userPrompt,
     options: {
       model: developModel(),
+      effort: developEffort(),
       maxTurns: Number(
         process.env.AGENT_DEVELOP_MAX_TURNS ?? 100,
       ),

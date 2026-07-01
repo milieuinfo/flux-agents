@@ -26,6 +26,88 @@ export interface EnvField {
   default?: string;
   placeholder?: string;
   description?: string;
+  /**
+   * Als gezet: render een dropdown i.p.v. een vrij tekstveld. De waarden zijn
+   * de toegestane keuzes; `default` bepaalt de voorselectie.
+   */
+  options?: string[];
+  /**
+   * Key van een gekoppeld effort-veld dat op dezelfde rij naast de input komt
+   * (model links + input + effort-dropdown, alles op één lijn). Het gekoppelde
+   * veld blijft in het schema staan (voor persistentie + defaults) maar wordt
+   * niet als eigen rij gerenderd.
+   */
+  effortKey?: string;
+  /**
+   * Als gezet: render een model-dropdown die dynamisch gevuld wordt met de door
+   * de SDK ondersteunde modellen (geen hardgecodeerde lijst). Een lege keuze
+   * betekent "gebruik de ingebouwde default uit shared/model.ts".
+   */
+  dynamicModels?: boolean;
+}
+
+/**
+ * Toegestane reasoning-effort-niveaus voor de model-dropdowns. Spiegelt
+ * `EFFORT_LEVELS` uit `shared/model.ts` — hier bewust apart geïnlined zodat dit
+ * schema puur blijft (de renderer importeert het en `model.ts` leest env vars).
+ */
+export const EFFORT_OPTIONS = ['low', 'medium', 'high', 'xhigh', 'max'];
+
+/**
+ * Nette weergavenaam voor een model-id, in dezelfde stijl als de SDK-labels
+ * ("Opus 4.8", "Sonnet 4.6"): tier met hoofdletter + versienummer. Gebruikt om
+ * een ingestelde (gepinde) waarde die niet in de SDK-lijst zit tóch consistent
+ * te tonen. Een lange cijferreeks (≥ 5, een datum-suffix) telt niet als versie.
+ * Onbekende vorm → de id ongewijzigd terug.
+ */
+export function prettyModelName(id: string): string {
+  const m = id.match(/^claude-([a-z]+)-(.+)$/i);
+  if (m) {
+    const tier = m[1][0].toUpperCase() + m[1].slice(1).toLowerCase();
+    const version = m[2]
+      .split('-')
+      .filter((p) => /^\d+$/.test(p) && p.length < 5)
+      .join('.');
+    if (version) return `${tier} ${version}`;
+  }
+  return id;
+}
+
+/** Tier-volgorde van krachtigst naar lichtst; onbekende tiers achteraan. */
+const TIER_RANK: Record<string, number> = { fable: 0, opus: 1, sonnet: 2, haiku: 3 };
+
+/**
+ * Sorteersleutel voor een model-keuze (`{ value, label }`) zodat de dropdown een
+ * logische volgorde krijgt: de aanbevolen/auto-keuze eerst, dan per tier (Opus →
+ * Sonnet → Haiku), binnen een tier de nieuwste versie eerst en de basisvariant
+ * vóór de 1M-contextvariant. Werkt op het label (dat altijd tier + versie draagt,
+ * ook voor een gepinde id via `prettyModelName`) zodat SDK-modellen én een
+ * ingestelde waarde met dezelfde regel geordend worden.
+ */
+export function modelSortKey(opt: {
+  value: string;
+  label: string;
+}): [number, number, number, number] {
+  const recommended =
+    opt.value === 'default' || /\(aanbevolen\)/i.test(opt.label) ? 0 : 1;
+  const tier = opt.label.match(/\b(fable|opus|sonnet|haiku)\b/i)?.[1].toLowerCase();
+  const tierRank = tier ? (TIER_RANK[tier] ?? 9) : 9;
+  const version = Number(opt.label.match(/(\d+(?:\.\d+)?)/)?.[1] ?? 0);
+  const oneMillion = /1m/i.test(opt.label) || /\[1m\]/i.test(opt.value) ? 1 : 0;
+  return [recommended, tierRank, -version, oneMillion];
+}
+
+/** Vergelijkfunctie op basis van `modelSortKey` (voor `Array.sort`). */
+export function compareModels(
+  a: { value: string; label: string },
+  b: { value: string; label: string },
+): number {
+  const ka = modelSortKey(a);
+  const kb = modelSortKey(b);
+  for (let i = 0; i < ka.length; i++) {
+    if (ka[i] !== kb[i]) return ka[i] - kb[i];
+  }
+  return 0;
 }
 
 export const CONFIG_GROUPS: ConfigGroup[] = [
@@ -111,47 +193,113 @@ export const ENV_SCHEMA: EnvField[] = [
   },
 
   // --- Modellen (leeg = ingebouwde default uit shared/model.ts) ---
+  // Per rol op één rij: het model (tekst) + het reasoning-effort (dropdown,
+  // default 'high'). De effort-velden staan hieronder in het schema (voor
+  // persistentie + defaults) maar worden inline naast hun model gerenderd.
   {
     key: 'AGENT_REFINE_MODEL',
     label: 'Refine-model',
     group: 'Modellen',
     placeholder: 'claude-opus-4-8',
+    dynamicModels: true,
+    effortKey: 'AGENT_REFINE_EFFORT',
+  },
+  {
+    key: 'AGENT_REFINE_EFFORT',
+    label: 'Refine-effort',
+    group: 'Modellen',
+    options: EFFORT_OPTIONS,
+    default: 'high',
   },
   {
     key: 'AGENT_REFINE_SUMMARY_MODEL',
     label: 'Refine-samenvatting-model',
     group: 'Modellen',
     placeholder: 'claude-sonnet-4-6',
+    dynamicModels: true,
+    effortKey: 'AGENT_REFINE_SUMMARY_EFFORT',
+  },
+  {
+    key: 'AGENT_REFINE_SUMMARY_EFFORT',
+    label: 'Refine-samenvatting-effort',
+    group: 'Modellen',
+    options: EFFORT_OPTIONS,
+    default: 'high',
   },
   {
     key: 'AGENT_PLAN_MODEL',
     label: 'Plan-model',
     group: 'Modellen',
     placeholder: 'claude-opus-4-8',
+    dynamicModels: true,
+    effortKey: 'AGENT_PLAN_EFFORT',
+  },
+  {
+    key: 'AGENT_PLAN_EFFORT',
+    label: 'Plan-effort',
+    group: 'Modellen',
+    options: EFFORT_OPTIONS,
+    default: 'high',
   },
   {
     key: 'AGENT_DEVELOP_MODEL',
     label: 'Develop-model',
     group: 'Modellen',
     placeholder: 'claude-sonnet-4-6',
+    dynamicModels: true,
+    effortKey: 'AGENT_DEVELOP_EFFORT',
+  },
+  {
+    key: 'AGENT_DEVELOP_EFFORT',
+    label: 'Develop-effort',
+    group: 'Modellen',
+    options: EFFORT_OPTIONS,
+    default: 'high',
   },
   {
     key: 'AGENT_REVIEW_MODEL',
     label: 'Review-model',
     group: 'Modellen',
     placeholder: 'claude-opus-4-8',
+    dynamicModels: true,
+    effortKey: 'AGENT_REVIEW_EFFORT',
+  },
+  {
+    key: 'AGENT_REVIEW_EFFORT',
+    label: 'Review-effort',
+    group: 'Modellen',
+    options: EFFORT_OPTIONS,
+    default: 'high',
   },
   {
     key: 'AGENT_CONVERGE_MODEL',
     label: 'Converge-model',
     group: 'Modellen',
     placeholder: '(= review-model)',
+    dynamicModels: true,
+    effortKey: 'AGENT_CONVERGE_EFFORT',
+  },
+  {
+    key: 'AGENT_CONVERGE_EFFORT',
+    label: 'Converge-effort',
+    group: 'Modellen',
+    options: EFFORT_OPTIONS,
+    default: 'high',
   },
   {
     key: 'AGENT_REVIEW_EXTERNAL_MODEL',
     label: 'Externe-review-model',
     group: 'Modellen',
     placeholder: '(= review-model)',
+    dynamicModels: true,
+    effortKey: 'AGENT_REVIEW_EXTERNAL_EFFORT',
+  },
+  {
+    key: 'AGENT_REVIEW_EXTERNAL_EFFORT',
+    label: 'Externe-review-effort',
+    group: 'Modellen',
+    options: EFFORT_OPTIONS,
+    default: 'high',
   },
 
   // --- Git-identiteit ---

@@ -22,6 +22,7 @@ import {
   checkAnthropicAuth,
   fetchClaudeUsage,
   getConfigForRenderer,
+  listAvailableModels,
   loadEffectiveConfig,
   migrateLegacyUserData,
   saveConfig,
@@ -318,6 +319,9 @@ function registerIpc(): void {
   );
   ipcMain.handle(IPC.authStatus, (_e, input: { token?: string }) =>
     checkAnthropicAuth(repoRoot, input),
+  );
+  ipcMain.handle(IPC.configListModels, () =>
+    listAvailableModels(repoRoot, userShell),
   );
   ipcMain.handle(IPC.usageGet, () => fetchClaudeUsage(repoRoot));
   ipcMain.handle(IPC.preflightRun, () => runPreflight(repoRoot));

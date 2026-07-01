@@ -491,6 +491,36 @@ body.resizing .terminal-host {
   border-color: #5a7da0;
 }
 
+/* Eigen caret voor dropdowns: de native pijl kleeft tegen de rand, dus tekenen
+   we er zelf één met wat marge (background-position) en ruimte voor de tekst
+   (padding-right). */
+select.settings-input {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 28px;
+  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMCIgaGVpZ2h0PSI2IiB2aWV3Qm94PSIwIDAgMTAgNiI+PHBhdGggZD0iTTEgMWw0IDQgNC00IiBmaWxsPSJub25lIiBzdHJva2U9IiNjY2NjY2MiIHN0cm9rZS13aWR0aD0iMS41Ii8+PC9zdmc+");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 10px 6px;
+}
+
+/* Model-input + effort-dropdown naast elkaar in kolom 2. */
+.settings-field-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-field-inline > .settings-input:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.settings-effort {
+  flex: 0 0 auto;
+  width: auto;
+}
+
 .settings-desc {
   grid-column: 2;
   font-size: 11px;

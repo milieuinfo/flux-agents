@@ -30,7 +30,7 @@ import {
   ticketWorktreePath,
 } from './shared/repo.js';
 import { loadPrompt, commitConventions } from './shared/prompts.js';
-import { developModel, reviewModel, runPathLabel } from './shared/model.js';
+import { developModel, reviewEffort, reviewModel, runPathLabel } from './shared/model.js';
 import { bashAgentHooks } from './shared/observability.js';
 import { streamLastAssistantText } from './shared/query.js';
 import { TicketState, locateTicketSprint } from './shared/ticket.js';
@@ -128,6 +128,7 @@ export async function runReview({ key, profile }: ReviewArgs): Promise<void> {
     prompt: userPrompt,
     options: {
       model: reviewModel(),
+      effort: reviewEffort(),
       maxTurns: Number(
         process.env.AGENT_REVIEW_MAX_TURNS ?? 100,
       ),

@@ -19,13 +19,17 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { parse as parseEnv } from 'dotenv';
 import {
   ENV_SCHEMA,
   SECRET_KEYS,
   schemaDefaults,
 } from '../../../pipeline/agents/shared/config';
-import type { UsageStatus, UsageWindow } from '../shared/ipc';
+import type { ModelsStatus, UsageStatus, UsageWindow } from '../shared/ipc';
+
+const execFileAsync = promisify(execFile);
 
 const SECRET_SET = new Set(SECRET_KEYS);
 
@@ -198,6 +202,65 @@ export async function checkAnthropicAuth(
     state: 'ok',
     detail: 'OAuth-token ingesteld — agents draaien op je Pro/Max-abonnement.',
   };
+}
+
+/** Sentinels waarbinnen `list-models.ts` zijn JSON schrijft (zie dat script). */
+const MODELS_BEGIN = '__FLUX_MODELS_BEGIN__';
+const MODELS_END = '__FLUX_MODELS_END__';
+
+/**
+ * Vraag de door de SDK ondersteunde modellen op voor de model-dropdowns in het
+ * settings-scherm — géén hardgecodeerde lijst. We draaien `list-models.ts` via
+ * dezelfde login-shell + `node --import tsx` als de agents (zodat node/tsx op de
+ * PATH staan en de SDK zijn eigen CLI uit node_modules vindt) en injecteren de
+ * effectieve config als env. De JSON komt tussen sentinels terug, zodat we hem
+ * uit eventuele shell-/SDK-ruis kunnen knippen.
+ *
+ * Faalt soft: geen token → 'missing', spawn/parse-fout → 'error' met detail.
+ */
+export async function listAvailableModels(
+  repoRoot: string,
+  shell: string,
+): Promise<ModelsStatus> {
+  const eff = loadEffectiveConfig(repoRoot);
+  if (!eff.CLAUDE_CODE_OAUTH_TOKEN) {
+    return { state: 'missing', detail: 'Geen OAuth-token ingesteld.' };
+  }
+
+  const env: NodeJS.ProcessEnv = { ...process.env, ...eff };
+  // Zoals bij de pty-spawn: een rondslingerende API-key mag het abonnement niet
+  // overrulen (zou pay-per-use afrekenen).
+  delete env.ANTHROPIC_API_KEY;
+  delete env.ANTHROPIC_AUTH_TOKEN;
+
+  try {
+    const { stdout } = await execFileAsync(
+      shell,
+      ['-ilc', 'node --import tsx pipeline/agents/list-models.ts'],
+      { cwd: repoRoot, env, timeout: 60_000, maxBuffer: 4 * 1024 * 1024 },
+    );
+    const begin = stdout.indexOf(MODELS_BEGIN);
+    const end = stdout.indexOf(MODELS_END);
+    if (begin < 0 || end < 0 || end < begin) {
+      console.error(`[models] geen sentinel in output:\n${stdout.slice(-500)}`);
+      return { state: 'error', detail: 'Onverwachte uitvoer bij ophalen modellen.' };
+    }
+    const json = stdout.slice(begin + MODELS_BEGIN.length, end);
+    const parsed = JSON.parse(json) as { value: string; label: string }[];
+    const models = parsed.filter((m) => m && typeof m.value === 'string' && m.value);
+    if (!models.length) return { state: 'error', detail: 'Lege modellijst ontvangen.' };
+    return { state: 'ok', models };
+  } catch (err) {
+    // execFile-fouten dragen de scriptreden in `stderr`; toon die i.p.v. het
+    // generieke "Command failed".
+    const stderr =
+      typeof (err as { stderr?: unknown }).stderr === 'string'
+        ? ((err as { stderr: string }).stderr.trim().split('\n').pop() ?? '')
+        : '';
+    const detail = stderr || (err instanceof Error ? err.message : String(err));
+    console.error(`[models] ophalen mislukt: ${detail}`);
+    return { state: 'error', detail };
+  }
 }
 
 /**

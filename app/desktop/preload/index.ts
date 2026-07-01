@@ -46,6 +46,7 @@ const api: FluxDesktopApi = {
     save: (values) => ipcRenderer.invoke(IPC.configSave, values),
     testJira: (input) => ipcRenderer.invoke(IPC.configTestJira, input),
     checkAuth: (input) => ipcRenderer.invoke(IPC.authStatus, input),
+    listModels: () => ipcRenderer.invoke(IPC.configListModels),
   },
   preflight: () => ipcRenderer.invoke(IPC.preflightRun),
   usage: () => ipcRenderer.invoke(IPC.usageGet),

@@ -24,15 +24,28 @@
  */
 const DATE_SUFFIX_MIN_DIGITS = 5;
 
+/**
+ * Kale Claude Code-model-aliassen zoals `supportedModels()` ze teruggeeft
+ * (`opus`, `sonnet`, `haiku`, `fable`), eventueel met een context-suffix als
+ * `sonnet[1m]`. Ze hebben geen versienummer — de tier is dan de hele naam en
+ * `parts` blijft leeg (code = tier-initiaal, label = "Claude <Tier>").
+ */
+const ALIAS_TIERS = ['opus', 'sonnet', 'haiku', 'fable'];
+
 function parseModel(model: string): { tier: string; parts: string[] } | null {
   const m = model.match(/^claude-([a-z]+)-(.+)$/i);
-  if (!m) return null;
-  const tier = m[1].toLowerCase();
-  const parts = m[2]
-    .split('-')
-    .filter((p) => /^\d+$/.test(p) && p.length < DATE_SUFFIX_MIN_DIGITS);
-  if (parts.length === 0) return null;
-  return { tier, parts };
+  if (m) {
+    const tier = m[1].toLowerCase();
+    const parts = m[2]
+      .split('-')
+      .filter((p) => /^\d+$/.test(p) && p.length < DATE_SUFFIX_MIN_DIGITS);
+    if (parts.length > 0) return { tier, parts };
+  }
+  // Kale alias (bv. 'opus' of 'sonnet[1m]') — strip een `[...]`-suffix en match
+  // op de bekende tiers. Geen versie → lege parts.
+  const alias = model.toLowerCase().replace(/\[[^\]]*\]$/, '');
+  if (ALIAS_TIERS.includes(alias)) return { tier: alias, parts: [] };
+  return null;
 }
 
 /**
@@ -74,7 +87,8 @@ export function modelLabel(model: string): string {
   const p = parseModel(model);
   if (p) {
     const tier = p.tier[0].toUpperCase() + p.tier.slice(1);
-    return `Claude ${tier} ${p.parts.join('.')}`;
+    const version = p.parts.join('.');
+    return version ? `Claude ${tier} ${version}` : `Claude ${tier}`;
   }
   return 'Claude';
 }
@@ -137,4 +151,72 @@ export function runPathLabel(
   model: string,
 ): string | undefined {
   return profile ? `${profile}-${modelCode(model)}` : undefined;
+}
+
+/*
+ * Reasoning-effort per agent-rol. Stuurt hoe diep het model nadenkt
+ * (adaptive thinking) — naast de model-keuze een tweede knop om een run
+ * zwaarder of lichter te maken. De env vars dragen de rolnaam analoog aan
+ * `AGENT_*_MODEL` (`AGENT_REFINE_EFFORT`, `AGENT_DEVELOP_EFFORT`, …).
+ */
+
+export type EffortLevel = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+
+/** Geldige effort-niveaus in oplopende volgorde (voor UI-dropdowns). */
+export const EFFORT_LEVELS: EffortLevel[] = [
+  'low',
+  'medium',
+  'high',
+  'xhigh',
+  'max',
+];
+
+/** Default-effort als de env-var leeg of ongeldig is — gelijk aan de SDK-default. */
+export const DEFAULT_EFFORT: EffortLevel = 'high';
+
+/**
+ * Lees een effort-niveau uit een env-var. Leeg of niet-herkend → `'high'`
+ * (de default). Zo blijft een run met een verkeerd gespelde waarde gewoon
+ * op de veilige default draaien i.p.v. de SDK een ongeldige waarde te geven.
+ */
+function readEffort(envVar: string): EffortLevel {
+  const raw = process.env[envVar]?.trim().toLowerCase();
+  return (EFFORT_LEVELS as string[]).includes(raw ?? '')
+    ? (raw as EffortLevel)
+    : DEFAULT_EFFORT;
+}
+
+/** Effort voor agent 1 (refine). */
+export function refineEffort(): EffortLevel {
+  return readEffort('AGENT_REFINE_EFFORT');
+}
+
+/** Effort voor de beknopte Jira-samenvatting van agent 1 (§5b). */
+export function refineSummaryEffort(): EffortLevel {
+  return readEffort('AGENT_REFINE_SUMMARY_EFFORT');
+}
+
+/** Effort voor agent 2 (plan). */
+export function planEffort(): EffortLevel {
+  return readEffort('AGENT_PLAN_EFFORT');
+}
+
+/** Effort voor agent 3 (develop). */
+export function developEffort(): EffortLevel {
+  return readEffort('AGENT_DEVELOP_EFFORT');
+}
+
+/** Effort voor agent 4 (review). */
+export function reviewEffort(): EffortLevel {
+  return readEffort('AGENT_REVIEW_EFFORT');
+}
+
+/** Effort voor de converge-agent (combineren van twee profielruns). */
+export function convergeEffort(): EffortLevel {
+  return readEffort('AGENT_CONVERGE_EFFORT');
+}
+
+/** Effort voor de externe-review-zijtak. */
+export function reviewExternalEffort(): EffortLevel {
+  return readEffort('AGENT_REVIEW_EXTERNAL_EFFORT');
 }
