@@ -9,6 +9,7 @@ import {
 import { join, resolve } from 'node:path';
 import { log } from './logger.js';
 import { findTicketSprints, resolveAnalysisDir } from './analysis.js';
+import { developModel, modelCode } from './model.js';
 
 export type TicketStatus =
   | 'in_progress'
@@ -212,21 +213,69 @@ export function extractBranchSlug(ticketMd: string): string | null {
 }
 
 /**
+ * Vind sibling-runs van hetzelfde profiel met een ANDER label (dus een ander
+ * model-code), voor de model-mismatch-guard. Scant elke sprint's
+ * `tickets/<KEY>/<profiel>-*`-folders met een `_status.json`, exclusief het
+ * verwachte label.
+ */
+async function findSiblingProfileRuns(
+  stateDir: string,
+  key: string,
+  profile: string,
+  excludeLabel: string,
+): Promise<Array<{ sprint: string; label: string }>> {
+  const sprintsRoot = resolve(stateDir, 'sprints');
+  let entries;
+  try {
+    entries = await readdir(sprintsRoot, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  const found: Array<{ sprint: string; label: string }> = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const ticketDir = join(sprintsRoot, entry.name, 'tickets', key);
+    let runs;
+    try {
+      runs = await readdir(ticketDir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const run of runs) {
+      if (!run.isDirectory() || run.name === excludeLabel) continue;
+      if (!run.name.startsWith(`${profile}-`)) continue;
+      try {
+        await access(join(ticketDir, run.name, '_status.json'));
+        found.push({ sprint: entry.name, label: run.name });
+      } catch {
+        // geen run in deze folder
+      }
+    }
+  }
+  return found;
+}
+
+/**
  * Vind de sprint-folder waaronder dit ticket-werk staat
  * (`state/sprints/<sprint>/tickets/<KEY>/`).
  *
- * Met een `profile`-segment zoeken we naar
- * `sprints/<sprint>/tickets/<KEY>/<profile>/_status.json` — profile-runs
- * zitten in een subfolder zodat parallelle runs niet botsen. Callers geven
- * doorgaans een samengesteld label `<profiel>-<modelcode>` (zie shared/model.ts).
- * Zonder profile valt het scannen terug op het profielloze pad.
+ * `label` is het pad-segment van de run (`<profiel>-<modelcode>`, bv.
+ * `no-O48`); zonder label wordt het profielloze pad gezocht. `profile` is het
+ * kale profiel (bv. `no`) en dient enkel voor betere foutmeldingen — met name
+ * de **model-mismatch-guard**: bestaat de verwachte label-folder niet maar wél
+ * een zusterrun van hetzelfde profiel met een ander model-code, dan is
+ * `AGENT_DEVELOP_MODEL` gewijzigd tussen develop en review/push/pr. We gooien
+ * dan een duidelijke fout i.p.v. het generieke "geen ticket-state / worktree
+ * ontbreekt", want het model moet stabiel blijven van develop t/m push/pr
+ * (het model-code zit in het pad, niet in `_status.json`).
  *
- * Gooit als het ticket nog niet bestaat (develop heeft nog niet gedraaid)
+ * Gooit ook als het ticket nog niet bestaat (develop heeft nog niet gedraaid)
  * of als het in meerdere sprint-folders voorkomt.
  */
 export async function locateTicketSprint(
   stateDir: string,
   key: string,
+  label?: string,
   profile?: string,
 ): Promise<string> {
   const sprintsRoot = resolve(stateDir, 'sprints');
@@ -243,8 +292,8 @@ export async function locateTicketSprint(
   const matches: string[] = [];
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
-    const candidate = profile
-      ? join(sprintsRoot, entry.name, 'tickets', key, profile, '_status.json')
+    const candidate = label
+      ? join(sprintsRoot, entry.name, 'tickets', key, label, '_status.json')
       : join(sprintsRoot, entry.name, 'tickets', key, '_status.json');
     try {
       await access(candidate);
@@ -255,8 +304,25 @@ export async function locateTicketSprint(
   }
 
   if (matches.length === 0) {
-    const expected = profile
-      ? `${sprintsRoot}/<sprint>/tickets/${key}/${profile}/`
+    // Model-mismatch-guard: dezelfde profielrun bestaat wél, maar met een
+    // ander model-code in de foldernaam → AGENT_DEVELOP_MODEL is gewijzigd.
+    if (label && profile) {
+      const siblings = await findSiblingProfileRuns(stateDir, key, profile, label);
+      if (siblings.length > 0) {
+        const names = siblings.map((s) => s.label).join(', ');
+        throw new Error(
+          `Model-mismatch voor ${key}: geen run met label '${label}' ` +
+            `(AGENT_DEVELOP_MODEL='${developModel()}' → model-code ` +
+            `'${modelCode(developModel())}'), maar er bestaat wél een run met ` +
+            `een ander model: ${names}. Het develop-model moet stabiel blijven ` +
+            `van develop t/m review/push/pr (het model-code zit in het pad). ` +
+            `Zet AGENT_DEVELOP_MODEL terug op het model van die run, of ` +
+            `ontwikkel opnieuw met het huidige model.`,
+        );
+      }
+    }
+    const expected = label
+      ? `${sprintsRoot}/<sprint>/tickets/${key}/${label}/`
       : `${sprintsRoot}/<sprint>/tickets/${key}/`;
     const hint = profile
       ? `npm run pipeline:develop -- ${key} --profile ${profile}`

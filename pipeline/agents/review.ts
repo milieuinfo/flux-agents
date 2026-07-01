@@ -59,7 +59,7 @@ export async function runReview({ key, profile }: ReviewArgs): Promise<void> {
   // DEVELOP-model (AGENT_DEVELOP_MODEL), niet uit reviews eigen AGENT_REVIEW_MODEL.
   const label = runPathLabel(profile, developModel());
 
-  const ticketSprint = await locateTicketSprint(stateDir, key, label);
+  const ticketSprint = await locateTicketSprint(stateDir, key, label, profile);
   const ticket = new TicketState(stateDir, ticketSprint, key, label);
   const status = await ticket.readStatus();
   if (!status) {

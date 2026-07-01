@@ -35,7 +35,7 @@ export async function runPush({ key, profile }: PushArgs): Promise<void> {
   // dezelfde worktree/branch/state vinden (code uit AGENT_DEVELOP_MODEL).
   const label = runPathLabel(profile, developModel());
 
-  const ticketSprint = await locateTicketSprint(stateDir, key, label);
+  const ticketSprint = await locateTicketSprint(stateDir, key, label, profile);
   const ticket = new TicketState(stateDir, ticketSprint, key, label);
   const status = await ticket.readStatus();
   if (!status) {

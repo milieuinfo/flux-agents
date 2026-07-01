@@ -406,6 +406,18 @@ model-wissel in `.env` levert dus een nieuwe, niet-botsende run op naast de
 vorige. Zonder `--profile` is er geen label en geen model-code → exact het
 oude pad.
 
+**Model-mismatch-guard.** Omdat `develop`/`review`/`ship`/`iterate`/`git:push`/
+`git:pr` het model-code allemaal uit `AGENT_DEVELOP_MODEL` afleiden, moet dat
+model **stabiel blijven** van develop t/m push/pr voor één ticket-run (een
+ander *review*-model is wél prima — dat beïnvloedt het pad niet). Wijzig je
+`AGENT_DEVELOP_MODEL` tussendoor, dan wijst het label naar een niet-bestaande
+folder. `locateTicketSprint` (`shared/ticket.ts`) vangt dit: bestaat de
+verwachte `<profiel>-<code>`-folder niet maar wél een zusterrun van hetzelfde
+profiel met een ander model-code, dan volgt een duidelijke "Model-mismatch"-
+fout (met het gevonden label + hoe te herstellen) i.p.v. het generieke
+"worktree ontbreekt". De model-code zit in het pad, niet in `_status.json`,
+dus dit vergt geen schemawijziging.
+
 Bij een profile-run gebeurt het volgende (`<label>` = `<profiel>-<code>`):
 - **Worktree-pad** krijgt het label als suffix (binnen de sprint-map):
   `state/worktrees/<sprint>/<KEY>-<label>/`

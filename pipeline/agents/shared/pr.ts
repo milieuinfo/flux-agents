@@ -71,7 +71,7 @@ export async function runPr({ key, profile }: PrArgs): Promise<string | null> {
   // Label = profiel + develop-model-code, identiek aan review.ts/push.ts.
   const label = runPathLabel(profile, developModel());
 
-  const ticketSprint = await locateTicketSprint(stateDir, key, label);
+  const ticketSprint = await locateTicketSprint(stateDir, key, label, profile);
   const ticket = new TicketState(stateDir, ticketSprint, key, label);
   const status = await ticket.readStatus();
   if (!status) {
