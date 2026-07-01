@@ -1,18 +1,14 @@
 import * as p from '@clack/prompts';
-import {
-  NO_PROFILE,
-  promptBranch,
-  promptProfileOptional,
-  promptTicketKey,
-} from './prompts.js';
+import { promptBranch, promptProfile, promptTicketKey } from './prompts.js';
 import { runOrLaunch } from './launch.js';
 
 /**
  * TUI-actie 'externe review': reviewt de feature-branch van een andere
  * developer — de zijtak buiten de develop/review-pipeline (geen sprint-context,
  * geen `_status.json`, geen squash/push/PR). Vraagt een ticket-sleutel, de
- * branch en een optioneel profiel, en draait dan review-external, exact zoals
- * `npm run pipeline:review-external -- <KEY> <BRANCH> [--profile <naam>]`.
+ * branch en een bewust gekozen profiel ('no' voor de no-op), en draait dan
+ * review-external als `npm run pipeline:review-external -- <KEY> <BRANCH> --profile <naam>`.
+ * (De CLI houdt `--profile` optioneel; de TUI dwingt een expliciete keuze af.)
  *
  * De review-md komt onder `state/external-reviews/<KEY>/`; publiceren naar Jira gebeurt
  * daarna via 'publicatie' → 'externe review' (publish-review). Keert na afloop
@@ -25,12 +21,11 @@ export async function reviewExternalAction(): Promise<void> {
   const branch = await promptBranch();
   if (branch === undefined) return;
 
-  const profile = await promptProfileOptional();
+  const profile = await promptProfile();
   if (profile === undefined) return;
-  const withProfile = profile !== NO_PROFILE;
 
-  const args = [key, branch, ...(withProfile ? ['--profile', profile] : [])];
-  const profileSuffix = withProfile ? ` (profiel: ${profile})` : '';
+  const args = [key, branch, '--profile', profile];
+  const profileSuffix = ` (profiel: ${profile})`;
 
   await runOrLaunch({
     scriptKey: 'review-external',

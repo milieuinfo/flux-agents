@@ -73,51 +73,46 @@ export async function promptBranch(): Promise<string | undefined> {
   return p.isCancel(branch) ? undefined : branch.trim();
 }
 
-/** Vraagt een profiel (select uit ontdekte profielen, anders vrije tekst). */
+// Placeholder-optie die de gebruiker dwingt bewust een profiel te kiezen: hij
+// staat vooraan en is voorgeselecteerd, maar is zelf geen geldige keuze. Zo
+// pikt een blinde Enter geen profiel per ongeluk — 'no' moet, net als elk
+// ander profiel, bewust geselecteerd worden.
+const PICK_PROFILE = '__pick__';
+
+/**
+ * Vraagt een profiel — een bewuste keuze uit de ontdekte profielen (incl.
+ * `no`). Géén impliciete default en géén "geen profiel"-snelkoppeling: de
+ * placeholder-optie vooraan is geen geldige keuze, dus je moet actief een
+ * profiel selecteren. Wil je het no-op-gedrag ("geen AI-config"), kies dan
+ * expliciet `no`. Valt terug op vrije tekst als er (nog) geen profielen
+ * ontdekt zijn (base-worktree niet klaar). `undefined` bij annulering.
+ */
 export async function promptProfile(): Promise<string | undefined> {
   const profiles = await discoverProfiles();
   if (profiles.length > 0) {
-    const sel = await p.select({
-      message: 'Welk profiel?',
-      options: profiles.map((name) => ({ value: name, label: name })),
-    });
-    return p.isCancel(sel) ? undefined : sel;
+    for (;;) {
+      const sel = await p.select<string>({
+        message: "Welk profiel? (bewuste keuze — ook 'no')",
+        options: [
+          { value: PICK_PROFILE, label: '— kies een profiel —' },
+          ...profiles.map((name) => ({ value: name, label: name })),
+        ],
+        initialValue: PICK_PROFILE,
+      });
+      if (p.isCancel(sel)) return undefined;
+      if (sel === PICK_PROFILE) {
+        p.log.warn("Kies bewust een profiel (bv. 'no').");
+        continue;
+      }
+      return sel;
+    }
   }
   const typed = await p.text({
     message: 'Welk profiel?',
-    placeholder: 'kris',
+    placeholder: 'no',
     validate: (v) => (v?.trim() ? undefined : 'Geef een profiel op.'),
   });
   return p.isCancel(typed) ? undefined : typed.trim();
-}
-
-// Sentinel-waarde voor "geen profiel" in een optionele profielkeuze: zo kan de
-// caller "geannuleerd" (undefined) onderscheiden van "bewust geen profiel".
-export const NO_PROFILE = Symbol('no-profile');
-
-/**
- * Vraagt een optioneel profiel. Voegt een expliciete "geen profiel"-keuze toe
- * (default-gedrag van bv. review-external). Geeft `NO_PROFILE` als geen profiel
- * gekozen is, een profielnaam bij een keuze, of `undefined` bij annulering.
- */
-export async function promptProfileOptional(): Promise<
-  string | typeof NO_PROFILE | undefined
-> {
-  const profiles = await discoverProfiles();
-  if (profiles.length > 0) {
-    const sel = await p.select<string | 'none'>({
-      message: 'Welk profiel?',
-      options: [
-        { value: 'none', label: 'geen profiel' },
-        ...profiles.map((name) => ({ value: name, label: name })),
-      ],
-    });
-    if (p.isCancel(sel)) return undefined;
-    return sel === 'none' ? NO_PROFILE : sel;
-  }
-  // Geen profielen ontdekt → laat de vrije-tekst-route weg en val terug op
-  // "geen profiel"; de gebruiker kan een profile-run alsnog via de CLI doen.
-  return NO_PROFILE;
 }
 
 /**
