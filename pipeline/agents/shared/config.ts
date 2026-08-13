@@ -54,21 +54,68 @@ export interface EnvField {
 export const EFFORT_OPTIONS = ['low', 'medium', 'high', 'xhigh', 'max'];
 
 /**
+ * Eén keuze in een model-dropdown. `value` is de concrete model-id die we
+ * opslaan (uit `ModelInfo.resolvedModel`, bv. `claude-opus-5`); `aliases` zijn
+ * de andere spellingen waarmee de SDK naar hetzelfde model verwijst (`opus`,
+ * `default`, `opus[1m]`). Die aliassen dienen enkel om een reeds bewaarde
+ * waarde te herkennen — opgeslagen wordt altijd `value`.
+ */
+export interface ModelChoice {
+  value: string;
+  label: string;
+  aliases?: string[];
+}
+
+/**
+ * Zoek de keuze waar een bewaarde waarde bij hoort: exact op de concrete id, of
+ * op één van de aliassen (zodat een oude config met `opus` of
+ * `claude-fable-5[1m]` herkend wordt en stil naar de concrete id normaliseert).
+ * Geen match → `undefined`, en dat is een echte mismatch: het ingestelde model
+ * bestaat niet meer in de modellijst.
+ */
+export function findModelChoice<T extends ModelChoice>(
+  models: readonly T[],
+  stored: string,
+): T | undefined {
+  if (!stored) return undefined;
+  return models.find(
+    (m) => m.value === stored || (m.aliases?.includes(stored) ?? false),
+  );
+}
+
+/**
+ * Splits een context-marker (`[1m]`) van een model-id: `claude-opus-5[1m]` →
+ * base `claude-opus-5` + `context1m`. De SDK gebruikt die marker zowel in de
+ * alias (`opus[1m]`) als in de concrete id (`claude-opus-5[1m]`). Spiegelt de
+ * gelijknamige helper in `shared/model.ts` — hier bewust apart geïnlined zodat
+ * dit schema puur blijft (de renderer importeert het en `model.ts` leest env
+ * vars).
+ */
+function splitContextMarker(id: string): { base: string; context1m: boolean } {
+  const m = id.match(/^(.*)\[([^\]]*)\]$/);
+  if (!m) return { base: id, context1m: false };
+  return { base: m[1], context1m: /^1m$/i.test(m[2]) };
+}
+
+/**
  * Nette weergavenaam voor een model-id, in dezelfde stijl als de SDK-labels
- * ("Opus 4.8", "Sonnet 4.6"): tier met hoofdletter + versienummer. Gebruikt om
- * een ingestelde (gepinde) waarde die niet in de SDK-lijst zit tóch consistent
- * te tonen. Een lange cijferreeks (≥ 5, een datum-suffix) telt niet als versie.
- * Onbekende vorm → de id ongewijzigd terug.
+ * ("Opus 5", "Sonnet 5"): tier met hoofdletter + versienummer, en `(1M)` erbij
+ * als de id de 1M-contextmarker draagt. Gebruikt om een bewaarde waarde te
+ * tonen zolang de SDK-lijst nog niet geladen is. Een lange cijferreeks (≥ 5,
+ * een datum-suffix) telt niet als versie. Onbekende vorm → de id ongewijzigd
+ * terug.
  */
 export function prettyModelName(id: string): string {
-  const m = id.match(/^claude-([a-z]+)-(.+)$/i);
+  const { base, context1m } = splitContextMarker(id);
+  const suffix = context1m ? ' (1M)' : '';
+  const m = base.match(/^claude-([a-z]+)-(.+)$/i);
   if (m) {
     const tier = m[1][0].toUpperCase() + m[1].slice(1).toLowerCase();
     const version = m[2]
       .split('-')
       .filter((p) => /^\d+$/.test(p) && p.length < 5)
       .join('.');
-    if (version) return `${tier} ${version}`;
+    if (version) return `${tier} ${version}${suffix}`;
   }
   return id;
 }
@@ -78,11 +125,10 @@ const TIER_RANK: Record<string, number> = { fable: 0, opus: 1, sonnet: 2, haiku:
 
 /**
  * Sorteersleutel voor een model-keuze (`{ value, label }`) zodat de dropdown een
- * logische volgorde krijgt: de aanbevolen/auto-keuze eerst, dan per tier (Opus →
- * Sonnet → Haiku), binnen een tier de nieuwste versie eerst en de basisvariant
- * vóór de 1M-contextvariant. Werkt op het label (dat altijd tier + versie draagt,
- * ook voor een gepinde id via `prettyModelName`) zodat SDK-modellen én een
- * ingestelde waarde met dezelfde regel geordend worden.
+ * logische volgorde krijgt: de aanbevolen/auto-keuze eerst, dan per tier (Fable →
+ * Opus → Sonnet → Haiku), binnen een tier de nieuwste versie eerst en de
+ * basisvariant vóór de 1M-contextvariant. Werkt op het label, dat altijd tier +
+ * versie draagt.
  */
 export function modelSortKey(opt: {
   value: string;
@@ -200,7 +246,7 @@ export const ENV_SCHEMA: EnvField[] = [
     key: 'AGENT_REFINE_MODEL',
     label: 'Refine-model',
     group: 'Modellen',
-    placeholder: 'claude-opus-4-8',
+    placeholder: 'claude-opus-5',
     dynamicModels: true,
     effortKey: 'AGENT_REFINE_EFFORT',
   },
@@ -215,7 +261,7 @@ export const ENV_SCHEMA: EnvField[] = [
     key: 'AGENT_REFINE_SUMMARY_MODEL',
     label: 'Refine-samenvatting-model',
     group: 'Modellen',
-    placeholder: 'claude-sonnet-4-6',
+    placeholder: 'claude-sonnet-5',
     dynamicModels: true,
     effortKey: 'AGENT_REFINE_SUMMARY_EFFORT',
   },
@@ -230,7 +276,7 @@ export const ENV_SCHEMA: EnvField[] = [
     key: 'AGENT_PLAN_MODEL',
     label: 'Plan-model',
     group: 'Modellen',
-    placeholder: 'claude-opus-4-8',
+    placeholder: 'claude-opus-5',
     dynamicModels: true,
     effortKey: 'AGENT_PLAN_EFFORT',
   },
@@ -245,7 +291,7 @@ export const ENV_SCHEMA: EnvField[] = [
     key: 'AGENT_DEVELOP_MODEL',
     label: 'Develop-model',
     group: 'Modellen',
-    placeholder: 'claude-sonnet-4-6',
+    placeholder: 'claude-sonnet-5',
     dynamicModels: true,
     effortKey: 'AGENT_DEVELOP_EFFORT',
   },
@@ -260,7 +306,7 @@ export const ENV_SCHEMA: EnvField[] = [
     key: 'AGENT_REVIEW_MODEL',
     label: 'Review-model',
     group: 'Modellen',
-    placeholder: 'claude-opus-4-8',
+    placeholder: 'claude-opus-5',
     dynamicModels: true,
     effortKey: 'AGENT_REVIEW_EFFORT',
   },

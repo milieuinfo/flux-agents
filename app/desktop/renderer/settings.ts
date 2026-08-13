@@ -8,6 +8,7 @@ import {
   compareModels,
   CONFIG_GROUPS,
   ENV_SCHEMA,
+  findModelChoice,
   prettyModelName,
   type EnvField,
 } from '../../../pipeline/agents/shared/config';
@@ -32,6 +33,12 @@ export class SettingsPanel {
   // hardgecodeerde lijst). We houden de selects apart bij zodat we ze na het
   // async ophalen (of een handmatige verversing) kunnen herpopuleren.
   private readonly modelSelects = new Map<string, HTMLSelectElement>();
+  // Per model-veld een (verborgen) foutregel + de set velden waarvan het
+  // ingestelde model niet in de SDK-lijst voorkomt. Zolang die set niet leeg is
+  // weigert `save()` — een mismatch stil laten passeren zou het model ongemerkt
+  // op de ingebouwde default zetten.
+  private readonly modelErrors = new Map<string, HTMLElement>();
+  private readonly invalidModels = new Set<string>();
   private readonly modelsStatus = document.createElement('span');
   private models: ModelOption[] | null = null;
   private modelsLoading = false;
@@ -97,6 +104,8 @@ export class SettingsPanel {
       this.inputs.set(f.key, input);
       if (f.dynamicModels && input instanceof HTMLSelectElement) {
         this.modelSelects.set(f.key, input);
+        // Zelf een geldig model kiezen ruimt de mismatch-fout op.
+        input.addEventListener('change', () => this.setModelError(f.key, null));
       }
 
       // Model + effort op één rij: input links, effort-dropdown ernaast.
@@ -121,6 +130,13 @@ export class SettingsPanel {
         desc.className = 'settings-desc';
         desc.textContent = f.description;
         row.appendChild(desc);
+      }
+      if (f.dynamicModels) {
+        const err = document.createElement('span');
+        err.className = 'settings-warn';
+        err.hidden = true;
+        this.modelErrors.set(f.key, err);
+        row.appendChild(err);
       }
       if (f.key === 'STATE_DIR') {
         const warn = document.createElement('span');
@@ -229,21 +245,28 @@ export class SettingsPanel {
   }
 
   /**
-   * (Her)vul een model-dropdown. Elke keuze is één `{ value, label }`: de lege
-   * keuze (= env niet ingesteld, de pipeline gebruikt dan zijn ingebouwde
-   * model), de SDK-modellen, en — als de ingestelde waarde niet in de SDK-lijst
-   * zit (offline of een gepinde id) — die waarde als gewone extra keuze. Ze
-   * worden allemaal identiek gerenderd; enkel de bron van het label verschilt
-   * (SDK-`description` vs `prettyModelName` voor een gepinde id).
+   * (Her)vul een model-dropdown. De kiesbare opties komen **uitsluitend** uit de
+   * SDK-modellijst, plus de lege keuze (= env niet ingesteld, de pipeline
+   * gebruikt dan zijn ingebouwde model). Een ingestelde waarde die daar niet in
+   * voorkomt wordt dus geen keuze meer; ze levert een fout bij dit veld op.
+   *
+   * Drie gevallen voor de bewaarde waarde:
+   *  - herkend (op de concrete id of op een SDK-alias) → geselecteerd, en meteen
+   *    genormaliseerd naar de concrete id (`opus` → `claude-opus-5`), zodat
+   *    opslaan de alias uit de config haalt.
+   *  - onbekend terwijl de lijst geladen is → fout: het model bestaat niet meer.
+   *  - lijst nog niet geladen (of ophalen mislukt) → we kunnen niets valideren.
+   *    De waarde blijft als niet-kiesbare placeholder staan zodat opslaan hem
+   *    niet wist, en er verschijnt geen fout (de groepsstatus toont de reden).
    */
-  private fillModelSelect(select: HTMLSelectElement, stored: string): void {
-    const models: ModelOption[] = [...(this.models ?? [])];
-    // Een ingestelde waarde die niet in de SDK-lijst zit (gepinde id) als gewone
-    // keuze toevoegen — en meesorteren, niet onderaan plakken.
-    if (stored && !models.some((m) => m.value === stored)) {
-      models.push({ value: stored, label: prettyModelName(stored) });
-    }
-    models.sort(compareModels);
+  private fillModelSelect(
+    key: string,
+    select: HTMLSelectElement,
+    stored: string,
+  ): void {
+    const models: ModelOption[] = [...(this.models ?? [])].sort(compareModels);
+    const match = findModelChoice(models, stored);
+    const unresolved = !this.models && Boolean(stored);
 
     // De lege keuze staat altijd vooraan, buiten de sortering.
     const options: ModelOption[] = [
@@ -257,7 +280,39 @@ export class SettingsPanel {
       el.textContent = o.label;
       select.appendChild(el);
     }
-    select.value = stored || '';
+    if (unresolved) {
+      const el = document.createElement('option');
+      el.value = stored;
+      el.textContent = `${prettyModelName(stored)} — modellijst niet geladen`;
+      el.disabled = true;
+      select.appendChild(el);
+    }
+
+    select.value = match ? match.value : unresolved ? stored : '';
+    this.setModelError(key, this.models && stored && !match ? stored : null);
+  }
+
+  /**
+   * Toon of ruim de mismatch-fout bij één model-veld. Zolang een veld in fout
+   * staat blokkeert `save()` — zie `invalidModels`.
+   */
+  private setModelError(key: string, invalid: string | null): void {
+    const el = this.modelErrors.get(key);
+    if (invalid) {
+      this.invalidModels.add(key);
+      if (el) {
+        el.hidden = false;
+        el.textContent =
+          `⚠ Ingesteld model "${invalid}" staat niet in de modellijst — ` +
+          'kies er één uit de lijst (of "niet ingesteld") en sla op.';
+      }
+    } else {
+      this.invalidModels.delete(key);
+      if (el) {
+        el.hidden = true;
+        el.textContent = '';
+      }
+    }
   }
 
   /**
@@ -277,7 +332,11 @@ export class SettingsPanel {
       if (res.state === 'ok' && res.models?.length) {
         this.models = res.models;
         for (const [key, select] of this.modelSelects) {
-          this.fillModelSelect(select, select.value || this.lastValues[key] || '');
+          this.fillModelSelect(
+            key,
+            select,
+            select.value || this.lastValues[key] || '',
+          );
         }
         this.setModelsStatus('Modellen geladen.', 'ok');
       } else if (res.state === 'missing') {
@@ -332,7 +391,7 @@ export class SettingsPanel {
           : (f.placeholder ?? '');
       } else if (f.dynamicModels && input instanceof HTMLSelectElement) {
         // Toon meteen de bewaarde waarde; de volledige lijst komt async binnen.
-        this.fillModelSelect(input, values[f.key] ?? '');
+        this.fillModelSelect(f.key, input, values[f.key] ?? '');
       } else if (f.options) {
         // Dropdown: geen opgeslagen waarde → val terug op de schema-default.
         input.value = values[f.key] || f.default || '';
@@ -358,6 +417,13 @@ export class SettingsPanel {
     ).map((f) => f.label);
     if (missing.length) {
       this.setStatus(`Verplicht: ${missing.join(', ')}`, 'err');
+      return;
+    }
+    if (this.invalidModels.size) {
+      const labels = [...this.invalidModels].map(
+        (k) => ENV_SCHEMA.find((f) => f.key === k)?.label ?? k,
+      );
+      this.setStatus(`Ongeldig model bij: ${labels.join(', ')}`, 'err');
       return;
     }
     await this.api.config.save(values);

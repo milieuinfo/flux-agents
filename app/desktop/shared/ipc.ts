@@ -3,6 +3,7 @@
  * voor kanaalnamen en payload-types zodat de drie processen niet uit elkaar
  * lopen.
  */
+import type { ModelChoice } from '../../../pipeline/agents/shared/config';
 
 export const IPC = {
   ptyCreate: 'pty:create', // renderer → main (invoke), geeft pty-id terug
@@ -48,11 +49,12 @@ export interface AuthStatus {
   detail?: string;
 }
 
-/** Eén keuze voor een model-dropdown: de model-id + een weergavenaam. */
-export interface ModelOption {
-  value: string;
-  label: string;
-}
+/**
+ * Eén keuze voor een model-dropdown: de concrete model-id + een weergavenaam
+ * (+ de SDK-aliassen die naar hetzelfde model wijzen). Zelfde vorm als in het
+ * config-schema, dat de bron is — hier enkel hernoemd voor het IPC-contract.
+ */
+export type ModelOption = ModelChoice;
 
 /**
  * Door de SDK ondersteunde modellen (bron voor de model-dropdowns in het

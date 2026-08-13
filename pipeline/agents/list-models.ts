@@ -15,7 +15,7 @@
 import { config } from 'dotenv';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import type { ModelInfo, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk';
-import { compareModels } from './shared/config.js';
+import { compareModels, type ModelChoice } from './shared/config.js';
 
 config();
 
@@ -25,7 +25,7 @@ export const END = '__FLUX_MODELS_END__';
 /**
  * Consistent, geversioneerd label voor een model. `supportedModels()` geeft
  * kale aliassen terug (`opus`, `sonnet`) zonder versie in `displayName`, maar de
- * `description` opent met de versie ("Opus 4.7 · …", "Sonnet 4.6 with 1M context
+ * `description` opent met de versie ("Opus 5 · …", "Opus 5 with 1M context
  * · …"). We nemen dat eerste segment zodat er altijd een versie bij staat.
  * De aanbevolen/auto-keuze (`value: 'default'`) markeren we expliciet.
  */
@@ -33,6 +33,39 @@ function labelFor(m: ModelInfo): string {
   const version = (m.description ?? '').split('·')[0]?.trim();
   const base = version || m.displayName || m.value;
   return m.value === 'default' ? `${base} (aanbevolen)` : base;
+}
+
+/**
+ * Zet de SDK-lijst om naar de keuzes voor de dropdown, gesleuteld op de
+ * **concrete** model-id (`resolvedModel`) i.p.v. de alias die de SDK als `value`
+ * teruggeeft. Reden: een alias verschuift van betekenis bij een CLI-upgrade
+ * (`opus` was Opus 4.7, is nu Opus 5) terwijl de model-code in worktree-,
+ * branch- en state-paden (§10) net stabiel en versie-dragend moet zijn. We
+ * bewaren dus `claude-opus-5`, niet `opus`.
+ *
+ * Meerdere rijen kunnen naar dezelfde concrete id wijzen (`default` en
+ * `opus[1m]` → `claude-opus-5[1m]`). Die klappen samen tot één keuze; de eerst
+ * gesorteerde rij levert het label (dus de "(aanbevolen)"-variant wint) en de
+ * overige `value`s blijven als alias bewaard zodat een reeds bewaarde config
+ * met zo'n alias nog herkend wordt.
+ */
+function toChoices(models: ModelInfo[]): ModelChoice[] {
+  const sorted = models
+    .filter((m) => m.value)
+    .map((m) => ({
+      value: m.resolvedModel || m.value,
+      label: labelFor(m),
+      aliases: m.resolvedModel && m.resolvedModel !== m.value ? [m.value] : [],
+    }))
+    .sort(compareModels);
+
+  const byId = new Map<string, ModelChoice>();
+  for (const choice of sorted) {
+    const existing = byId.get(choice.value);
+    if (existing) existing.aliases?.push(...(choice.aliases ?? []));
+    else byId.set(choice.value, choice);
+  }
+  return [...byId.values()];
 }
 
 async function main(): Promise<void> {
@@ -50,11 +83,7 @@ async function main(): Promise<void> {
   const q = query({ prompt: input(), options: {} });
   try {
     const models = await q.supportedModels();
-    const options = models
-      .filter((m) => m.value)
-      .map((m) => ({ value: m.value, label: labelFor(m) }))
-      .sort(compareModels);
-    process.stdout.write(`\n${BEGIN}${JSON.stringify(options)}${END}\n`);
+    process.stdout.write(`\n${BEGIN}${JSON.stringify(toChoices(models))}${END}\n`);
   } finally {
     release();
     await q.interrupt().catch(() => {});
