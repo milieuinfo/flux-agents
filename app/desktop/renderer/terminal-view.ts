@@ -9,9 +9,9 @@
  * ze tonen de output van een agent-run, en per ongeluk typen zou die run
  * verstoren. Voor zo'n tab wordt stdin in xterm uitgeschakeld (`disableStdin`),
  * wordt `onData` niet bedraad en is de cursor verborgen. Selecteren/kopiëren
- * en scrollen (muis, Shift+PageUp/Down) blijven werken. De TUI- en shell-tabs
- * zijn wél interactief. Main negeert invoer voor deze pty's bovendien zelf
- * (tweede slot, zie main/index.ts).
+ * en scrollen (muis, Shift+PageUp/Down) blijven werken. Enkel de TUI-tab is
+ * interactief. Main negeert invoer voor deze pty's bovendien zelf (tweede
+ * slot, zie main/index.ts).
  */
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
@@ -65,7 +65,7 @@ export class TerminalView {
       this.element.classList.add('readonly');
       this.element.title =
         'Alleen-lezen: dit is de output van een agent-run. ' +
-        'Open een shell-tab (+) om zelf te typen.';
+        'Typen kan enkel in de TUI links.';
     }
 
     this.term.open(this.element);

@@ -55,9 +55,10 @@ async function main(): Promise<void> {
   const usage = new UsageBar(el('usage-bar'));
   usage.start();
 
-  // Rechts: console-tabs + de "+"-knop voor een nieuwe shell.
+  // Rechts: de console-tabs. Die worden uitsluitend door TUI-acties geopend
+  // (alleen-lezen output van een agent-run) — er is bewust geen "nieuwe
+  // shell"-knop: typen gebeurt enkel in de TUI links.
   const tabs = new TabManager(el('tab-strip'), el('console-body'));
-  el('tab-add').addEventListener('click', () => void tabs.openShell());
 
   // Control-protocol: een TUI-actie links opent hier een eigen tab rechts.
   window.fluxDesktop.onOpenTab((msg) => void tabs.openCommand(msg.title, msg.command));

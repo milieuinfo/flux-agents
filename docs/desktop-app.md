@@ -27,7 +27,9 @@ Een TUI-actie draait op precies één van twee manieren, afhankelijk van de cont
   actie-tab is **alleen-lezen**: hij toont de output van de agent-run; typen doet
   niets (stdin uit in xterm, en main negeert invoer voor deze pty's) zodat een
   per-ongeluk-toetsaanslag de run niet kan verstoren. Selecteren, kopiëren en
-  scrollen werken wel. De TUI-tab links en de shell-tabs (`+`) blijven interactief.
+  scrollen werken wel. Enkel de TUI-tab links is interactief; er is bewust geen
+  losse shell-tab (die bood niets boven een gewoon Terminal-venster, en het
+  beoogde pad is: vereisten → ⚙ Instellingen → alles groen op Status → TUI).
 - **In een gewone terminal**: de actie vraagt bevestiging en draait het script als
   **subprocess** met live output in dezelfde terminal.
 
@@ -91,4 +93,4 @@ distributie: code-sign + notarize via een Apple Developer-account — zet `CSC_L
 1. Open de dmg, sleep **flux-agents** naar Applications, start de app.
 2. Klik **⚙**, vul in: Jira-URL + PAT, repo-URL, Claude OAuth-token. Test Jira + Claude-auth.
 3. Opslaan → geldt voor nieuwe tabs.
-4. Kies links een actie → ze draait rechts in een eigen tab. `+` opent een losse shell.
+4. Kies links een actie → ze draait rechts in een eigen (alleen-lezen) tab.

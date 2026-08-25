@@ -3,6 +3,11 @@
  * TerminalView. Slechts één tab tegelijk zichtbaar; wisselen herberekent de
  * grootte en zet focus. Een gestopte tab behoudt zijn buffer en toont de
  * exit-code tot de gebruiker hem sluit.
+ *
+ * Tabs ontstaan enkel via het control-protocol (een TUI-actie die een
+ * agent-run start) en zijn alleen-lezen. Er is bewust geen "nieuwe shell"-tab:
+ * een kale shell in de app bood niets boven een gewoon Terminal-venster en
+ * nodigde alleen uit tot typen waar dat niet hoort.
  */
 import { TerminalView } from './terminal-view';
 import type { PtyKind } from '../shared/ipc';
@@ -20,17 +25,11 @@ export class TabManager {
   private tabs: Tab[] = [];
   private active: Tab | null = null;
   private seq = 0;
-  private shellN = 0;
 
   constructor(
     private readonly stripEl: HTMLElement,
     private readonly bodyEl: HTMLElement,
   ) {}
-
-  /** Open een kale shell-tab (de "+"-knop). */
-  async openShell(): Promise<void> {
-    await this.open('shell', `shell ${++this.shellN}`);
-  }
 
   /** Open een actie-tab (control-protocol) die `command` draait. */
   async openCommand(title: string, command: string): Promise<void> {
@@ -38,7 +37,7 @@ export class TabManager {
   }
 
   /** Open een tab van een bepaald pty-soort met de gegeven titel. */
-  async open(kind: PtyKind, title: string, command?: string): Promise<Tab> {
+  private async open(kind: PtyKind, title: string, command?: string): Promise<Tab> {
     const key = ++this.seq;
 
     const labelEl = document.createElement('span');

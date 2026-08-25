@@ -101,13 +101,9 @@ function buildSpec(req: PtyCreateRequest): SpawnSpec {
     env.FLUX_DESKTOP = '1';
     return { ...base, shell: userShell, args: ['-ilc', 'node --import tsx app/tui/index.ts'] };
   }
-  if (req.kind === 'command') {
-    // Eén actie-tab: draait het meegegeven commando in een interactieve login-
-    // shell (`-ilc`), zelfde PATH-reden als de TUI hierboven.
-    return { ...base, shell: userShell, args: ['-ilc', req.command ?? 'true'] };
-  }
-  // Kale interactieve login-shell voor een handmatige console-tab.
-  return { ...base, shell: userShell, args: ['-li'] };
+  // Eén actie-tab (alleen-lezen): draait het meegegeven commando in een
+  // interactieve login-shell (`-ilc`), zelfde PATH-reden als de TUI hierboven.
+  return { ...base, shell: userShell, args: ['-ilc', req.command ?? 'true'] };
 }
 
 // Splash: een frameless venstertje dat meteen verschijnt zodat duidelijk is
