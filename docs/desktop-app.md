@@ -23,7 +23,11 @@ Een TUI-actie draait op precies één van twee manieren, afhankelijk van de cont
 
 - **In de desktop-app** (env `FLUX_DESKTOP=1`): de actie stuurt een control-signaal
   naar het Electron main-proces, dat rechts een **eigen console-tab** opent met
-  `node --import tsx <script>`. Meerdere acties = meerdere tabs, parallel.
+  `node --import tsx <script>`. Meerdere acties = meerdere tabs, parallel. Zo'n
+  actie-tab is **alleen-lezen**: hij toont de output van de agent-run; typen doet
+  niets (stdin uit in xterm, en main negeert invoer voor deze pty's) zodat een
+  per-ongeluk-toetsaanslag de run niet kan verstoren. Selecteren, kopiëren en
+  scrollen werken wel. De TUI-tab links en de shell-tabs (`+`) blijven interactief.
 - **In een gewone terminal**: de actie vraagt bevestiging en draait het script als
   **subprocess** met live output in dezelfde terminal.
 

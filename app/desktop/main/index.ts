@@ -15,6 +15,7 @@ import {
   type PtyInputMsg,
   type PtyKillMsg,
   type PtyResizeMsg,
+  isReadOnlyPty,
 } from '../shared/ipc';
 import type { SpawnSpec } from './pty-manager';
 import { ControlParser } from '../shared/control';
@@ -70,6 +71,11 @@ let effectiveConfig: Record<string, string> = {};
 // zodat "open tab"-signalen eruit geknipt worden vóór ze xterm bereiken.
 let tuiPtyId: number | null = null;
 const tuiParser = new ControlParser();
+
+// Alleen-lezen pty's (actie-tabs met een agent-run): invoer uit de renderer
+// wordt hier genegeerd, ook al blokkeert xterm die al — een tweede slot zodat
+// een renderer-bug nooit toetsen in een lopende agent-run kan laten belanden.
+const readOnlyPtys = new Set<number>();
 
 /** Bouw de spawn-spec voor een gevraagd pty-soort. */
 function buildSpec(req: PtyCreateRequest): SpawnSpec {
@@ -292,16 +298,21 @@ function buildAppMenu(): void {
 }
 
 function registerIpc(): void {
-  ptys = new PtyManager(handlePtyData, (id, exitCode, signal) =>
-    send(IPC.ptyExit, { id, exitCode, signal }),
-  );
+  ptys = new PtyManager(handlePtyData, (id, exitCode, signal) => {
+    readOnlyPtys.delete(id);
+    send(IPC.ptyExit, { id, exitCode, signal });
+  });
 
   ipcMain.handle(IPC.ptyCreate, (_e, req: PtyCreateRequest) => {
     const id = ptys.create(buildSpec(req));
     if (req.kind === 'tui') tuiPtyId = id;
+    if (isReadOnlyPty(req.kind)) readOnlyPtys.add(id);
     return id;
   });
-  ipcMain.on(IPC.ptyInput, (_e, m: PtyInputMsg) => ptys.write(m.id, m.data));
+  ipcMain.on(IPC.ptyInput, (_e, m: PtyInputMsg) => {
+    if (readOnlyPtys.has(m.id)) return;
+    ptys.write(m.id, m.data);
+  });
   ipcMain.on(IPC.ptyResize, (_e, m: PtyResizeMsg) =>
     ptys.resize(m.id, m.cols, m.rows),
   );

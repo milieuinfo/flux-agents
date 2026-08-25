@@ -94,8 +94,17 @@ export interface UsageStatus {
  * Welk soort pty de renderer wil. `tui` draait de @clack-TUI links, `shell`
  * is een kale interactieve shell-tab rechts, `command` draait een specifiek
  * commando (een tab die het control-protocol heeft aangevraagd).
+ *
+ * `command`-pty's zijn alleen-lezen: ze tonen de output van een agent-run en
+ * per ongeluk typen zou die run verstoren. Zowel de renderer (stdin uit in
+ * xterm) als main (invoer genegeerd) dwingen dat af — zie `isReadOnlyPty`.
  */
 export type PtyKind = 'tui' | 'shell' | 'command';
+
+/** Of een pty van dit soort geen toetsenbord-invoer mag ontvangen. */
+export function isReadOnlyPty(kind: PtyKind): boolean {
+  return kind === 'command';
+}
 
 export interface PtyCreateRequest {
   kind: PtyKind;

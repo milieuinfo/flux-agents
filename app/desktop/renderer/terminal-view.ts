@@ -4,12 +4,23 @@
  *   xterm.onData → pty.input        (toetsen naar het proces)
  *   pty.onData   → xterm.write      (output naar het scherm)
  *   resize       → pty.resize       (fit-addon bepaalt cols/rows)
+ *
+ * Actie-tabs (`kind === 'command'`, gestart vanuit de TUI) zijn **alleen-lezen**:
+ * ze tonen de output van een agent-run, en per ongeluk typen zou die run
+ * verstoren. Voor zo'n tab wordt stdin in xterm uitgeschakeld (`disableStdin`),
+ * wordt `onData` niet bedraad en is de cursor verborgen. Selecteren/kopiëren
+ * en scrollen (muis, Shift+PageUp/Down) blijven werken. De TUI- en shell-tabs
+ * zijn wél interactief. Main negeert invoer voor deze pty's bovendien zelf
+ * (tweede slot, zie main/index.ts).
  */
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import '@xterm/xterm/css/xterm.css';
-import type { PtyKind } from '../shared/ipc';
+import { isReadOnlyPty, type PtyKind } from '../shared/ipc';
+
+/** DECTCEM: cursor verbergen. */
+const HIDE_CURSOR = '\x1b[?25l';
 
 export class TerminalView {
   readonly element = document.createElement('div');
@@ -44,8 +55,22 @@ export class TerminalView {
    * `command` is enkel relevant voor kind 'command'.
    */
   async start(kind: PtyKind, command?: string): Promise<void> {
+    const readOnly = isReadOnlyPty(kind);
+    if (readOnly) {
+      // Geen toetsen naar het proces; geen (knipperende) cursor die tot
+      // typen uitnodigt. Een tooltip legt uit waarom typen niets doet.
+      this.term.options.disableStdin = true;
+      this.term.options.cursorBlink = false;
+      this.term.options.cursorInactiveStyle = 'none';
+      this.element.classList.add('readonly');
+      this.element.title =
+        'Alleen-lezen: dit is de output van een agent-run. ' +
+        'Open een shell-tab (+) om zelf te typen.';
+    }
+
     this.term.open(this.element);
     this.safeFit();
+    if (readOnly) this.term.write(HIDE_CURSOR);
 
     this.ptyId = await this.api.pty.create({
       kind,
@@ -54,9 +79,11 @@ export class TerminalView {
       rows: this.term.rows,
     });
 
-    this.term.onData((data) => {
-      if (this.ptyId != null) this.api.pty.input(this.ptyId, data);
-    });
+    if (!readOnly) {
+      this.term.onData((data) => {
+        if (this.ptyId != null) this.api.pty.input(this.ptyId, data);
+      });
+    }
 
     this.disposers.push(
       this.api.pty.onData((msg) => {
