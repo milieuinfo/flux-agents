@@ -21,9 +21,10 @@
 
 import { config } from 'dotenv';
 import { query } from '@anthropic-ai/claude-agent-sdk';
-import { resolve } from 'node:path';
+import { relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { log } from './shared/logger.js';
+import { runMain } from './shared/cli.js';
 import { requireEnv } from './shared/env.js';
 import {
   applyAiProfile,
@@ -36,9 +37,9 @@ import {
   ticketWorktreePath,
 } from './shared/repo.js';
 import { loadPrompt, commitConventions } from './shared/prompts.js';
-import { developEffort, developModel, runPathLabel } from './shared/model.js';
+import { developEffort, developModel, modelShort, runPathLabel } from './shared/model.js';
 import { bashAgentHooks } from './shared/observability.js';
-import { streamLastAssistantText } from './shared/query.js';
+import { runAgent } from './shared/query.js';
 import {
   TicketState,
   extractBranchSlug,
@@ -62,25 +63,32 @@ export interface DevelopArgs {
   analysis?: string;
 }
 
+export interface DevelopResult {
+  round: number;
+  /** `code-changes.md` van deze ronde — wat de mens nakijkt. */
+  codeChangesPath: string;
+  /** Het commando voor de volgende stap (review). */
+  nextCmd: string;
+}
+
 /**
  * Run the develop agent for a single ticket. Exported so the ship
  * orchestrator can invoke it directly without spawning a subprocess.
+ *
+ * Print zelf de stappen, maar niet de sectiekop of het eindblok — die komen
+ * van de CLI-tak (standalone) of van loop.ts (ship/iterate), zodat er onder
+ * de lus geen dubbele koppen verschijnen.
  */
-export async function runDevelop({ key, sprint, profile, analysis }: DevelopArgs): Promise<void> {
+export async function runDevelop({ key, sprint, profile, analysis }: DevelopArgs): Promise<DevelopResult> {
   const stateDir = resolve(process.env.STATE_DIR ?? './state');
   const repoUrl = requireEnv('FLUX_REPO_URL');
   const baseBranch = process.env.FLUX_BASE_BRANCH ?? 'develop-v2';
   const mainRepoDir = resolve(process.env.FLUX_REPO_DIR ?? managedRepoPath(stateDir));
 
-  log.info(
-    `Agent 3 (develop) starting — ticket: ${key}` +
-      (profile ? `, profile: ${profile}` : ''),
-  );
-
   await ensureRepoClone({ repoUrl, cloneDir: mainRepoDir });
 
   const refinement = await locateRefinement(stateDir, key, sprint, analysis);
-  log.info(`Refinement: ${refinement.path} (sprint ${refinement.sprint})`);
+  log.ok(`Refinement gevonden: ${relative(stateDir, refinement.path)}`);
 
   // Pad-label = profiel + model-code (bv. `kris-O48`). Het ruwe `profile`
   // blijft voor profile-activatie, _status.json en hints; het label bepaalt
@@ -111,7 +119,7 @@ export async function runDevelop({ key, sprint, profile, analysis }: DevelopArgs
     mode = 'address';
   } else if (prev.status === 'in_progress') {
     log.warn(
-      `Ticket ${key} is already in_progress (ronde ${prev.round}). Herstart op dezelfde branch.`,
+      `Ticket ${key} stond nog op in_progress (ronde ${prev.round}) — herstart op dezelfde branch.`,
     );
     round = prev.round;
     mode = prev.round === 1 ? 'initial' : 'address';
@@ -127,6 +135,11 @@ export async function runDevelop({ key, sprint, profile, analysis }: DevelopArgs
       `Max rondes bereikt voor ${key} (ronde ${round}). Escaleer manueel.`,
     );
   }
+  log.ok(
+    mode === 'initial'
+      ? `Ronde ${round} — initiële implementatie`
+      : `Ronde ${round} — feedback uit review-r${round - 1}.md verwerken`,
+  );
 
   const worktree = ticketWorktreePath(stateDir, refinement.sprint, key, label);
   const created = await ensureTicketWorktree({
@@ -135,7 +148,7 @@ export async function runDevelop({ key, sprint, profile, analysis }: DevelopArgs
     branch,
     baseBranch,
   });
-  log.info(created ? `Worktree aangemaakt: ${worktree}` : `Worktree hergebruikt: ${worktree}`);
+  if (!created) log.ok(`Worktree hergebruikt: ${worktree}`);
 
   if (profile) {
     await applyAiProfile(worktree, profile);
@@ -159,16 +172,15 @@ export async function runDevelop({ key, sprint, profile, analysis }: DevelopArgs
   const userPrompt = buildPrompt(key, round, mode, ticket);
 
   const identity = applyGitIdentityFromEnv();
-  log.info(`Round-commit auteur: ${identity.name} <${identity.email}>`);
+  log.ok(`Commits als ${identity.name} <${identity.email}>`);
 
+  const maxTurns = Number(process.env.AGENT_DEVELOP_MAX_TURNS ?? 100);
   const q = query({
     prompt: userPrompt,
     options: {
       model: developModel(),
       effort: developEffort(),
-      maxTurns: Number(
-        process.env.AGENT_DEVELOP_MAX_TURNS ?? 100,
-      ),
+      maxTurns,
       cwd: worktree,
       // Agent writes code-changes.md in state/sprints/<sprint>/tickets/<KEY>/, outside cwd.
       additionalDirectories: [stateDir],
@@ -180,12 +192,17 @@ export async function runDevelop({ key, sprint, profile, analysis }: DevelopArgs
     },
   });
 
-  const summary = await streamLastAssistantText(q);
-  log.info(`Author samenvatting:\n${truncate(summary, 800)}`);
+  const summary = await runAgent(q, {
+    label: `Agent draait — ${modelShort(developModel())}, ronde ${round} (max ${maxTurns} turns)`,
+    cwd: worktree,
+    stateDir,
+  });
+  log.block('Samenvatting van de author', summary, { morePath: ticket.codeChangesPath });
+
   const nextCmd = profile
     ? `npm run pipeline:review -- ${key} --profile ${profile}`
     : `npm run pipeline:review -- ${key}`;
-  log.info(`Klaar. Verifieer ${ticket.codeChangesPath}, dan: ${nextCmd}`);
+  return { round, codeChangesPath: ticket.codeChangesPath, nextCmd };
 }
 
 function buildPrompt(
@@ -215,10 +232,6 @@ function buildPrompt(
     );
   }
   return `${base}\n\nDit is ronde 1 — initiële implementatie.`;
-}
-
-function truncate(s: string, n: number): string {
-  return s.length > n ? `${s.slice(0, n)}…` : s;
 }
 
 function parseArgs(): DevelopArgs {
@@ -259,8 +272,12 @@ function parseArgs(): DevelopArgs {
 // Only run as CLI when invoked directly (not when imported by ship.ts).
 const isMain = process.argv[1] === fileURLToPath(import.meta.url);
 if (isMain) {
-  runDevelop(parseArgs()).catch((err) => {
-    log.error('Fatal:', err);
-    process.exit(1);
+  const args = parseArgs();
+  runMain(`develop ${args.key}`, async () => {
+    log.section(`develop · ${args.key}` + (args.profile ? ` · profiel ${args.profile}` : ''));
+    const result = await runDevelop(args);
+    log.section(`Klaar · ${args.key} ronde ${result.round}`);
+    log.hint('Nakijken', result.codeChangesPath);
+    log.hint('Volgende', result.nextCmd);
   });
 }

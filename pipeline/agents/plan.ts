@@ -21,14 +21,11 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 import { readFile, readdir, writeFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { log } from './shared/logger.js';
-import { planEffort, planModel } from './shared/model.js';
+import { runMain } from './shared/cli.js';
+import { modelShort, planEffort, planModel } from './shared/model.js';
 import { resolveAnalysisDir } from './shared/analysis.js';
 import { loadPrompt } from './shared/prompts.js';
-import {
-  extractAnchoredDocument,
-  extractMarkdown,
-  streamAllAssistantText,
-} from './shared/query.js';
+import { extractAnchoredDocument, extractMarkdown, runAgent } from './shared/query.js';
 
 config();
 
@@ -71,13 +68,14 @@ async function loadSprintMarkdowns(sprintDir: string): Promise<string> {
 
 async function runQuery(prompt: string, systemPrompt: string): Promise<string> {
   const model = planModel();
+  const maxTurns = 3;
 
   const q = query({
     prompt,
     options: {
       model,
       effort: planEffort(),
-      maxTurns: 3,
+      maxTurns,
       // Use our prompt as the full system prompt (no `claude_code` preset):
       // the preset makes the model think it's a tool-using agent and triggers
       // "permission to write" style responses even with allowedTools: [].
@@ -89,11 +87,16 @@ async function runQuery(prompt: string, systemPrompt: string): Promise<string> {
 
   // Keep all turns: the model may dump a scratchpad fence first and the
   // actual plan second, or put the plan in an early turn and narrate after.
-  return streamAllAssistantText(q);
+  // Quiet: de tekst van dit model ís het document — narratie zou het in
+  // brokken tonen. De heartbeat dekt de stilte tijdens het genereren.
+  return runAgent(q, {
+    label: `Agent draait — ${modelShort(model)} (max ${maxTurns} turns, geen tools)`,
+    quiet: true,
+    collect: 'all',
+  });
 }
 
-async function main() {
-  const { sprintId, analysis } = parseArgs();
+async function main({ sprintId, analysis }: { sprintId: string; analysis?: string }) {
   const stateDir = resolve(process.env.STATE_DIR ?? './state');
   // Welke analyse-run plannen we? Bij meerdere analyses en geen keuze faalt
   // dit met een "kies eerst één"-hint (zie shared/analysis.ts).
@@ -101,14 +104,11 @@ async function main() {
     label: analysis,
   });
 
-  log.info(
-    `Agent 2 (plan) starting — sprint: ${sprintId}` +
-      (label ? `, analyse: ${label}` : ''),
-  );
+  log.section(`plan · ${sprintId}` + (label ? ` · analyse ${label}` : ''));
 
   const systemPrompt = await loadPrompt('plan');
   const bundle = await loadSprintMarkdowns(sprintDir);
-  log.info(`Loaded ${bundle.split('===== ').length - 1} ticket markdowns`);
+  log.ok(`${bundle.split('===== ').length - 1} refinement-rapporten geladen uit ${sprintDir}`);
 
   const prompt =
     `Hier zijn alle refinement-markdowns voor sprint ${sprintId}. Produceer ` +
@@ -127,8 +127,14 @@ async function main() {
 
   const orderPath = join(sprintDir, '_order.md');
   await writeFile(orderPath, cleaned, 'utf-8');
+  log.ok('_order.md geschreven');
 
-  log.info(`Wrote ${orderPath}`);
+  log.section(`Klaar · plan ${sprintId}`);
+  log.hint('Nakijken', orderPath);
+  log.hint(
+    'Volgende',
+    `npm run jira:publish -- ${sprintId}  (optioneel) of npm run pipeline:develop -- <KEY>`,
+  );
 }
 
 /**
@@ -155,7 +161,5 @@ function truncate(s: string, n: number): string {
   return s.length > n ? `${s.slice(0, n)}…` : s;
 }
 
-main().catch((err) => {
-  log.error('Fatal:', err);
-  process.exit(1);
-});
+const cliArgs = parseArgs();
+runMain(`plan ${cliArgs.sprintId}`, () => main(cliArgs));

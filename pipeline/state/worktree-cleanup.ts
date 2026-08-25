@@ -20,19 +20,17 @@ export async function removeWorktrees(
   let removed = 0;
   for (const wt of paths) {
     if (dryRun) {
-      log.info(`  zou verwijderen: ${wt}`);
+      log.info(`zou verwijderen: ${wt}`);
       continue;
     }
     try {
       await git(clone, ['worktree', 'remove', '--force', wt]);
-      log.info(`  ✓ verwijderd: ${wt}`);
+      log.ok(`Verwijderd: ${wt}`);
       removed++;
     } catch (err) {
       log.warn(
-        `  ! kon ${wt} niet via 'git worktree remove' verwijderen: ${(err as Error).message}`,
-      );
-      log.warn(
-        `    (mogelijk geen geregistreerde worktree; ruim manueel op met 'rm -rf' indien gewenst)`,
+        `Kon ${wt} niet via 'git worktree remove' verwijderen: ${(err as Error).message}\n` +
+          `(mogelijk geen geregistreerde worktree; ruim manueel op met 'rm -rf' indien gewenst)`,
       );
     }
   }
@@ -46,7 +44,7 @@ export async function removeWorktrees(
 export async function removeIfEmpty(dir: string): Promise<void> {
   try {
     await rmdir(dir);
-    log.info(`Lege map verwijderd: ${dir}`);
+    log.ok(`Lege map verwijderd: ${dir}`);
   } catch {
     // niet leeg — laten staan
   }

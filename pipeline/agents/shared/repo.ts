@@ -84,9 +84,14 @@ export async function ensureRepoClone(opts: {
     return false;
   }
 
-  log.info(`Cloning ${repoUrl} into ${cloneDir}`);
-  await mkdir(dirname(cloneDir), { recursive: true });
-  await git(dirname(cloneDir), ['clone', repoUrl, cloneDir]);
+  await log.task(
+    `Repo klonen (${repoUrl})`,
+    async () => {
+      await mkdir(dirname(cloneDir), { recursive: true });
+      await git(dirname(cloneDir), ['clone', repoUrl, cloneDir]);
+    },
+    { done: `Repo gekloond naar ${cloneDir}` },
+  );
   return true;
 }
 
@@ -98,8 +103,8 @@ export interface WorktreeOptions {
   /** Branch or ref to check out (e.g. `develop-v2`). */
   ref: string;
   /**
-   * Onderdruk de voortgangs-logging (`Fetching…`/`Refreshing…`). Default false
-   * (verbose). De TUI zet dit aan zodat de fetch+reset niet door de
+   * Onderdruk de stap-regels (`▸ Basis-worktree verversen…`/`✓ …`). Default
+   * false. De TUI zet dit aan zodat de fetch+reset niet door de
    * clack-prompt-UI heen logt.
    */
   quiet?: boolean;
@@ -111,34 +116,51 @@ export interface WorktreeOptions {
  *
  * The worktree uses a detached HEAD tracking `origin/<ref>`. That avoids
  * branch-name conflicts and makes it obvious this is a throwaway checkout.
+ *
+ * Op de terminal één stap: `▸ Basis-worktree verversen (origin/<ref>)` →
+ * `✓ Worktree aangemaakt op origin/<ref>` of `✓ Worktree bijgewerkt naar
+ * origin/<ref>`; de git-details staan op debug.
  */
 export async function prepareWorktree(opts: WorktreeOptions): Promise<void> {
   const { mainRepoDir, worktreePath, ref } = opts;
-  const info = opts.quiet ? () => {} : log.info;
 
-  await assertIsGitRepo(mainRepoDir);
-  info(`Fetching ${ref} in ${mainRepoDir}`);
-  await git(mainRepoDir, ['fetch', 'origin', ref]);
+  const run = async (): Promise<'created' | 'refreshed'> => {
+    await assertIsGitRepo(mainRepoDir);
+    log.debug(`git fetch origin ${ref} in ${mainRepoDir}`);
+    await git(mainRepoDir, ['fetch', 'origin', ref]);
 
-  const worktreeExists = await pathExists(worktreePath);
-  if (!worktreeExists) {
-    info(`Creating worktree at ${worktreePath} (detached at origin/${ref})`);
-    await git(mainRepoDir, [
-      'worktree',
-      'add',
-      '--detach',
-      worktreePath,
-      `origin/${ref}`,
-    ]);
+    const worktreeExists = await pathExists(worktreePath);
+    if (!worktreeExists) {
+      log.debug(`git worktree add --detach ${worktreePath} origin/${ref}`);
+      await git(mainRepoDir, [
+        'worktree',
+        'add',
+        '--detach',
+        worktreePath,
+        `origin/${ref}`,
+      ]);
+      return 'created';
+    }
+
+    // Existing worktree → fast-forward to the latest origin/<ref>.
+    // `reset --hard` is safe here because the worktree is agent-owned;
+    // we guarantee nothing else writes to it.
+    log.debug(`git reset --hard origin/${ref} in ${worktreePath}`);
+    await git(worktreePath, ['fetch', 'origin', ref]);
+    await git(worktreePath, ['reset', '--hard', `origin/${ref}`]);
+    return 'refreshed';
+  };
+
+  if (opts.quiet) {
+    await run();
     return;
   }
-
-  // Existing worktree → fast-forward to the latest origin/<ref>.
-  // `reset --hard` is safe here because the worktree is agent-owned;
-  // we guarantee nothing else writes to it.
-  info(`Refreshing worktree at ${worktreePath} to origin/${ref}`);
-  await git(worktreePath, ['fetch', 'origin', ref]);
-  await git(worktreePath, ['reset', '--hard', `origin/${ref}`]);
+  await log.task(`Basis-worktree verversen (origin/${ref})`, run, {
+    done: (outcome) =>
+      outcome === 'created'
+        ? `Worktree aangemaakt op origin/${ref}`
+        : `Worktree bijgewerkt naar origin/${ref}`,
+  });
 }
 
 async function assertIsGitRepo(dir: string): Promise<void> {
@@ -204,7 +226,7 @@ export async function pushBranch(opts: {
   worktreePath: string;
   branch: string;
 }): Promise<void> {
-  log.info(`Pushing ${opts.branch} to origin from ${opts.worktreePath}`);
+  log.debug(`git push -u origin ${opts.branch} in ${opts.worktreePath}`);
   await git(opts.worktreePath, ['push', '-u', 'origin', opts.branch]);
 }
 
@@ -254,7 +276,7 @@ export async function enforceCommitIdentity(opts: {
   });
   if (allCanonical) return false;
 
-  log.info(
+  log.debug(
     `Identiteit op commits ${range} herschrijven naar ${name} <${email}> ` +
       `(author + committer) vóór de push.`,
   );
@@ -275,6 +297,9 @@ export async function enforceCommitIdentity(opts: {
     envFilter,
     range,
   ]);
+  log.ok(
+    `Commit-identiteit op ${lines.length} commit(s) herschreven naar ${name} <${email}>`,
+  );
   return true;
 }
 
@@ -384,20 +409,23 @@ export async function ensureTicketWorktree(opts: {
 
   if (await pathExists(worktreePath)) return false;
 
-  log.info(`Fetching ${baseBranch} in ${mainRepoDir}`);
-  await git(mainRepoDir, ['fetch', 'origin', baseBranch]);
-
-  log.info(
-    `Creating worktree at ${worktreePath} on branch ${branch} (from origin/${baseBranch})`,
+  await log.task(
+    `Worktree aanmaken op ${branch} (van origin/${baseBranch})`,
+    async () => {
+      log.debug(`git fetch origin ${baseBranch} in ${mainRepoDir}`);
+      await git(mainRepoDir, ['fetch', 'origin', baseBranch]);
+      log.debug(`git worktree add -b ${branch} ${worktreePath} origin/${baseBranch}`);
+      await git(mainRepoDir, [
+        'worktree',
+        'add',
+        '-b',
+        branch,
+        worktreePath,
+        `origin/${baseBranch}`,
+      ]);
+    },
+    { done: `Worktree aangemaakt: ${worktreePath}` },
   );
-  await git(mainRepoDir, [
-    'worktree',
-    'add',
-    '-b',
-    branch,
-    worktreePath,
-    `origin/${baseBranch}`,
-  ]);
   return true;
 }
 
@@ -555,7 +583,7 @@ export async function applyAiProfile(
     );
   }
 
-  log.info(`Activeer AI-profile '${profile}' in ${worktreePath}`);
+  log.debug(`./set-ai-profile.sh ${profile} in ${worktreePath}`);
   await new Promise<void>((resolvePromise, rejectPromise) => {
     const child = spawn('./set-ai-profile.sh', [profile], {
       cwd: worktreePath,
@@ -575,4 +603,5 @@ export async function applyAiProfile(
         );
     });
   });
+  log.ok(`Profiel '${profile}' geactiveerd`);
 }

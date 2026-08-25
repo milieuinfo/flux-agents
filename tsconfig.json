@@ -10,6 +10,6 @@
     "resolveJsonModule": true,
     "types": ["node"]
   },
-  "include": ["pipeline/**/*.ts", "app/tui/**/*.ts"],
+  "include": ["pipeline/**/*.ts", "app/tui/**/*.ts", "tools/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }

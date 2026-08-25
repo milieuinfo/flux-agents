@@ -1,62 +1,150 @@
-import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
-import { observeStream } from './observability.js';
+import type { SDKMessage, SDKResultMessage } from '@anthropic-ai/claude-agent-sdk';
+import { formatDuration, log } from './logger.js';
+import { observeStream, type ObserveOptions } from './observability.js';
+
+export interface RunAgentOptions extends ObserveOptions {
+  /**
+   * Stap-label voor de terminal, bv. `Agent draait — opus-5, ronde 1 (max 100
+   * turns)`. Zonder label geen ▸/✓-regels (de caller wikkelt de call dan zelf
+   * in een `log.task`, zoals bij de refine-samenvatting).
+   */
+  label?: string;
+  /** Tekst van de ✓-eindregel; default `Agent klaar`. */
+  doneLabel?: string;
+  /**
+   * `last` (default): de tekst van het LAATSTE assistant-bericht — de
+   * eindsynthese na alle tool-gebruik. `all`: alle assistant-beurten,
+   * gescheiden door turn-markers, voor wanneer het beoogde document in een
+   * eerdere beurt geproduceerd kan zijn.
+   */
+  collect?: 'last' | 'all';
+}
+
+/**
+ * Consumeer een SDK-query-stream met leesbare terminal-output en geef de
+ * assistant-tekst terug. Eén eigenaar van de ▸/✓/✗-regels rond een agent-run:
+ *
+ *   10:02:16 ▸ Agent draait — opus-5, ronde 1 (max 100 turns)
+ *   10:02:20   │ …agent-stroom via observeStream…
+ *   10:09:05 ✓ Agent klaar (6m49s · 41 turns)
+ *
+ * Gooit bij een niet-succesvol resultaat een fout met een Nederlandse
+ * toelichting (zie `describeResultError`) zodat callers luid falen.
+ */
+export async function runAgent(
+  q: AsyncGenerator<SDKMessage> | AsyncIterable<SDKMessage>,
+  opts: RunAgentOptions = {},
+): Promise<string> {
+  const step = opts.label ? log.step(opts.label) : null;
+  const turns: string[] = [];
+  let lastText = '';
+  let result: SDKResultMessage | null = null;
+
+  try {
+    for await (const msg of observeStream(q, opts)) {
+      if (msg.type === 'assistant') {
+        const thisTurn: string[] = [];
+        for (const block of msg.message.content) {
+          if (block.type === 'text') thisTurn.push(block.text);
+        }
+        if (thisTurn.length > 0) {
+          const text = thisTurn.join('\n');
+          turns.push(text);
+          lastText = text;
+        }
+      } else if (msg.type === 'result') {
+        result = msg;
+      }
+    }
+  } catch (err) {
+    step?.fail();
+    throw err;
+  }
+
+  if (!result) {
+    step?.fail('Agent gestopt zonder resultaatbericht');
+    throw new Error(
+      'De agent-run eindigde zonder resultaatbericht — de SDK-stream is afgebroken.',
+    );
+  }
+  if (result.subtype !== 'success') {
+    step?.fail(
+      `Agent gestopt — ${RESULT_ERROR_SHORT[result.subtype] ?? result.subtype} ` +
+        `(${turnsLabel(result.num_turns)}, ${formatDuration(result.duration_ms)})`,
+    );
+    throw new Error(describeResultError(result));
+  }
+
+  // De SDK-duur is gezaghebbend; de stap meet dezelfde tijd, dus niet dubbel tonen.
+  step?.done(
+    `${opts.doneLabel ?? 'Agent klaar'} ` +
+      `(${formatDuration(result.duration_ms)} · ${turnsLabel(result.num_turns)})`,
+    { duration: false },
+  );
+
+  return opts.collect === 'all'
+    ? turns.join('\n\n---TURN---\n\n').trim()
+    : lastText.trim();
+}
+
+function turnsLabel(n: number): string {
+  return `${n} ${n === 1 ? 'turn' : 'turns'}`;
+}
+
+/** Korte reden voor de ✗-regel; de volledige zin staat in het Mislukt-blok. */
+const RESULT_ERROR_SHORT: Record<string, string> = {
+  error_max_turns: 'maximum aantal turns bereikt',
+  error_during_execution: 'afgebroken tijdens uitvoering',
+  error_max_budget_usd: 'kostenbudget op',
+  error_max_structured_output_retries: 'gestructureerde output bleef ongeldig',
+};
+
+const RESULT_ERROR_NL: Record<string, string> = {
+  error_max_turns:
+    'De agent bereikte het maximum aantal turns voordat het werk af was. ' +
+    'Verhoog de AGENT_*_MAX_TURNS-limiet voor deze rol, of bekijk hierboven ' +
+    'waar hij bleef hangen en wat er al op disk staat.',
+  error_during_execution:
+    'De agent-run brak af tijdens de uitvoering (SDK- of subprocesfout).',
+  error_max_budget_usd:
+    'De agent-run stopte omdat het ingestelde kostenbudget op is.',
+  error_max_structured_output_retries:
+    'De agent kreeg zijn gestructureerde output niet geldig, ook niet na ' +
+    'herhaalde pogingen.',
+};
+
+/** Nederlandse zin + technische details voor een niet-succesvol SDK-resultaat. */
+function describeResultError(
+  result: Extract<SDKResultMessage, { subtype: Exclude<SDKResultMessage['subtype'], 'success'> }>,
+): string {
+  const base =
+    RESULT_ERROR_NL[result.subtype] ?? `De agent-run eindigde met '${result.subtype}'.`;
+  const detail = ` (${result.subtype}, ${turnsLabel(result.num_turns)}, ${formatDuration(result.duration_ms)})`;
+  const errors = Array.isArray(result.errors) ? result.errors.filter(Boolean) : [];
+  return base + detail + (errors.length ? `\n${errors.map((e) => `  ${e}`).join('\n')}` : '');
+}
 
 /**
  * Consume an SDK query stream and return the text of the LAST assistant
- * message (the final synthesis after any tool use).
- *
- * Intermediate assistant messages typically contain narration between
- * tool calls ("I'll check X next..."). Those are discarded — we only
- * want the model's final answer.
- *
- * Throws on a non-success result so callers can fail loudly.
- *
- * Loopt de input langs `observeStream` zodat elke tool-call en
- * tool-result tijdens de run gelogd worden — onmisbaar voor het
- * diagnosticeren van hangs.
+ * message (the final synthesis after any tool use). Dunne wrapper rond
+ * `runAgent` zonder stap-label — bestaande callers blijven werken.
  */
 export async function streamLastAssistantText(
   q: AsyncGenerator<SDKMessage> | AsyncIterable<SDKMessage>,
+  observe: ObserveOptions = {},
 ): Promise<string> {
-  let lastAssistantText = '';
-  for await (const msg of observeStream(q)) {
-    if (msg.type === 'assistant') {
-      const thisTurn: string[] = [];
-      for (const block of msg.message.content) {
-        if (block.type === 'text') thisTurn.push(block.text);
-      }
-      if (thisTurn.length > 0) lastAssistantText = thisTurn.join('\n');
-    } else if (msg.type === 'result' && msg.subtype !== 'success') {
-      throw new Error(`Query failed: ${msg.subtype}`);
-    }
-  }
-  return lastAssistantText.trim();
+  return runAgent(q, { ...observe, collect: 'last' });
 }
 
 /**
  * Consume an SDK query stream and return the text of ALL assistant turns,
- * separated by turn markers. Use this when the intended artifact may have
- * been produced in an earlier turn (before more tool use or narration),
- * not just the final message.
- *
- * Throws on a non-success result so callers can fail loudly.
+ * separated by turn markers. Dunne wrapper rond `runAgent`.
  */
 export async function streamAllAssistantText(
   q: AsyncGenerator<SDKMessage> | AsyncIterable<SDKMessage>,
+  observe: ObserveOptions = {},
 ): Promise<string> {
-  const turns: string[] = [];
-  for await (const msg of observeStream(q)) {
-    if (msg.type === 'assistant') {
-      const thisTurn: string[] = [];
-      for (const block of msg.message.content) {
-        if (block.type === 'text') thisTurn.push(block.text);
-      }
-      if (thisTurn.length > 0) turns.push(thisTurn.join('\n'));
-    } else if (msg.type === 'result' && msg.subtype !== 'success') {
-      throw new Error(`Query failed: ${msg.subtype}`);
-    }
-  }
-  return turns.join('\n\n---TURN---\n\n').trim();
+  return runAgent(q, { ...observe, collect: 'all' });
 }
 
 /**

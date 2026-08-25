@@ -18,6 +18,7 @@ import { mkdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { log } from './shared/logger.js';
+import { runMain } from './shared/cli.js';
 import {
   applyAiProfile,
   baseBranchWorktreePath,
@@ -27,9 +28,14 @@ import {
   prepareWorktree,
 } from './shared/repo.js';
 import { loadPrompt } from './shared/prompts.js';
-import { reviewExternalEffort, reviewExternalModel, runPathLabel } from './shared/model.js';
+import {
+  modelShort,
+  reviewExternalEffort,
+  reviewExternalModel,
+  runPathLabel,
+} from './shared/model.js';
 import { bashAgentHooks } from './shared/observability.js';
-import { streamLastAssistantText } from './shared/query.js';
+import { runAgent } from './shared/query.js';
 import { locateRefinement } from './shared/ticket.js';
 
 config();
@@ -49,10 +55,10 @@ async function runReviewExternal(args: ReviewExternalArgs): Promise<void> {
     throw new Error('FLUX_REPO_URL ontbreekt in .env');
   }
 
-  log.info(
-    `Review-external starting — ticket: ${key}, branch: ${branch}, base: ${baseBranch}` +
-      (profile ? `, profile: ${profile}` : ''),
+  log.section(
+    `review-extern · ${key} · ${branch}` + (profile ? ` · profiel ${profile}` : ''),
   );
+  log.ok(`Base-branch: ${baseBranch}`);
 
   const cloneDir = resolve(
     process.env.FLUX_REPO_DIR ?? managedRepoPath(stateDir),
@@ -91,8 +97,10 @@ async function runReviewExternal(args: ReviewExternalArgs): Promise<void> {
   let refinementPath: string | null = null;
   try {
     refinementPath = (await locateRefinement(stateDir, key)).path;
+    log.ok(`Refinement-rapport gevonden: ${refinementPath}`);
   } catch {
     // geen refinement gevonden — niets aan de hand
+    log.info('Geen refinement-rapport voor dit ticket — de review slaat de succescriteria over');
   }
 
   const systemPrompt = await loadPrompt('review-external');
@@ -104,12 +112,13 @@ async function runReviewExternal(args: ReviewExternalArgs): Promise<void> {
     refinementPath,
   });
 
+  const maxTurns = Number(process.env.AGENT_REVIEW_EXTERNAL_MAX_TURNS ?? 100);
   const q = query({
     prompt: userPrompt,
     options: {
       model: reviewExternalModel(),
       effort: reviewExternalEffort(),
-      maxTurns: Number(process.env.AGENT_REVIEW_EXTERNAL_MAX_TURNS ?? 100),
+      maxTurns,
       cwd: worktree,
       // Reviewer schrijft de review-md in state/external-reviews/<KEY>/.
       additionalDirectories: [stateDir],
@@ -121,13 +130,16 @@ async function runReviewExternal(args: ReviewExternalArgs): Promise<void> {
     },
   });
 
-  const summary = await streamLastAssistantText(q);
-  log.info(`Reviewer samenvatting:\n${truncate(summary, 800)}`);
+  const summary = await runAgent(q, {
+    label: `Agent draait — ${modelShort(reviewExternalModel())}, externe review (max ${maxTurns} turns)`,
+    cwd: worktree,
+    stateDir,
+  });
+  log.block('Samenvatting van de reviewer', summary, { morePath: outputPath });
 
-  log.info(
-    `Klaar. Review opgeslagen op ${outputPath}. ` +
-      `Publiceren naar Jira: npm run jira:publish-review -- ${key}`,
-  );
+  log.section(`Klaar · review-extern ${key}`);
+  log.hint('Nakijken', outputPath);
+  log.hint('Volgende', `npm run jira:publish-review -- ${key}`);
 }
 
 function buildPrompt(opts: {
@@ -172,10 +184,6 @@ function timestampSlug(): string {
   );
 }
 
-function truncate(s: string, n: number): string {
-  return s.length > n ? `${s.slice(0, n)}…` : s;
-}
-
 function parseArgs(): ReviewExternalArgs {
   const argv = process.argv.slice(2);
   let baseBranch = process.env.FLUX_BASE_BRANCH ?? 'develop-v2';
@@ -213,8 +221,6 @@ function parseArgs(): ReviewExternalArgs {
 
 const isMain = process.argv[1] === fileURLToPath(import.meta.url);
 if (isMain) {
-  runReviewExternal(parseArgs()).catch((err) => {
-    log.error('Fatal:', err);
-    process.exit(1);
-  });
+  const args = parseArgs();
+  runMain(`review-extern ${args.key}`, () => runReviewExternal(args));
 }

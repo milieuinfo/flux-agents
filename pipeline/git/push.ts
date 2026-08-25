@@ -16,6 +16,7 @@
 
 import { config } from 'dotenv';
 import { log } from '../agents/shared/logger.js';
+import { runMain } from '../agents/shared/cli.js';
 import { runPush, type PushArgs } from '../agents/shared/push.js';
 
 config();
@@ -45,7 +46,11 @@ function parseArgs(): PushArgs {
   return { key, profile };
 }
 
-runPush(parseArgs()).catch((err) => {
-  log.error('Fatal:', err);
-  process.exit(1);
+const args = parseArgs();
+runMain(`push ${args.key}`, async () => {
+  const profileFlag = args.profile ? ` --profile ${args.profile}` : '';
+  log.section(`push · ${args.key}` + (args.profile ? ` · profiel ${args.profile}` : ''));
+  await runPush(args);
+  log.section(`Klaar · push ${args.key}`);
+  log.hint('Volgende', `npm run git:pr -- ${args.key}${profileFlag}`);
 });

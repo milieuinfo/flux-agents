@@ -742,7 +742,7 @@ flux-agents/                      ← deze repo (tooling, code, prompts)
 │   │   ├── review-external.ts    ← zijtak voor externe code-reviews
 │   │   ├── prompts/              ← canonical system prompts per agent-rol
 │   │   │   └── refine.md / refine-summary.md / plan.md / develop.md / review.md / converge.md / review-external.md
-│   │   ├── shared/               ← gedeelde helpers (query, repo, state, ticket, jira, prompts, logger, model, loop, push, pr, config, observability)
+│   │   ├── shared/               ← gedeelde helpers (query, repo, state, ticket, jira, prompts, logger, cli, model, loop, push, pr, config, observability)
 │   │   └── claude-code/          ← interactieve CC-variant (optioneel)
 │   │       └── .claude/
 │   │           ├── agents/       ← mirrors van pipeline/agents/prompts/ met YAML frontmatter
@@ -847,6 +847,32 @@ visibility (tool mag publiek, state bevat interne ticket-details).
   én `pipeline/jira/publish.ts`/`publish-review.ts` met `fetch`. Geen Docker/MCP meer.
 - **`gh` CLI** voor de ene GitHub-actie (PR aanmaken)
 - **`git`** — vereist minstens 2.23+ voor `switch`
+
+### Terminal-output (wat een mens tijdens een run ziet)
+
+Alle output loopt via `pipeline/agents/shared/logger.ts`; niets parseert die
+output machinaal (de enige machine-contracten zijn de
+`__FLUX_MODELS_BEGIN__/END__`-sentinels van `list-models.ts` en de
+OSC-controle-sequentie op de stdout van de TUI zelf). Regelformaat
+`HH:MM:SS <marker> tekst`, kleur enkel op een TTY zonder `NO_COLOR`.
+
+- **Scripts** gebruiken de presentatie-primitieven: `log.section` (kop van een
+  run/ronde), `log.step`/`log.task` (`▸ …` → `✓ … (duur)` of `✗ …`), `log.ok`
+  (momentaan feit), `log.block` (samenvatting van de agent) en `log.hint`
+  (`Nakijken:`/`Volgende:` op het eind). Elk CLI-entrypoint sluit af via
+  `runMain` (`shared/cli.ts`): fout → `━━ Mislukt · … ━━` + volledige
+  foutboodschap, exit 1, stack enkel op `LOG_LEVEL=debug`.
+- **LLM-calls** gaan door `runAgent` (`shared/query.ts`), de enige eigenaar van
+  de `▸ Agent draait …`/`✓ Agent klaar (duur · turns)`-regels. `observeStream`
+  (`shared/observability.ts`) vertaalt de SDK-stroom naar de ingesprongen
+  `│`-regels: narratie van de agent, één gedimde regel per tool-call (bij het
+  resultaat, met duur ≥ 5s), `⚠ <Tool> faalde: …` bij een tool-fout, en een
+  heartbeat `… nog bezig (…)` na 60s stilte. Tool-inputs/-resultaten en
+  shell-output staan enkel op `LOG_LEVEL=debug`. `quiet: true` voor tool-loze
+  document-calls (plan, refine-summary) waar de tekst het document zelf is.
+- Geen kale `console.log` op stdout in scripts (uitzondering: de sentinels
+  hierboven en usage-fouten in `parseArgs`). Opmaak beoordelen zonder LLM:
+  `npm run dev:log-preview` (`tools/log-preview.ts`).
 
 ## Herhaal-checks bij elke codewijziging
 

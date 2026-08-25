@@ -29,6 +29,7 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 import { access, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { log } from './shared/logger.js';
+import { runMain } from './shared/cli.js';
 import { requireEnv } from './shared/env.js';
 import {
   applyGitIdentityFromEnv,
@@ -41,9 +42,15 @@ import {
   ticketWorktreePath,
 } from './shared/repo.js';
 import { loadPrompt, commitConventions } from './shared/prompts.js';
-import { convergeEffort, convergeModel, developModel, runPathLabel } from './shared/model.js';
+import {
+  convergeEffort,
+  convergeModel,
+  developModel,
+  modelShort,
+  runPathLabel,
+} from './shared/model.js';
 import { bashAgentHooks } from './shared/observability.js';
-import { streamLastAssistantText } from './shared/query.js';
+import { runAgent } from './shared/query.js';
 import {
   TicketState,
   extractBranchSlug,
@@ -150,28 +157,23 @@ async function loadSource(
   return { profile, label, branch: status.branch, ticket, round: status.round };
 }
 
-async function main() {
-  const { key, profiles, sprint } = parseArgs();
+async function main({ key, profiles, sprint }: ConvergeArgs) {
   const stateDir = resolve(process.env.STATE_DIR ?? './state');
   const repoUrl = requireEnv('FLUX_REPO_URL');
   const baseBranch = process.env.FLUX_BASE_BRANCH ?? 'develop-v2';
   const mainRepoDir = resolve(process.env.FLUX_REPO_DIR ?? managedRepoPath(stateDir));
 
-  log.info(
-    `🔀 Converge starting — ticket: ${key}, profielen: ${profiles.join(', ')}`,
-  );
+  log.section(`converge · ${key} · profielen ${profiles.join(' + ')}`);
 
   await ensureRepoClone({ repoUrl, cloneDir: mainRepoDir });
 
   // Bronnen valideren (allemaal 'approved') vóór we iets aanmaken.
   const sources: Source[] = [];
   for (const profile of profiles) {
-    sources.push(await loadSource(stateDir, key, profile, sprint));
+    const source = await loadSource(stateDir, key, profile, sprint);
+    sources.push(source);
+    log.ok(`Bron '${profile}' is approved (ronde ${source.round}): ${source.branch}`);
   }
-  log.info(
-    `Bronnen klaar:\n` +
-      sources.map((s) => `  - ${s.profile}: ${s.branch}`).join('\n'),
-  );
 
   // Canonieke, profielloze slot: sprint + slug uit het refinement-rapport
   // (niet uit een per-profiel ticket.md — die kunnen divergeren).
@@ -180,7 +182,7 @@ async function main() {
   const title = extractTitle(refMd);
   const slug = extractBranchSlug(refMd) ?? slugifyTitle(title);
   const combinedBranch = ticketBranchName(key, slug); // géén profiel-segment
-  log.info(`Gecombineerde branch: ${combinedBranch} (base ${baseBranch})`);
+  log.ok(`Gecombineerde branch: ${combinedBranch} (base ${baseBranch})`);
 
   // Profielloze worktree/state — push & pr vinden dit zonder --profile.
   const worktree = ticketWorktreePath(stateDir, refinement.sprint, key);
@@ -190,7 +192,7 @@ async function main() {
     branch: combinedBranch,
     baseBranch,
   });
-  log.info(created ? `Worktree aangemaakt: ${worktree}` : `Worktree hergebruikt: ${worktree}`);
+  if (!created) log.ok(`Worktree hergebruikt: ${worktree}`);
 
   const combined = new TicketState(stateDir, refinement.sprint, key);
   await combined.ensureDir();
@@ -221,14 +223,15 @@ async function main() {
   });
 
   const identity = applyGitIdentityFromEnv();
-  log.info(`Commit-auteur: ${identity.name} <${identity.email}>`);
+  log.ok(`Commits als ${identity.name} <${identity.email}>`);
 
+  const maxTurns = Number(process.env.AGENT_CONVERGE_MAX_TURNS ?? 150);
   const q = query({
     prompt: userPrompt,
     options: {
       model: convergeModel(),
       effort: convergeEffort(),
-      maxTurns: Number(process.env.AGENT_CONVERGE_MAX_TURNS ?? 150),
+      maxTurns,
       cwd: worktree,
       // Agent leest bron-md's en schrijft _pr-body.md onder stateDir.
       additionalDirectories: [stateDir],
@@ -240,8 +243,14 @@ async function main() {
     },
   });
 
-  const summary = await streamLastAssistantText(q);
-  log.info(`Converge-agent samenvatting:\n${truncate(summary, 1000)}`);
+  const summary = await runAgent(q, {
+    label: `Agent draait — ${modelShort(convergeModel())}, combineren (max ${maxTurns} turns)`,
+    cwd: worktree,
+    stateDir,
+  });
+  log.block('Samenvatting van de converge-agent', summary, {
+    morePath: combined.convergeNotesPath,
+  });
 
   // Deterministische guardrails rond de LLM-output: commit + _pr-body.md
   // moeten bestaan voor we 'approved' zetten en pushen.
@@ -286,7 +295,7 @@ async function main() {
     }),
     status: 'approved',
   });
-  log.info(`✅ Gecombineerd op ${combinedBranch}. Lokale commit + _pr-body.md klaar.`);
+  log.ok(`Gecombineerd op ${combinedBranch} — commit, _pr-body.md en _converge.md staan klaar`);
 
   // De combineer-stap (de dure LLM-run) is nu gecommit en op disk. Push en PR
   // zijn deterministisch en goedkoop; faalt er een — typisch een gh/git auth-
@@ -294,30 +303,29 @@ async function main() {
   // De gecombineerde commit is veilig en de run staat op 'approved', dus we
   // geven een duidelijke hervat-instructie (push/pr zijn idempotent en
   // re-runnable) in plaats van de stacktrace.
+  log.section('Pushen + draft-PR');
+  let url: string | null;
   try {
-    log.info(`\n━━━ push ━━━`);
     await runPush({ key });
-
-    log.info(`\n━━━ pr ━━━`);
-    const url = await runPr({ key });
-    if (url) {
-      log.info(`\n🚀 Klaar. Draft-PR: ${url}. Zet hem ready + merge zelf op GitHub.`);
-    } else {
-      log.info(`\n🚀 Gepusht. PR aangemaakt maar geen URL teruggekregen — check GitHub.`);
-    }
+    url = await runPr({ key });
   } catch (err) {
-    log.error(
-      `\n⚠️  Combineren lukte (commit + _pr-body.md staan op ${combinedBranch}, ` +
-        `status 'approved'), maar push/PR faalde:\n  ${
+    log.fatal(
+      `Combineren lukte (commit + _pr-body.md staan op ${combinedBranch}, ` +
+        `status 'approved'), maar push of PR faalde:\n  ${
           err instanceof Error ? err.message : String(err)
         }\n\n` +
         `Geen werk verloren. Los de oorzaak op (vaak 'gh auth login' of git-` +
-        `credentials) en hervat met de idempotente stappen:\n` +
-        `  npm run git:push -- ${key}\n` +
-        `  npm run git:pr   -- ${key}`,
+        `credentials) en hervat met de idempotente stappen.`,
+      `push/PR ${key}`,
     );
+    log.hint('Volgende', `npm run git:push -- ${key} && npm run git:pr -- ${key}`);
     process.exit(1);
   }
+
+  log.section(`Klaar · ${key}`);
+  log.hint('Nakijken', url ?? 'PR aangemaakt maar geen URL teruggekregen — check GitHub');
+  log.hint('Verslag', combined.convergeNotesPath);
+  log.hint('Volgende', 'Zet de draft-PR ready en merge zelf op GitHub.');
 }
 
 function buildPrompt(opts: {
@@ -368,11 +376,5 @@ function buildPrompt(opts: {
   );
 }
 
-function truncate(s: string, n: number): string {
-  return s.length > n ? `${s.slice(0, n)}…` : s;
-}
-
-main().catch((err) => {
-  log.error('Fatal:', err);
-  process.exit(1);
-});
+const cliArgs = parseArgs();
+runMain(`converge ${cliArgs.key}`, () => main(cliArgs));

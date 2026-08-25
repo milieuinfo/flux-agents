@@ -76,11 +76,11 @@ export async function runPush({ key, profile }: PushArgs): Promise<void> {
     name: identity.name,
     email: identity.email,
   });
-  await pushBranch({ worktreePath: worktree, branch: status.branch });
-
-  const profileFlag = profile ? ` --profile ${profile}` : '';
-  log.info(
-    `Gepusht naar origin/${status.branch}. Maak de PR met ` +
-      `'npm run git:pr -- ${key}${profileFlag}'.`,
+  await log.task(
+    `Branch pushen naar origin (${status.branch})`,
+    () => pushBranch({ worktreePath: worktree, branch: status.branch }),
+    { done: `Gepusht naar origin/${status.branch}` },
   );
+  // De "maak nu de PR"-hint komt van de caller (CLI of ship) — die weet of
+  // de PR manueel volgt of niet.
 }

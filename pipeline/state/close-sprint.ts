@@ -17,6 +17,7 @@ import { config } from 'dotenv';
 import { readdir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { log } from '../agents/shared/logger.js';
+import { runMain } from '../agents/shared/cli.js';
 import { pathExists } from '../agents/shared/repo.js';
 import { removeIfEmpty, removeWorktrees } from './worktree-cleanup.js';
 
@@ -25,6 +26,8 @@ config();
 export async function runCloseSprint(sprint: string, dryRun: boolean): Promise<void> {
   const stateDir = resolve(process.env.STATE_DIR ?? './state');
   const sprintWorktrees = resolve(stateDir, 'worktrees', sprint);
+
+  log.section(`sprint afsluiten · ${sprint}` + (dryRun ? ' · dry-run' : ''));
 
   if (!(await pathExists(sprintWorktrees))) {
     log.info(
@@ -50,8 +53,8 @@ export async function runCloseSprint(sprint: string, dryRun: boolean): Promise<v
   if (dryRun) return;
 
   await removeIfEmpty(sprintWorktrees);
-  log.info(
-    `Klaar — ${removed} worktree(s) opgeruimd. Committed state onder ` +
+  log.ok(
+    `${removed} worktree(s) opgeruimd — de committed state onder ` +
       `sprints/${sprint}/ blijft bewaard.`,
   );
 }
@@ -63,7 +66,4 @@ if (!sprint) {
   console.error('Usage: state:close-sprint -- <SPRINT> [--dry-run]');
   process.exit(1);
 }
-runCloseSprint(sprint, dryRun).catch((err) => {
-  log.error('Fatal:', err);
-  process.exit(1);
-});
+runMain(`sprint afsluiten ${sprint}`, () => runCloseSprint(sprint, dryRun));

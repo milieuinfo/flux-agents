@@ -19,6 +19,7 @@
 
 import { config } from 'dotenv';
 import { log } from '../agents/shared/logger.js';
+import { runMain } from '../agents/shared/cli.js';
 import { runPr, type PrArgs } from '../agents/shared/pr.js';
 
 config();
@@ -48,7 +49,11 @@ function parseArgs(): PrArgs {
   return { key, profile };
 }
 
-runPr(parseArgs()).catch((err) => {
-  log.error('Fatal:', err);
-  process.exit(1);
+const args = parseArgs();
+runMain(`pr ${args.key}`, async () => {
+  log.section(`pr · ${args.key}` + (args.profile ? ` · profiel ${args.profile}` : ''));
+  const url = await runPr(args);
+  log.section(`Klaar · pr ${args.key}`);
+  log.hint('Nakijken', url ?? 'PR aangemaakt maar geen URL teruggekregen — check GitHub');
+  log.hint('Volgende', 'Zet de draft-PR ready en merge zelf op GitHub.');
 });

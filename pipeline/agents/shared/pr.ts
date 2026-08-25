@@ -111,7 +111,7 @@ export async function runPr({ key, profile }: PrArgs): Promise<string | null> {
   // Idempotent: bestaat er al een PR, bewaar de URL en stop.
   const existing = await existingPrUrl(worktree, status.branch);
   if (existing) {
-    log.info(`PR bestaat al voor ${status.branch}: ${existing}`);
+    log.ok(`PR bestaat al voor ${status.branch}: ${existing}`);
     if (status.prUrl !== existing) {
       await ticket.writeStatus({ ...status, prUrl: existing });
     }
@@ -132,27 +132,36 @@ export async function runPr({ key, profile }: PrArgs): Promise<string | null> {
     throw new Error(`Kon squash-commit-subject niet lezen in ${worktree}.`);
   }
 
-  log.info(`PR aanmaken (draft) voor ${status.branch} → base ${status.baseBranch}`);
-  const out = await gh(worktree, [
-    'pr',
-    'create',
-    '--draft',
-    '--base',
-    status.baseBranch,
-    '--head',
-    status.branch,
-    '--title',
-    title,
-    '--body-file',
-    ticket.prBodyPath,
-  ]);
+  const out = await log.task(
+    `Draft-PR aanmaken voor ${status.branch} → ${status.baseBranch}`,
+    () =>
+      gh(worktree, [
+        'pr',
+        'create',
+        '--draft',
+        '--base',
+        status.baseBranch,
+        '--head',
+        status.branch,
+        '--title',
+        title,
+        '--body-file',
+        ticket.prBodyPath,
+      ]),
+    {
+      done: (raw) => {
+        const found = raw.trim().split('\n').find((l) => l.startsWith('http'))?.trim();
+        return found ? `Draft-PR aangemaakt: ${found}` : 'Draft-PR aangemaakt';
+      },
+    },
+  );
 
   const url = out.trim().split('\n').find((l) => l.startsWith('http'))?.trim();
   if (url) {
     await ticket.writeStatus({ ...status, prUrl: url });
-    log.info(`PR aangemaakt: ${url}. Review op GitHub en merge zelf.`);
     return url;
   }
-  log.warn(`PR aangemaakt maar geen URL in output:\n${out.trim()}`);
+  log.warn(`PR aangemaakt maar geen URL in de gh-output — check GitHub.`);
+  log.debug(`gh-output:\n${out.trim()}`);
   return null;
 }

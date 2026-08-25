@@ -33,6 +33,7 @@
     "app:pack": "node app/desktop/build.mjs && electron-builder --dir",
     "app:rebuild": "electron-rebuild -f -w node-pty",
     "dev:typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.main.json && tsc -p tsconfig.renderer.json",
+    "dev:log-preview": "tsx tools/log-preview.ts",
     "dev:sync-cc": "./tools/sync-cc-agents.sh",
     "dev:link": "./tools/link-commands.sh",
     "postinstall": "patch-package --patch-dir tools/patches && electron-rebuild -f -w node-pty"

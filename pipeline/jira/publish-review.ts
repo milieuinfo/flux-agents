@@ -22,6 +22,7 @@ import { createHash } from 'node:crypto';
 import { access, readFile, readdir, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { log } from '../agents/shared/logger.js';
+import { runMain } from '../agents/shared/cli.js';
 import {
   addComment,
   applyJiraSslConfig,
@@ -165,10 +166,8 @@ async function main() {
     throw new Error(`Review-bestand niet gevonden: ${reviewPath}`);
   }
 
-  log.info(
-    `Publish-review starting — ticket: ${args.key}, file: ${reviewPath}, ` +
-      `dryRun: ${args.dryRun}`,
-  );
+  log.section(`publish-review · ${args.key}` + (args.dryRun ? ' · dry-run' : ''));
+  log.ok(`Review-bestand: ${reviewPath}`);
 
   const reviewMd = await readFile(reviewPath, 'utf-8');
   const body = buildCommentBody(reviewMd);
@@ -184,8 +183,8 @@ async function main() {
   published.ticket = args.key;
 
   if (published.comments[filename]?.hash === h && !args.force) {
-    log.info(
-      `${filename}: comment al gepost met identieke inhoud — skipping. ` +
+    log.ok(
+      `${filename}: comment al gepost met identieke inhoud — niets te doen. ` +
         `Gebruik --force om opnieuw te posten.`,
     );
     return;
@@ -194,22 +193,20 @@ async function main() {
   if (args.dryRun) {
     const previewPath = join(reviewsDir, `_preview_${filename}`);
     await writeFile(previewPath, body, 'utf-8');
-    log.info(`Dry-run → ${previewPath}`);
+    log.section(`Klaar · publish-review ${args.key} · dry-run`);
+    log.hint('Nakijken', previewPath);
     return;
   }
 
   const client = createJiraClient();
-  log.info(`Posting comment op ${args.key}…`);
-  await addComment(client, args.key, body);
+  await log.task(`Comment posten op ${args.key}`, () => addComment(client, args.key, body), {
+    done: `Comment gepost op ${args.key}`,
+  });
   published.comments[filename] = {
     hash: h,
     postedAt: new Date().toISOString(),
   };
   await writePublishedState(publishedPath, published);
-  log.info(`Klaar. Comment gepost op ${args.key}.`);
 }
 
-main().catch((err) => {
-  log.error('Fatal:', err);
-  process.exit(1);
-});
+runMain('publish-review', main);

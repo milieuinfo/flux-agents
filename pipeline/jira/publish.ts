@@ -32,6 +32,7 @@ import { createHash } from 'node:crypto';
 import { access, readFile, readdir, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { log } from '../agents/shared/logger.js';
+import { runMain } from '../agents/shared/cli.js';
 import { resolveAnalysisDir } from '../agents/shared/analysis.js';
 import {
   addComment,
@@ -789,12 +790,13 @@ async function main() {
   const projectKey = process.env.JIRA_PROJECT_KEY ?? 'FLUX';
   const publishedPath = join(sprintDir, '_published.json');
 
-  log.info(
-    `Publish starting — sprint: ${args.sprintId}` +
-      (label ? ` (analyse ${label})` : '') +
-      `, dryRun: ${args.dryRun}, ` +
-      `skipComments: ${args.skipComments}, skipOverview: ${args.skipOverview}`,
+  log.section(
+    `publish · ${args.sprintId}` +
+      (label ? ` · analyse ${label}` : '') +
+      (args.dryRun ? ' · dry-run' : ''),
   );
+  if (args.skipComments) log.ok('Comments per ticket: overgeslagen (--skip-comments)');
+  if (args.skipOverview) log.ok('Umbrella-ticket: overgeslagen (--skip-overview)');
 
   const client = createJiraClient();
 
@@ -858,22 +860,22 @@ async function main() {
     await writePublishedState(publishedPath, published);
   }
 
-  log.info(
-    `Done. Comments — posted: ${commentStats.posted}, skipped: ${commentStats.skipped}, ` +
-      `failed: ${commentStats.failed}. Overview: ${overviewStatus}. ` +
-      `Links — linked: ${linkStats.linked}, skipped: ${linkStats.skipped}, failed: ${linkStats.failed}.`,
+  const failed =
+    commentStats.failed > 0 || overviewStatus === 'failed' || linkStats.failed > 0;
+  log.section(`${failed ? 'Klaar met fouten' : 'Klaar'} · publish ${args.sprintId}`);
+  log.hint(
+    'Comments',
+    `${commentStats.posted} gepost · ${commentStats.skipped} overgeslagen · ${commentStats.failed} mislukt`,
+  );
+  log.hint('Umbrella', overviewStatus);
+  log.hint(
+    'Links',
+    `${linkStats.linked} gelegd · ${linkStats.skipped} overgeslagen · ${linkStats.failed} mislukt`,
   );
 
-  if (
-    commentStats.failed > 0 ||
-    overviewStatus === 'failed' ||
-    linkStats.failed > 0
-  ) {
+  if (failed) {
     process.exit(1);
   }
 }
 
-main().catch((err) => {
-  log.error('Fatal:', err);
-  process.exit(1);
-});
+runMain('publish', main);

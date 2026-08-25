@@ -113,6 +113,14 @@ export function modelLabel(model: string): string {
   return 'Claude';
 }
 
+/**
+ * Korte weergave voor de terminal: `claude-opus-5` → `opus-5`,
+ * `claude-haiku-4-5-20251001` → `haiku-4-5-20251001`, alias `opus` → `opus`.
+ */
+export function modelShort(model: string): string {
+  return model.replace(/^claude-/, '');
+}
+
 /*
  * Model per agent-rol. De env vars dragen de rolnaam
  * (`AGENT_REFINE_MODEL`, `AGENT_DEVELOP_MODEL`, …) — één bron per rol.

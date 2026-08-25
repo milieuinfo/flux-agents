@@ -17,6 +17,7 @@
 
 import { config } from 'dotenv';
 import { log } from './shared/logger.js';
+import { runMain } from './shared/cli.js';
 import { runDevelopReviewLoop } from './shared/loop.js';
 
 config();
@@ -52,28 +53,27 @@ function parseArgs(): IterateArgs {
   return { key, sprint: positionals[1], profile };
 }
 
-async function main() {
-  const { key, sprint, profile } = parseArgs();
+async function main({ key, sprint, profile }: IterateArgs): Promise<void> {
   const profileFlag = profile ? ` --profile ${profile}` : '';
 
-  log.info(
-    `🔁 Iterate starting — ticket: ${key}` +
-      (profile ? `, profile: ${profile}` : ''),
-  );
+  log.section(`iterate · ${key}` + (profile ? ` · profiel ${profile}` : ''));
 
   const result = await runDevelopReviewLoop({ key, sprint, profile });
 
   if (result.outcome === 'approved') {
-    log.info(
-      `\n✅ APPROVED na ronde ${result.round}. Lokale squash + _pr-body.md ` +
-        `klaar. Niets gepusht. Push met 'npm run git:push -- ${key}${profileFlag}' ` +
-        `en daarna 'npm run git:pr -- ${key}${profileFlag}'.`,
+    log.section(`Klaar · ${key} · APPROVED (ronde ${result.round}) — niets gepusht`);
+    log.hint('Nakijken', result.prBodyPath);
+    log.hint(
+      'Volgende',
+      `npm run git:push -- ${key}${profileFlag} && npm run git:pr -- ${key}${profileFlag}`,
     );
+    return;
   }
+
   // escalated / changes_requested: de lus heeft de reden al gelogd.
+  log.section(`Gestopt · ${key} · ${result.outcome.toUpperCase()} (ronde ${result.round})`);
+  log.hint('Nakijken', result.reviewPath);
 }
 
-main().catch((err) => {
-  log.error('Fatal:', err);
-  process.exit(1);
-});
+const args = parseArgs();
+runMain(`iterate ${args.key}`, () => main(args));

@@ -411,7 +411,7 @@ export const ENV_SCHEMA: EnvField[] = [
   { key: 'AGENT_BASH_TIMEOUT_MS', label: 'Bash timeout (ms)', group: 'Geavanceerd', placeholder: '600000' },
   { key: 'JIRA_REFINE_IMAGE_MAX_COUNT', label: 'Max images per ticket', group: 'Geavanceerd', placeholder: '5' },
   { key: 'JIRA_REFINE_IMAGE_MAX_BYTES', label: 'Max image-bytes totaal', group: 'Geavanceerd', placeholder: '5000000' },
-  { key: 'LOG_LEVEL', label: 'Log level', group: 'Geavanceerd', default: 'info', placeholder: 'debug | info | warn' },
+  { key: 'LOG_LEVEL', label: 'Log level', group: 'Geavanceerd', default: 'info', placeholder: 'debug | info | warn | error' },
 ];
 
 /** Keys van velden die als secret behandeld worden (OS-keychain). */

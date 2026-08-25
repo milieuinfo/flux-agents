@@ -22,6 +22,7 @@ import { config } from 'dotenv';
 import { readdir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { log } from '../agents/shared/logger.js';
+import { runMain } from '../agents/shared/cli.js';
 import { pathExists } from '../agents/shared/repo.js';
 import { removeIfEmpty, removeWorktrees } from './worktree-cleanup.js';
 
@@ -30,6 +31,12 @@ config();
 export async function runCloseExternal(leaves: string[], dryRun: boolean): Promise<void> {
   const stateDir = resolve(process.env.STATE_DIR ?? './state');
   const externalRoot = resolve(stateDir, 'worktrees', '_external');
+
+  log.section(
+    `externe reviews opkuisen` +
+      (leaves.length > 0 ? ` · ${leaves.join(', ')}` : '') +
+      (dryRun ? ' · dry-run' : ''),
+  );
 
   if (!(await pathExists(externalRoot))) {
     log.info(`Geen externe-review-worktrees (${externalRoot}) — niets te doen.`);
@@ -44,7 +51,7 @@ export async function runCloseExternal(leaves: string[], dryRun: boolean): Promi
       if (await pathExists(dir)) {
         targets.push(dir);
       } else {
-        log.warn(`  ! geen externe-review-worktree '${leaf}' onder ${externalRoot} — overslaan.`);
+        log.warn(`Geen externe-review-worktree '${leaf}' onder ${externalRoot} — overslaan.`);
       }
     }
   } else {
@@ -67,8 +74,8 @@ export async function runCloseExternal(leaves: string[], dryRun: boolean): Promi
 
   // De _external-map opruimen als ze nu leeg is (no-op als er nog inhoud is).
   await removeIfEmpty(externalRoot);
-  log.info(
-    `Klaar — ${removed} worktree(s) opgeruimd. Committed reviews onder ` +
+  log.ok(
+    `${removed} worktree(s) opgeruimd — de committed reviews onder ` +
       `external-reviews/ blijven bewaard.`,
   );
 }
@@ -76,7 +83,4 @@ export async function runCloseExternal(leaves: string[], dryRun: boolean): Promi
 const argv = process.argv.slice(2);
 const dryRun = argv.includes('--dry-run');
 const leaves = argv.filter((a) => !a.startsWith('--'));
-runCloseExternal(leaves, dryRun).catch((err) => {
-  log.error('Fatal:', err);
-  process.exit(1);
-});
+runMain('externe reviews opkuisen', () => runCloseExternal(leaves, dryRun));

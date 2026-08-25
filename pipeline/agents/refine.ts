@@ -29,8 +29,10 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { log } from './shared/logger.js';
+import { runMain } from './shared/cli.js';
 import { requireEnv } from './shared/env.js';
 import {
+  modelShort,
   refineEffort,
   refineModel,
   refineSummaryEffort,
@@ -65,8 +67,8 @@ import {
 import {
   extractMarkdown,
   extractTicketRefinement,
-  streamAllAssistantText,
-  streamLastAssistantText,
+  runAgent,
+  type RunAgentOptions,
 } from './shared/query.js';
 
 config();
@@ -164,8 +166,15 @@ async function listSprintTickets(
   jira: JiraClient,
 ): Promise<JiraTicketSummary[]> {
   const jql = buildJql(args);
-  log.info(`Listing sprint tickets (JQL: ${jql})...`);
+  log.debug(`JQL: ${jql}`);
   return searchJql(jira, jql);
+}
+
+/** Positie van een ticket in de sprint-lus, voor de voortgangsregels. */
+interface TicketProgress {
+  index: number;
+  total: number;
+  isUpdate: boolean;
 }
 
 /**
@@ -231,6 +240,7 @@ async function refineTicket(
   worktreeDir: string,
   jira: JiraClient,
   acFieldId: string | undefined,
+  progress: TicketProgress,
 ): Promise<string> {
   const updateInstruction = existingMarkdown
     ? `\n\nEr bestaat al een vorige analyse van dit ticket (zie hieronder). ` +
@@ -280,25 +290,29 @@ async function refineTicket(
     updateInstruction;
 
   if (imagePayloads.length > 0) {
-    log.info(
-      `  ${key}: ${imagePayloads.length} image(s) als context toegevoegd ` +
-        `(totaal ${(
-          imagePayloads.reduce((n, p) => n + p.data.length * 0.75, 0) / 1024
-        ).toFixed(0)}kB base64-decoded)`,
-    );
+    const kB = (
+      imagePayloads.reduce((n, p) => n + p.data.length * 0.75, 0) / 1024
+    ).toFixed(0);
+    log.ok(`${key}: ${imagePayloads.length} afbeelding(en) als context (${kB}kB)`);
   }
 
+  // Code exploration (Glob → Read → Grep → Read…) eet snel beurten op.
+  // Override via AGENT_REFINE_MAX_TURNS als een ticket telkens tegen de limiet loopt.
+  const maxTurns = Number(process.env.AGENT_REFINE_MAX_TURNS ?? 30);
   const response = await runQuery(prompt, {
     systemPrompt,
-    // Code exploration (Glob → Read → Grep → Read…) eet snel beurten op.
-    // Override via AGENT_REFINE_MAX_TURNS als een ticket telkens tegen de limiet loopt.
-    maxTurns: Number(
-      process.env.AGENT_REFINE_MAX_TURNS ?? 30,
-    ),
+    maxTurns,
     cwd: worktreeDir,
     allowedTools: ['Read', 'Glob', 'Grep'],
     collectAllTurns: true,
     images: imagePayloads,
+    agent: {
+      label:
+        `${key} (${progress.index}/${progress.total}): analyseren ` +
+        `(${progress.isUpdate ? 'update' : 'nieuw'}) — ${modelShort(refineModel())}, max ${maxTurns} turns`,
+      doneLabel: `${key} geanalyseerd`,
+      cwd: worktreeDir,
+    },
   });
 
   // First try to anchor on the ticket-key heading anywhere in the transcript:
@@ -344,10 +358,17 @@ async function summarizeRefinement(
     },
   });
 
-  const response = await streamLastAssistantText(q);
+  // Quiet: de tekst van dit model ís de samenvatting; de caller wikkelt de
+  // call in één `log.task`-regel.
+  const response = await runAgent(q, { quiet: true });
   const md = extractMarkdown(response);
   assertSummaryShape(key, md);
   return md;
+}
+
+/** Label voor de samenvattingsstap, bv. `FLUX-463: Jira-samenvatting maken (sonnet-5)`. */
+function summaryTaskLabel(key: string, verb: string): string {
+  return `${key}: Jira-samenvatting ${verb} (${modelShort(refineSummaryModel())})`;
 }
 
 /**
@@ -364,11 +385,12 @@ async function backfillSummaryIfMissing(
   const md = await state.readTicketMarkdown(key);
   if (!md) return;
   try {
-    const summary = await summarizeRefinement(key, md, summaryPrompt);
-    await state.writeTicketSummary(key, summary);
-    log.info(`  ${key}: summary backfilled`);
+    await log.task(summaryTaskLabel(key, 'aanvullen (ontbrak nog)'), async () => {
+      const summary = await summarizeRefinement(key, md, summaryPrompt);
+      await state.writeTicketSummary(key, summary);
+    });
   } catch (err) {
-    log.warn(`  ${key}: summary backfill FAILED:`, err);
+    log.warn(`${key}: samenvatting aanvullen mislukt:`, err);
   }
 }
 
@@ -456,6 +478,7 @@ async function* singleUserMessageWithImages(
 
 /**
  * Run a query against the SDK and collect the full text response.
+ * `agent` stuurt de terminal-weergave (stap-label, relatieve paden, quiet).
  */
 async function runQuery(
   prompt: string,
@@ -466,6 +489,7 @@ async function runQuery(
     allowedTools?: string[];
     collectAllTurns?: boolean;
     images?: ImagePayload[];
+    agent?: RunAgentOptions;
   } = {},
 ): Promise<string> {
   const model = refineModel();
@@ -494,7 +518,10 @@ async function runQuery(
     },
   });
 
-  return opts.collectAllTurns ? streamAllAssistantText(q) : streamLastAssistantText(q);
+  return runAgent(q, {
+    ...opts.agent,
+    collect: opts.collectAllTurns ? 'all' : 'last',
+  });
 }
 
 /**
@@ -525,11 +552,11 @@ function filterUmbrella(
 ): Array<{ key: string; summary: string; status: string; updated: string }> {
   return tickets.filter((t) => {
     if (overviewKey && t.key === overviewKey) {
-      log.info(`  ${t.key}: skipping (sprint-analyse umbrella)`);
+      log.info(`${t.key}: sprint-analyse-umbrella — overslaan`);
       return false;
     }
     if (t.summary.startsWith('[Sprint-analyse]')) {
-      log.info(`  ${t.key}: skipping (sprint-analyse umbrella)`);
+      log.info(`${t.key}: sprint-analyse-umbrella — overslaan`);
       return false;
     }
     return true;
@@ -626,26 +653,34 @@ async function loadImagePayloads(
         att,
       );
       payloads.push({ data, mediaType });
-      log.info(
-        `    image: ${att.filename} (${att.mimeType}, ${(bytes / 1024).toFixed(0)}kB)`,
+      log.debug(
+        `afbeelding ${att.filename} (${att.mimeType}, ${(bytes / 1024).toFixed(0)}kB)`,
       );
     } catch (err) {
-      log.warn(`    image: ${att.filename} download FAILED — overslaan:`, err);
+      log.warn(`Afbeelding ${att.filename} kon niet gedownload worden — overslaan:`, err);
     }
   }
   return payloads;
 }
 
-async function main() {
-  const args = parseArgs();
+async function main(args: CliArgs) {
   applyJiraSslConfig();
   const stateDir = resolve(process.env.STATE_DIR ?? './state');
   const fallbackLabel = args.tickets ? `tickets-${Date.now()}` : `jql-${Date.now()}`;
   const folderName = args.folderName ?? fallbackLabel;
   const sprintName = args.sprintName ?? args.jql ?? fallbackLabel;
 
-  log.info(
-    `Agent 1 (refine) starting — sprint: "${sprintName}", folder: ${folderName}, dryRun: ${args.dryRun}`,
+  // Kop: de sprintnaam zoals de gebruiker hem gaf; in --jql/--tickets-modus is
+  // `sprintName` een gegenereerd label, dan tonen we de selectie zelf.
+  const scope = args.sprintName
+    ? args.sprintName
+    : args.jql
+      ? `jql "${args.jql}"`
+      : `tickets ${(args.tickets ?? []).join(', ')}`;
+  log.section(
+    `refine · ${scope}` +
+      (folderName !== scope ? ` · map ${folderName}` : '') +
+      (args.dryRun ? ' · dry-run' : ''),
   );
 
   const repoUrl = requireEnv('FLUX_REPO_URL');
@@ -657,7 +692,7 @@ async function main() {
     await ensureRepoClone({ repoUrl, cloneDir: mainRepoDir });
     await prepareWorktree({ mainRepoDir, worktreePath: worktreeDir, ref: baseBranch });
   } else {
-    log.info(`Dry-run: skipping clone + worktree prep (would target ${worktreeDir})`);
+    log.ok('Dry-run: geen clone/worktree, geen LLM-calls — enkel wat er zou gebeuren');
   }
 
   const systemPrompt = await loadPrompt('refine');
@@ -677,9 +712,13 @@ async function main() {
 
   const existingMeta = await state.readMeta();
   const overviewKey = await readOverviewKey(state);
-  const allTickets = await listSprintTickets(args, jira);
+  const allTickets = await log.task('Tickets ophalen uit Jira', () => listSprintTickets(args, jira), {
+    done: (found) => `${found.length} ticket(s) gevonden in Jira`,
+  });
   const tickets = filterUmbrella(allTickets, overviewKey);
-  log.info(`Found ${allTickets.length} tickets (${tickets.length} after filter)`);
+  if (tickets.length !== allTickets.length) {
+    log.ok(`${tickets.length} ticket(s) te verwerken na filter`);
+  }
 
   const newMeta: SprintMeta = {
     sprintId: folderName,
@@ -690,14 +729,18 @@ async function main() {
 
   let refined = 0;
   let skipped = 0;
+  /** Dry-run: tickets die een echte run zou analyseren (tellen mee als skipped). */
+  let wouldRefine = 0;
+  const total = tickets.length;
 
-  for (const t of tickets) {
+  for (const [i, t] of tickets.entries()) {
+    const pos = `${t.key} (${i + 1}/${total})`;
     const prevMeta = existingMeta?.tickets[t.key];
     const markdownExists = await state.ticketExists(t.key);
 
     // Geval A — snelle hit: timestamp matcht, niets veranderd Jira-zijde.
     if (prevMeta && markdownExists && prevMeta.jiraUpdated === t.updated) {
-      log.info(`  ${t.key}: unchanged, skipping`);
+      log.info(`${pos}: ongewijzigd — overslaan`);
       newMeta.tickets[t.key] = prevMeta;
       skipped++;
       if (!args.dryRun) {
@@ -713,7 +756,7 @@ async function main() {
     try {
       contentHash = await fetchContentHash(jira, t.key, acFieldId);
     } catch (err) {
-      log.error(`  ${t.key}: kon content niet ophalen via REST, val terug op refine:`, err);
+      log.warn(`${pos}: kon de inhoud niet ophalen via REST — val terug op analyseren:`, err);
       contentHash = '';
     }
 
@@ -723,7 +766,7 @@ async function main() {
       contentHash !== '' &&
       prevMeta.contentHash === contentHash
     ) {
-      log.info(`  ${t.key}: only timestamp changed, skipping`);
+      log.info(`${pos}: alleen de timestamp is gewijzigd — overslaan`);
       newMeta.tickets[t.key] = {
         ...prevMeta,
         jiraUpdated: t.updated,
@@ -735,15 +778,21 @@ async function main() {
       continue;
     }
 
-    log.info(`  ${t.key}: refining (${prevMeta ? 'update' : 'new'})`);
+    const isUpdate = Boolean(prevMeta);
     if (args.dryRun) {
+      log.info(`${pos}: zou analyseren (${isUpdate ? 'update' : 'nieuw'}) — dry-run`);
       skipped++;
+      wouldRefine++;
       continue;
     }
 
     const existing = markdownExists ? await state.readTicketMarkdown(t.key) : null;
     try {
-      const md = await refineTicket(t.key, existing, systemPrompt, worktreeDir, jira, acFieldId);
+      const md = await refineTicket(t.key, existing, systemPrompt, worktreeDir, jira, acFieldId, {
+        index: i + 1,
+        total,
+        isUpdate,
+      });
       await state.writeTicketMarkdown(t.key, md);
       newMeta.tickets[t.key] = {
         key: t.key,
@@ -758,15 +807,16 @@ async function main() {
       // zodat publish.ts niet een stale samenvatting post bij de nieuwe
       // analyse.
       try {
-        const summary = await summarizeRefinement(t.key, md, summaryPrompt);
-        await state.writeTicketSummary(t.key, summary);
-        log.info(`  ${t.key}: summary geschreven`);
+        await log.task(summaryTaskLabel(t.key, 'maken'), async () => {
+          const summary = await summarizeRefinement(t.key, md, summaryPrompt);
+          await state.writeTicketSummary(t.key, summary);
+        });
       } catch (err) {
-        log.warn(`  ${t.key}: summary FAILED — uitgebreide md blijft staan:`, err);
+        log.warn(`${t.key}: samenvatting mislukt — de uitgebreide analyse blijft staan:`, err);
         await state.deleteTicketSummary(t.key);
       }
     } catch (err) {
-      log.error(`  ${t.key}: FAILED`, err);
+      log.error(`${pos}: analyse mislukt`, err);
       // Keep previous meta if we had one, so we can retry later
       if (prevMeta) newMeta.tickets[t.key] = prevMeta;
     }
@@ -775,11 +825,19 @@ async function main() {
   if (!args.dryRun) {
     await state.writeMeta(newMeta);
   }
-  log.info(`Done. Refined: ${refined}, skipped: ${skipped}, failed: ${tickets.length - refined - skipped}`);
-  log.info(`Output: ${state.sprintDir}`);
+  const failed = tickets.length - refined - skipped;
+  log.section(`Klaar · refine ${folderName}` + (args.dryRun ? ' · dry-run' : ''));
+  log.hint(
+    'Resultaat',
+    args.dryRun
+      ? `${wouldRefine} zou(den) geanalyseerd worden · ${skipped - wouldRefine} ongewijzigd`
+      : `${refined} geanalyseerd · ${skipped} overgeslagen · ${failed} mislukt`,
+  );
+  log.hint('Nakijken', state.sprintDir);
+  if (!args.dryRun && refined > 0) {
+    log.hint('Volgende', `npm run pipeline:plan -- ${folderName}`);
+  }
 }
 
-main().catch((err) => {
-  log.error('Fatal:', err);
-  process.exit(1);
-});
+const cliArgs = parseArgs();
+runMain(`refine ${cliArgs.folderName ?? cliArgs.sprintName ?? ''}`.trim(), () => main(cliArgs));

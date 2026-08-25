@@ -33,11 +33,14 @@ export interface LoopArgs {
  * - `approved`: reviewer keurde goed (lokale squash + _pr-body.md staan klaar).
  * - `escalated`: menselijke interventie nodig (ronde 3 of deadlock).
  * - `changes_requested`: 3 rondes op, reviewer vraagt nog steeds wijzigingen.
+ *
+ * `reviewPath` wijst naar de review-md van de laatste ronde (voor de
+ * "Nakijken:"-hint van de caller); `prBodyPath` naar `_pr-body.md` bij approved.
  */
 export type LoopResult =
-  | { outcome: 'approved'; round: number }
-  | { outcome: 'escalated'; round: number }
-  | { outcome: 'changes_requested'; round: number };
+  | { outcome: 'approved'; round: number; prBodyPath: string }
+  | { outcome: 'escalated'; round: number; reviewPath: string }
+  | { outcome: 'changes_requested'; round: number; reviewPath: string };
 
 /**
  * Draait de develop→review-lus voor één ticket, maximaal 3 rondes. Logt per
@@ -60,7 +63,7 @@ export async function runDevelopReviewLoop({
   const ticket = new TicketState(stateDir, refinement.sprint, key, label);
 
   for (let round = 1; round <= MAX_ROUNDS; round++) {
-    log.info(`\n━━━ Ronde ${round} — develop ━━━`);
+    log.section(`Ronde ${round} · develop`);
     await runDevelop({ key, sprint, profile });
 
     // Guard: develop moet zijn werk als commit op de feature-branch hebben
@@ -94,7 +97,7 @@ export async function runDevelopReviewLoop({
       }
     }
 
-    log.info(`\n━━━ Ronde ${round} — review ━━━`);
+    log.section(`Ronde ${round} · review`);
     await runReview({ key, profile });
 
     const status = await ticket.readStatus();
@@ -105,14 +108,15 @@ export async function runDevelopReviewLoop({
     }
 
     if (status.status === 'approved') {
-      return { outcome: 'approved', round: status.round };
+      return { outcome: 'approved', round: status.round, prBodyPath: ticket.prBodyPath };
     }
     if (status.status === 'escalated') {
-      log.warn(
-        `\n⚠️  ESCALATED na ronde ${status.round}. Menselijke interventie nodig.`,
-      );
-      log.warn(`Lees: ${ticket.reviewPath(status.round)}`);
-      return { outcome: 'escalated', round: status.round };
+      log.warn(`ESCALATED na ronde ${status.round} — menselijke interventie nodig.`);
+      return {
+        outcome: 'escalated',
+        round: status.round,
+        reviewPath: ticket.reviewPath(status.round),
+      };
     }
     if (status.status === 'changes_requested') {
       // Deadlock-detectie: als deze ronde 0 commits op de feature-branch
@@ -126,23 +130,27 @@ export async function runDevelopReviewLoop({
       if (commitsAhead === 0) {
         await ticket.writeStatus({ ...status, status: 'escalated' });
         log.warn(
-          `\n⚠️  Ronde ${status.round}: 0 commits op de branch. ` +
-            `Author is waarschijnlijk geblokkeerd op ontbrekende input ` +
-            `(bv. '## Keuze' in ticket.md). Escalatie — verdere rondes zijn zinloos.`,
+          `Ronde ${status.round}: 0 commits op de branch. De author is ` +
+            `waarschijnlijk geblokkeerd op ontbrekende input (bv. '## Keuze' in ` +
+            `ticket.md). Escalatie — verdere rondes zijn zinloos.`,
         );
-        log.warn(`Lees: ${ticket.reviewPath(status.round)}`);
-        return { outcome: 'escalated', round: status.round };
+        return {
+          outcome: 'escalated',
+          round: status.round,
+          reviewPath: ticket.reviewPath(status.round),
+        };
       }
       if (round >= MAX_ROUNDS) {
         log.warn(
-          `\n⚠️  ${MAX_ROUNDS} rondes gedaan, reviewer vraagt nog wijzigingen. Stop.`,
+          `${MAX_ROUNDS} rondes gedaan, de reviewer vraagt nog steeds wijzigingen. Stop.`,
         );
-        log.warn(`Lees: ${ticket.reviewPath(status.round)}`);
-        return { outcome: 'changes_requested', round: status.round };
+        return {
+          outcome: 'changes_requested',
+          round: status.round,
+          reviewPath: ticket.reviewPath(status.round),
+        };
       }
-      log.info(
-        `\n🔄 CHANGES_REQUESTED na ronde ${status.round}. Door naar ronde ${round + 1}…`,
-      );
+      log.ok(`CHANGES_REQUESTED na ronde ${status.round} — door naar ronde ${round + 1}`);
       continue;
     }
 
