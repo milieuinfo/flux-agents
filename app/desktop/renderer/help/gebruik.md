@@ -206,6 +206,16 @@ De modelcode komt uit het **Develop-model**. Wijzig dat model niet tussen
 ontwikkel, review en push van één ticket, anders vindt de pipeline de run niet
 meer terug (ze meldt dan een model-mismatch).
 
+## Sleutelhanger-melding na een update
+
+Je geheimen (Jira-token, Claude-token) staan versleuteld in de app, met een
+sleutel in je macOS-sleutelhanger. Na een **update van de app** kan macOS bij de
+eerste start vragen of "Flux Agents" die vertrouwelijke informatie mag
+gebruiken: voor macOS is de nieuwe versie een andere app. Dat is normaal en
+veilig. Kies **"Altijd toestaan"** en geef je Mac-wachtwoord; daarna blijft het
+stil tot de volgende update. Weiger je, dan kan de app je tokens niet lezen en
+meldt de tab Status dat het Claude-token ontbreekt.
+
 ## Wat de agents nooit doen
 
 - PR's mergen - alleen jij.

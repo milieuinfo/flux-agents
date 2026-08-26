@@ -84,6 +84,31 @@ eventuele `ANTHROPIC_API_KEY` in de omgeving wordt door de app genegeerd (en nie
 de agents doorgegeven) zodat er altijd op het abonnement wordt afgerekend. Het token
 is persoonlijk - deel het niet.
 
+## Sleutelhanger-melding na een update
+
+De geheimen (Jira-PAT, Claude-token) staan versleuteld in de gebruikersmap, met
+een sleutel die Electron's `safeStorage` in de login-sleutelhanger bewaart (item
+*"Flux Agents Safe Storage"*). macOS koppelt de toegang tot dat item aan de
+code-identiteit van de app. Zonder Developer ID-certificaat is de app **ad-hoc
+gesigneerd** en is die identiteit gewoon de hash van het binaire bestand: na
+elke nieuwe build (nieuwe dmg, of een Electron-upgrade in dev) is het voor macOS
+een andere app, en bij de eerste start verschijnt "Flux Agents wil gebruikmaken
+van de vertrouwelijke informatie ... in je sleutelhanger". Dat is verwacht
+gedrag, geen fout.
+
+- Kies **"Altijd toestaan"** (wachtwoord nodig: dat past de toegangslijst van
+  het item aan). Daarna blijft het stil tot de volgende build. "Toestaan" zonder
+  "altijd" geeft de vraag bij elke start opnieuw.
+- De dev-app (`npm run app:dev`) en de geïnstalleerde app zijn twee verschillende
+  bestanden; elk vraagt het één keer.
+- Weiger je, dan kan de app de geheimen niet lezen: de Status-tab meldt dan dat
+  het Claude-token ontbreekt en de agents kunnen niet starten. Opnieuw starten
+  geeft de vraag opnieuw.
+
+Structurele oplossing: signeren met een Developer ID-certificaat (zie hieronder).
+Dan is de identiteit stabiel over builds heen en verdwijnt de vraag, ook bij
+teamleden die anders bij elke nieuwe dmg hun wachtwoord moeten geven.
+
 ## Draaien & bouwen
 
 ```bash
