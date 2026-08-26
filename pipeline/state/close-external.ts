@@ -10,7 +10,7 @@
  * worktree(s) + `git worktree prune`.
  *
  * Zonder argument worden álle `_external`-worktrees opgekuist; met één of meer
- * argumenten enkel die mappen `worktrees/_external/<leaf>` (bv. `FLUX-743-kris-O48`).
+ * argumenten enkel die mappen `worktrees/_external/<leaf>` (bv. `FLUX-743-no-O48`).
  *
  * Idempotent: geen worktrees meer = no-op.
  *

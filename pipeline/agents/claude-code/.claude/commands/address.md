@@ -12,7 +12,7 @@ Lees `state/sprints/<sprint>/tickets/$1/_status.json`. Vereist:
 - `status` is `"changes_requested"` (anders: is er niks te adresseren)
 - Er is een `review-r<round>.md` met blockers
 
-Als `status` is `"escalated"`: STOP. Vertel Kris dat max rondes bereikt
+Als `status` is `"escalated"`: STOP. Vertel de gebruiker dat max rondes bereikt
 is en hij manueel moet ingrijpen.
 
 Als `status` is `"approved"`: STOP. Er is al een PR, niks te doen.
@@ -53,7 +53,7 @@ Na de subagent terugkomt: zet `_status.json.status` naar
 
 ## Stap 6 - Samenvatting
 
-Toon Kris:
+Toon de gebruiker:
 - Nieuwe ronde nummer
 - Welke blockers geadresseerd zijn
 - Test status

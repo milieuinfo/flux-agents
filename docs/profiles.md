@@ -3,19 +3,20 @@
 `flux-web-components` heeft `./set-ai-profile.sh <profile>` dat een AI-configuratie
 activeert via symlinks (`CLAUDE.local.md`, `.claude/settings.local.json`,
 `.claude/skills`, optioneel `AGENTS.md`/`SKILLS.md`). Profiles zitten onder
-`ai/profiles/<naam>/` in die repo - bijvoorbeeld `kris`, `karim` of `no` (opt-out).
+`ai/profiles/<naam>/` in die repo - `no` (opt-out, geen AI-config) en daarnaast een
+persoonlijk profiel per developer.
 
 Met `--profile` kan je hetzelfde ticket parallel of na elkaar onder verschillende
 configuraties ontwikkelen zonder dat de runs elkaars commits, branch of state
 overschrijven. De agents die in een worktree draaien ondersteunen het:
 
 ```bash
-npm run pipeline:develop -- FLUX-123 --profile kris
-npm run pipeline:review  -- FLUX-123 --profile kris
+npm run pipeline:develop -- FLUX-123 --profile <profiel>
+npm run pipeline:review  -- FLUX-123 --profile <profiel>
 npm run pipeline:ship    -- FLUX-123 --profile karim
-npm run pipeline:iterate -- FLUX-123 --profile kris
-npm run pipeline:review-external -- FLUX-595 feature-v2/branch --profile kris
-npm run pipeline:converge -- FLUX-123 --profiles no,kris
+npm run pipeline:iterate -- FLUX-123 --profile <profiel>
+npm run pipeline:review-external -- FLUX-595 feature-v2/branch --profile <profiel>
+npm run pipeline:converge -- FLUX-123 --profiles no,<profiel>
 ```
 
 ## Het run-label
@@ -26,13 +27,13 @@ waarbij de code uit het **develop-model** (`AGENT_DEVELOP_MODEL`) komt:
 `claude-fable-5` → `F5` (datum-suffix wordt genegeerd; zie `modelCode` in
 `pipeline/agents/shared/model.ts`).
 
-Voorbeeld met `AGENT_DEVELOP_MODEL=claude-opus-4-8` en `--profile kris` → label `kris-O48`:
+Voorbeeld met `AGENT_DEVELOP_MODEL=claude-opus-4-8` en `--profile <profiel>` → label `no-O48`:
 
-- **Worktree:** `state/worktrees/<sprint>/FLUX-123-kris-O48/`
-- **Branch:** `feature-v2/kris-O48/FLUX-123-<slug>`
-- **State:** `state/sprints/<sprint>/tickets/FLUX-123/kris-O48/{ticket.md, code-changes.md, review-r*.md, _pr-body.md, _status.json}`
+- **Worktree:** `state/worktrees/<sprint>/FLUX-123-no-O48/`
+- **Branch:** `feature-v2/no-O48/FLUX-123-<slug>`
+- **State:** `state/sprints/<sprint>/tickets/FLUX-123/no-O48/{ticket.md, code-changes.md, review-r*.md, _pr-body.md, _status.json}`
 
-Vóór de SDK-call draait `./set-ai-profile.sh kris` in de worktree. Een model-wissel
+Vóór de SDK-call draait `./set-ai-profile.sh <profiel>` in de worktree. Een model-wissel
 in `.env` levert dus een nieuwe, niet-botsende run op naast de vorige.
 
 `review`, `push` en `pr` herberekenen hetzelfde label uit `--profile` +
@@ -53,8 +54,8 @@ Twee profielen vergelijken en het beste samenvoegen:
 
 ```bash
 npm run pipeline:iterate  -- FLUX-620 --profile no
-npm run pipeline:iterate  -- FLUX-620 --profile kris
-npm run pipeline:converge -- FLUX-620 --profiles no,kris
+npm run pipeline:iterate  -- FLUX-620 --profile <profiel>
+npm run pipeline:converge -- FLUX-620 --profiles no,<profiel>
 ```
 
 `converge` ontdekt de run-folders op disk (op ticket + kaal profiel), vereist dat

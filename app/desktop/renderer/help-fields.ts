@@ -74,7 +74,7 @@ export const FIELD_HELP: Record<string, string> = {
     'afhankelijkheden (`_order.md`) afleidt.',
   AGENT_DEVELOP_MODEL:
     'Model dat tickets implementeert - de grootste tokenverbruiker. De code ' +
-    'van dit model zit ook in de paden van profielruns (bv. `kris-O5`): hou het ' +
+    'van dit model zit ook in de paden van profielruns (bv. `no-O5`): hou het ' +
     'stabiel tussen ontwikkel, review en push van één ticket.',
   AGENT_REVIEW_MODEL:
     'Model dat de implementatie reviewt en bij APPROVED lokaal squasht en de ' +

@@ -57,7 +57,7 @@ function toolResult(id: string, content: string, isError = false): SDKMessage {
   });
 }
 
-const WT = '/fake/state/worktrees/sprint-42/FLUX-463-kris-O5';
+const WT = '/fake/state/worktrees/sprint-42/FLUX-463-no-O5';
 const STATE = '/fake/state';
 
 async function* fakeStream(opts: { fail?: boolean } = {}): AsyncGenerator<SDKMessage> {
@@ -65,7 +65,7 @@ async function* fakeStream(opts: { fail?: boolean } = {}): AsyncGenerator<SDKMes
 
   yield assistant([
     text('Ik lees eerst het refinement-rapport en de bestaande popover-code om de scope scherp te krijgen.'),
-    toolUse('t1', 'Read', { file_path: `${STATE}/sprints/sprint-42/tickets/FLUX-463/kris-O5/ticket.md` }),
+    toolUse('t1', 'Read', { file_path: `${STATE}/sprints/sprint-42/tickets/FLUX-463/no-O5/ticket.md` }),
     toolUse('t2', 'Read', { file_path: `${WT}/src/vl-popover/vl-popover.ts` }),
   ]);
   await sleep(40);
@@ -117,7 +117,7 @@ async function* fakeStream(opts: { fail?: boolean } = {}): AsyncGenerator<SDKMes
     toolUse('t7', 'Bash', { command: 'git commit -m "feat: FLUX-463 - popover max-height en interne scroll"' }),
   ]);
   await sleep(40);
-  yield toolResult('t7', '[feature-v2/kris-O5/FLUX-463-popover 3f2a1c9] feat: FLUX-463 - popover max-height en interne scroll');
+  yield toolResult('t7', '[feature-v2/no-O5/FLUX-463-popover 3f2a1c9] feat: FLUX-463 - popover max-height en interne scroll');
 
   // Tekst-only slotbericht = eindsamenvatting (niet als narratie, wél als blok).
   yield assistant([
@@ -157,20 +157,20 @@ async function* fakeStream(opts: { fail?: boolean } = {}): AsyncGenerator<SDKMes
 }
 
 async function main(): Promise<void> {
-  log.section('develop · FLUX-463 · profiel kris');
+  log.section('develop · FLUX-463 · profiel no');
   const clone = log.step('Repo klonen (https://github.com/vo/flux-web-components.git)');
   await sleep(1050);
   clone.done(`Repo gekloond naar ${STATE}/clone/flux-web-components`);
   log.ok('Refinement gevonden: sprints/sprint-42/analyses/no-O5/FLUX-463.md');
   log.ok('Ronde 1 - initiële implementatie');
   await log.task(
-    'Worktree aanmaken op feature-v2/kris-O5/FLUX-463-popover (van origin/develop-v2)',
+    'Worktree aanmaken op feature-v2/no-O5/FLUX-463-popover (van origin/develop-v2)',
     () => sleep(30),
     { done: `Worktree aangemaakt: ${WT}` },
   );
-  log.ok("Profiel 'kris' geactiveerd");
+  log.ok("Profiel 'no' geactiveerd");
   log.warn('Ticket stond nog op in_progress (ronde 1) - herstart op dezelfde branch.');
-  log.ok('Commits als Kris Speltincx <kris@example.be>');
+  log.ok('Commits als Voornaam Achternaam <voornaam@example.be>');
 
   const summary = await runAgent(fakeStream(), {
     label: 'Agent draait - opus-5, ronde 1 (max 100 turns)',
@@ -178,12 +178,12 @@ async function main(): Promise<void> {
     stateDir: STATE,
   });
   log.block('Samenvatting van de author', summary, {
-    morePath: `${STATE}/sprints/sprint-42/tickets/FLUX-463/kris-O5/code-changes.md`,
+    morePath: `${STATE}/sprints/sprint-42/tickets/FLUX-463/no-O5/code-changes.md`,
   });
 
   log.section('Klaar · FLUX-463 ronde 1');
-  log.hint('Nakijken', `${STATE}/sprints/sprint-42/tickets/FLUX-463/kris-O5/code-changes.md`);
-  log.hint('Volgende', 'npm run pipeline:review -- FLUX-463 --profile kris');
+  log.hint('Nakijken', `${STATE}/sprints/sprint-42/tickets/FLUX-463/no-O5/code-changes.md`);
+  log.hint('Volgende', 'npm run pipeline:review -- FLUX-463 --profile <profiel>');
 
   log.block(
     'Lang blok (afgekapt op 12 regels)',

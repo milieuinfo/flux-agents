@@ -198,7 +198,7 @@ uit de repo). Geen squash, geen push, geen PR - enkel een review-md onder
 Een **profiel** is een AI-configuratie uit flux-web-components
 (`ai/profiles/<naam>/`: instructies, skills, settings). `no` betekent: geen
 profiel. Elke profielrun krijgt een eigen worktree, branch en state met het
-label `<profiel>-<modelcode>` (bv. `kris-O5`), zodat runs naast elkaar kunnen
+label `<profiel>-<modelcode>` (bv. `no-O5`), zodat runs naast elkaar kunnen
 bestaan en je implementaties kan vergelijken - en daarna samenvoegen met
 **convergeer**.
 

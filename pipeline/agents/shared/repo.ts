@@ -353,7 +353,7 @@ export function baseBranchWorktreePath(stateDir: string, baseBranch: string): st
  * Met een `profile` wordt het profile-segment als suffix in de mapnaam
  * opgenomen, zodat dezelfde ticket-actie parallel met verschillende
  * AI-profiles kan lopen zonder dat ze elkaars worktree raken. Callers geven
- * doorgaans een samengesteld label `<profiel>-<modelcode>` (bv. `kris-O48`,
+ * doorgaans een samengesteld label `<profiel>-<modelcode>` (bv. `no-O48`,
  * zie `runPathLabel` in shared/model.ts) zodat ook een model-wissel een
  * aparte worktree krijgt.
  */
@@ -548,8 +548,8 @@ export function slugifyTitle(title: string, maxWords = 4): string {
  * gezet (`feature-v2/<profile>/<KEY>-<slug>`), zodat profile-runs groeperen
  * in `git branch` en de bestaande pattern `feature-v2/FLUX-*` zonder profile
  * intact blijft. Callers geven doorgaans een samengesteld label
- * `<profiel>-<modelcode>` (bv. `kris-O48`, zie `runPathLabel` in
- * shared/model.ts) → `feature-v2/kris-O48/<KEY>-<slug>`.
+ * `<profiel>-<modelcode>` (bv. `no-O48`, zie `runPathLabel` in
+ * shared/model.ts) → `feature-v2/no-O48/<KEY>-<slug>`.
  */
 export function ticketBranchName(
   ticketKey: string,

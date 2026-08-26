@@ -129,7 +129,7 @@ export async function promptProfiles(min = 2): Promise<string[] | undefined> {
   }
   const typed = await p.text({
     message: `Welke profielen? (komma-gescheiden, minstens ${min})`,
-    placeholder: 'no,kris',
+    placeholder: 'no,<profiel>',
     validate: (v) => {
       const parts = (v ?? '').split(',').map((s) => s.trim()).filter(Boolean);
       if (parts.length < min) {
@@ -239,7 +239,7 @@ async function discoverExternalReviewWorktrees(): Promise<string[]> {
 
 /**
  * Vraagt welke externe-review-worktree(s) op te kuisen (multiselect, standaard
- * niets geselecteerd). Geeft de gekozen leaf-namen (bv. `FLUX-743-kris-O48`), of
+ * niets geselecteerd). Geeft de gekozen leaf-namen (bv. `FLUX-743-no-O48`), of
  * `undefined` bij annulering / als er niets op te kuisen valt.
  */
 export async function promptExternalReviewTargets(): Promise<string[] | undefined> {

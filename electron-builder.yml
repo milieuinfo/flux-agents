@@ -65,7 +65,7 @@ mac:
         - arm64
   hardenedRuntime: true
   gatekeeperAssess: false
-  # Distributie (op Kris' machine, met Apple Developer-account):
+  # Distributie (op de machine van de maintainer, met Apple Developer-account):
   #   - Code-signing: zet CSC_LINK + CSC_KEY_PASSWORD (Developer ID Application)
   #   - Notarization: zet APPLE_ID + APPLE_APP_SPECIFIC_PASSWORD + APPLE_TEAM_ID
   #     en `notarize: true` hieronder.

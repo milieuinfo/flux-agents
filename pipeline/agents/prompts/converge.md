@@ -107,7 +107,7 @@ Als de gecombineerde implementatie klaar en geverifieerd is:
 
 3. **Schrijf de converge-notes** volgens onderstaand format naar het
    `_converge.md`-pad dat in je opdracht staat (absoluut pad, buiten je cwd).
-   Dit is een leesbaar verslag voor Kris - niet voor GitHub - waarin je
+   Dit is een leesbaar verslag voor de gebruiker - niet voor GitHub - waarin je
    uitlegt wat je in elke bron vond en welke keuzes je maakte om de
    gecombineerde versie te bouwen. Wees hier wél concreet en technisch (in
    tegenstelling tot de strikt-functionele `_pr-body.md`).
@@ -173,7 +173,7 @@ andere op welk punt.}
 
 ## Keuzes
 {Per onderdeel: welke bron je nam (of hoe je mengde) en waarom. Wees
-concreet - "componentlogica uit bron kris, tests uit bron no omdat …".
+concreet - "componentlogica uit bron A, tests uit bron B omdat …".
 Vermeld ook wat je liet vallen en waarom.}
 
 ## Verificatie

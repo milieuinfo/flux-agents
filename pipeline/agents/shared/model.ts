@@ -172,7 +172,7 @@ export function reviewExternalModel(): string {
 /**
  * Bouw het pad-segment voor een ticket-run. Zonder profiel `undefined`,
  * zodat het pad exact als vóór de profile-feature blijft. Met profiel
- * `<profiel>-<modelcode>` (bv. `kris-O48`).
+ * `<profiel>-<modelcode>` (bv. `no-O48`).
  */
 export function runPathLabel(
   profile: string | undefined,

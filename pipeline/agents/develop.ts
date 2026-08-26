@@ -90,7 +90,7 @@ export async function runDevelop({ key, sprint, profile, analysis }: DevelopArgs
   const refinement = await locateRefinement(stateDir, key, sprint, analysis);
   log.ok(`Refinement gevonden: ${relative(stateDir, refinement.path)}`);
 
-  // Pad-label = profiel + model-code (bv. `kris-O48`). Het ruwe `profile`
+  // Pad-label = profiel + model-code (bv. `no-O48`). Het ruwe `profile`
   // blijft voor profile-activatie, _status.json en hints; het label bepaalt
   // worktree-pad, branch-naam en ticket-state-pad zodat een model-wissel
   // niet botst met een eerdere run.

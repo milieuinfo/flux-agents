@@ -79,13 +79,13 @@ houd het bij één à twee zinnen per item.
    succescriteria", de voorstellen, de aanbeveling, en de risico's.
 
    **Welk voorstel volg je?** In deze volgorde:
-   1. Als er een `## Keuze` sectie onderaan `ticket.md` staat (door Kris
+   1. Als er een `## Keuze` sectie onderaan `ticket.md` staat (door de gebruiker
       toegevoegd): die wint altijd. Volg het voorstel dat daar genoemd
       wordt en vermeld die keuze in `code-changes.md`.
    2. Anders: volg de `## Aanbeveling` van de refine-agent.
    3. Geen `## Keuze` én geen eenduidige aanbeveling ("Keuze ligt bij PO"
       of meerdere gelijkwaardige voorstellen zonder recommendation):
-      **STOP**. Implementeer niets. Meld aan Kris dat er een `## Keuze`
+      **STOP**. Implementeer niets. Meld de gebruiker dat er een `## Keuze`
       sectie nodig is voor je kan starten.
 2. **Check of er een branch is** voor dit ticket (`feature-v2/<KEY>-*`).
    Zo ja: checkout. Zo nee: maak aan vanaf `origin/develop-v2` na een
@@ -179,7 +179,7 @@ houd het bij één à twee zinnen per item.
 
 ### Gevolgd voorstel
 {Welk voorstel uit het refinement-rapport is geïmplementeerd (bv.
-"Voorstel 2"), en waar komt die keuze vandaan: "## Keuze door Kris",
+"Voorstel 2"), en waar komt die keuze vandaan: "## Keuze door de gebruiker",
 "## Aanbeveling van de refine-agent", of "afwijking - reden: ...".}
 
 ### Implementatie samenvatting

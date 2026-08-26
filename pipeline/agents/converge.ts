@@ -5,8 +5,8 @@
  *
  * Workflow:
  *   npm run pipeline:iterate -- FLUX-620 --profile no      ┐ twee parallelle, lokale
- *   npm run pipeline:iterate -- FLUX-620 --profile kris    ┘ ontwikkelingen (APPROVED)
- *   npm run pipeline:converge -- FLUX-620 --profiles no,kris
+ *   npm run pipeline:iterate -- FLUX-620 --profile <profiel>    ┘ ontwikkelingen (APPROVED)
+ *   npm run pipeline:converge -- FLUX-620 --profiles no,<profiel>
  *
  * Wat converge doet:
  *  1. Valideert dat elke bron-profielrun status 'approved' heeft (iterate/
@@ -108,7 +108,7 @@ function parseArgs(): ConvergeArgs {
     console.error(
       `Converge heeft minstens 2 profielen nodig (kreeg: ${
         profiles.join(', ') || 'geen'
-      }). Bv. --profiles no,kris`,
+      }). Bv. --profiles no,<profiel>`,
     );
     process.exit(1);
   }

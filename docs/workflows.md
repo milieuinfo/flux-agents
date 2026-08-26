@@ -107,8 +107,8 @@ Als `ship`, maar **zonder push of PR**. Bij APPROVED stopt het met de lokale squ
 
 ```bash
 npm run pipeline:iterate  -- FLUX-620 --profile no
-npm run pipeline:iterate  -- FLUX-620 --profile kris
-npm run pipeline:converge -- FLUX-620 --profiles no,kris
+npm run pipeline:iterate  -- FLUX-620 --profile <profiel>
+npm run pipeline:converge -- FLUX-620 --profiles no,<profiel>
 ```
 
 Valideert dat beide profielruns `approved` zijn, maakt een **profielloze** branch
@@ -128,7 +128,7 @@ npm run state:close-sprint -- SPRINT-42              # alle worktrees van een af
 npm run state:close-sprint -- SPRINT-42 --dry-run    # toont enkel wat verwijderd zou worden
 
 npm run state:close-external                         # alle externe-review worktrees
-npm run state:close-external -- FLUX-595-kris-O48    # één specifieke (leaf onder _external/)
+npm run state:close-external -- FLUX-595-no-O48    # één specifieke (leaf onder _external/)
 npm run state:close-external -- --dry-run
 ```
 
@@ -143,7 +143,7 @@ Een feature-branch van iemand anders reviewen, los van de sprint-flow:
 
 ```bash
 npm run pipeline:review-external -- FLUX-595 feature-v2/iemands-branch
-npm run pipeline:review-external -- FLUX-595 feature-v2/branch --base develop-v3 --profile kris
+npm run pipeline:review-external -- FLUX-595 feature-v2/branch --base develop-v3 --profile <profiel>
 ```
 
 Output: `state/external-reviews/FLUX-595/review-<timestamp>.md` (één per run, geen squash/push/PR).

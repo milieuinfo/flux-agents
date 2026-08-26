@@ -42,7 +42,7 @@ export class TicketState {
     readonly key: string,
     // Pad-segment voor de run-subfolder. Zonder = profielloze run (oude
     // layout). Callers geven doorgaans een samengesteld label
-    // `<profiel>-<modelcode>` (bv. `kris-O48`, zie shared/model.ts) zodat
+    // `<profiel>-<modelcode>` (bv. `no-O48`, zie shared/model.ts) zodat
     // profile- én model-runs in eigen subfolders zitten.
     readonly profile?: string,
   ) {}
@@ -77,7 +77,7 @@ export class TicketState {
    * Artifact met de converge-notes: wat de converge-agent in beide bronnen
    * vond en welke keuzes hij maakte om de gecombineerde versie te bouwen.
    * Vrije-vorm samenvatting (géén strikt format zoals `_pr-body.md`) - een
-   * leesbaar verslag voor Kris, niet voor GitHub.
+   * leesbaar verslag voor de gebruiker, niet voor GitHub.
    */
   get convergeNotesPath(): string {
     return join(this.ticketDir, '_converge.md');

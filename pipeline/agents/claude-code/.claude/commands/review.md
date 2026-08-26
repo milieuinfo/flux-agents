@@ -12,7 +12,7 @@ Check dat `state/sprints/<sprint>/tickets/$1/_status.json` bestaat en dat:
 - `status` is `"in_progress"` of `"changes_addressed"`
 - Er een `code-changes.md` is
 
-Als niet: STOP. Vertel Kris welke stap ontbreekt.
+Als niet: STOP. Vertel de gebruiker welke stap ontbreekt.
 
 ## Stap 2 - Valideer branch
 
@@ -36,11 +36,11 @@ Roep de `ticket-reviewer` subagent aan met deze instructie:
 
 ## Stap 4 - Samenvatting
 
-Na de subagent terugkomt, lees `_status.json` en toon Kris:
+Na de subagent terugkomt, lees `_status.json` en toon de gebruiker:
 
 - Status: APPROVED / CHANGES_REQUESTED / ESCALATED
 - Pad naar review-r<N>.md
 - Als APPROVED: lokale squash gedaan + `_pr-body.md` geschreven; volgende
   stappen zijn `npm run git:push -- $1` en daarna `npm run git:pr -- $1`
 - Als CHANGES_REQUESTED: volgende stap is `/address $1`
-- Als ESCALATED: uitleg dat max rondes bereikt is en Kris manueel moet bijspringen
+- Als ESCALATED: uitleg dat max rondes bereikt is en de gebruiker manueel moet bijspringen

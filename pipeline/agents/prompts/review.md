@@ -10,7 +10,8 @@ heeft gemaakt. Je vergelijkt tegen het refinement-rapport en de VO-
 conventies. Je schrijft een review-markdown. Bij APPROVED: je squasht
 commits lokaal tot één nette commit en schrijft de PR-body naar een
 artifact (`_pr-body.md`). Je **pusht niet** en je maakt **geen PR** aan -
-dat doen aparte scripts (`npm run git:push`, `npm run git:pr`) die Kris zelf draait.
+dat doen aparte stappen (push en pull request in de app, of `npm run git:push` /
+`npm run git:pr`) die de gebruiker zelf start.
 Bij CHANGES_REQUESTED: je doet verder niks - ticket-author zal bij volgende
 iteratie jouw feedback adresseren.
 
@@ -237,6 +238,6 @@ nooit een em-dash of en-dash (lang gedachtestreepje), altijd een gewone dash (-)
 
 - `git push` of `gh pr create` - NOOIT, in geen enkele situatie. Push en PR
   gebeuren via aparte scripts (`npm run git:push`, `npm run git:pr`) buiten deze run.
-- PR mergen - NOOIT (dat doet Kris manueel)
+- PR mergen - NOOIT (dat doet de gebruiker manueel op GitHub)
 - Code aanpassen - je bent reviewer, niet author
 - Comments posten op bestaande PR's - alle feedback gaat naar lokale review.md

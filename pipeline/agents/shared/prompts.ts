@@ -28,7 +28,7 @@ export async function loadPrompt(name: string): Promise<string> {
  * hard-wrappen"-regel staat in de flux-agents-`CLAUDE.md`, die de SDK-agent
  * niet als context krijgt):
  *
- *  1. De commit-body werd hard-gewrapt op ~72 kolommen. Kris' conventie is
+ *  1. De commit-body werd hard-gewrapt op ~72 kolommen. De conventie van deze repo is
  *     soft-wrap (laat regels doorlopen).
  *  2. De `Co-Authored-By`-trailer kreeg een zelf-verzonnen modelversie
  *     ("Opus 4.7" terwijl de run op opus-4-8 draait). We injecteren de

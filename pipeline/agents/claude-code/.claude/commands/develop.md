@@ -45,7 +45,7 @@ Roep de `ticket-author` subagent aan met deze instructie:
 
 ## Stap 5 - Samenvatting
 
-Na de subagent terugkomt, toon Kris een korte samenvatting:
+Na de subagent terugkomt, toon de gebruiker een korte samenvatting:
 - Branch naam
 - Aantal gewijzigde bestanden
 - Test status

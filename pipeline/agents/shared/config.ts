@@ -361,13 +361,13 @@ export const ENV_SCHEMA: EnvField[] = [
     key: 'FLUX_GIT_AUTHOR_NAME',
     label: 'Git author naam',
     group: 'Git',
-    placeholder: 'Kris Speltincx',
+    placeholder: 'Voornaam Achternaam',
   },
   {
     key: 'FLUX_GIT_AUTHOR_EMAIL',
     label: 'Git author e-mail',
     group: 'Git',
-    placeholder: 'kris.speltincx@vlaanderen.be',
+    placeholder: 'voornaam.achternaam@vlaanderen.be',
   },
 
   // Publicatie heeft verder geen instellingen: het sprint-veld, het
