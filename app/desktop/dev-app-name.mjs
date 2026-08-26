@@ -91,3 +91,39 @@ if (changed) {
 } else {
   console.log(`[dev-app-name] menubalk-naam al "${APP_NAME}" - niets te doen`);
 }
+
+// Signatuur herstellen. Electron levert zijn dev-bundle ad-hoc gesigneerd, en
+// die signatuur dekt ook Info.plist: na onze patch is ze ongeldig. macOS kan
+// dan de identiteit van de app niet meer valideren voor de sleutelhanger
+// (safeStorage-item "Flux Agents Safe Storage"), waardoor "Altijd toestaan"
+// niet blijft plakken en de app bij élke start opnieuw om toegang vraagt.
+// Opnieuw ad-hoc signeren (met behoud van entitlements, anders verliezen de
+// helper-processen o.a. JIT) geeft een geldige, stabiele identiteit tot de
+// volgende Electron-upgrade. Idempotent: enkel als de verificatie faalt.
+const appBundle = dirname(contentsDir);
+function signatureValid() {
+  try {
+    execFileSync('codesign', ['--verify', '--deep', '--strict', appBundle], {
+      stdio: 'ignore',
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+if (!signatureValid()) {
+  try {
+    execFileSync(
+      'codesign',
+      ['--force', '--deep', '--sign', '-', '--preserve-metadata=entitlements,flags', appBundle],
+      { stdio: 'ignore' },
+    );
+    console.log(
+      signatureValid()
+        ? '[dev-app-name] bundle opnieuw ad-hoc gesigneerd (stabiele sleutelhanger-identiteit)'
+        : '[dev-app-name] WAARSCHUWING: signeren lukte, maar verificatie faalt nog',
+    );
+  } catch {
+    console.log('[dev-app-name] WAARSCHUWING: opnieuw signeren mislukt (codesign)');
+  }
+}

@@ -100,7 +100,14 @@ gedrag, geen fout.
   het item aan). Daarna blijft het stil tot de volgende build. "Toestaan" zonder
   "altijd" geeft de vraag bij elke start opnieuw.
 - De dev-app (`npm run app:dev`) en de geïnstalleerde app zijn twee verschillende
-  bestanden; elk vraagt het één keer.
+  bestanden; elk vraagt het één keer. De dev-app kan bovendien twee dialogen
+  geven, één per sleutelhanger-item ("Electron Safe Storage" en "Flux Agents
+  Safe Storage"); beantwoord beide met "Altijd toestaan".
+- Dev-detail: `app/desktop/dev-app-name.mjs` patcht `Info.plist` van de
+  Electron-bundle (menubalknaam) en signeert die daarna opnieuw ad-hoc. Zonder
+  dat hersigneren is de signatuur ongeldig en kan macOS "Altijd toestaan" niet
+  onthouden, zodat de vraag bij elke start terugkomt. Na een Electron-upgrade
+  komt de vraag dus één keer terug, niet elke keer.
 - Weiger je, dan kan de app de geheimen niet lezen: de Status-tab meldt dan dat
   het Claude-token ontbreekt en de agents kunnen niet starten. Opnieuw starten
   geeft de vraag opnieuw.
