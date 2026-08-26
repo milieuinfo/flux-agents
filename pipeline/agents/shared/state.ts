@@ -128,7 +128,7 @@ export class SprintState {
  * Hash de inhoudelijke velden van een Jira-ticket. Bewust ZONDER `updated`:
  * Jira's `updated`-timestamp wijzigt ook bij niet-inhoudelijke veranderingen
  * en die mogen geen heranalyse triggeren puur op timestamp. Op `updated`
- * wordt apart een snelle pre-check gedaan in agent 1 - deze hash is voor
+ * wordt apart een snelle pre-check gedaan in refine - deze hash is voor
  * de echte content-vergelijking.
  *
  * Menselijke comments wegen WEL mee: een collega die een opmerking

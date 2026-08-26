@@ -25,7 +25,7 @@ function gitGlobalConfig(key: string): string {
 }
 
 /**
- * Zorg dat git-commits door agents 3/4 met een vaste, expliciete identiteit
+ * Zorg dat git-commits door develop/review met een vaste, expliciete identiteit
  * worden gemaakt in plaats van de host git-config (die bij een SDK/LLM-run op
  * een Claude-default kan staan). Zet `GIT_AUTHOR_*` + `GIT_COMMITTER_*` op
  * `process.env`, zodat het Bash-tool van de agent ze erft. De globale git-config
@@ -37,8 +37,8 @@ function gitGlobalConfig(key: string): string {
  * Ontbreekt beide → harde fout. Bewust géén ingebakken persoon als fallback:
  * dat zou commits van een andere installateur onder een vreemde naam zetten.
  *
- * Geldt voor zowel de iteratie-commits van agent 3 als de squash-commit
- * van agent 4: anders verschilt de auteur tussen rondes en de uiteindelijke
+ * Geldt voor zowel de iteratie-commits van develop als de squash-commit
+ * van review: anders verschilt de auteur tussen rondes en de uiteindelijke
  * PR-commit.
  */
 export function applyGitIdentityFromEnv(): { name: string; email: string } {
@@ -343,7 +343,7 @@ export function baseBranchWorktreePath(stateDir: string, baseBranch: string): st
 
 /**
  * Resolve the per-ticket worktree path. Each ticket gets its own worktree
- * so agents 3/4 (author/reviewer) can work in parallel without clobbering
+ * so develop/review (author/reviewer) can work in parallel without clobbering
  * each other's branches and working states.
  *
  * Worktrees zijn per sprint gegroepeerd (`worktrees/<sprint>/<KEY>`) zodat
@@ -539,7 +539,7 @@ export function slugifyTitle(title: string, maxWords = 4): string {
 
 /**
  * Build the feature branch name from a ticket key and a slug. Callers
- * should prefer a slug chosen by agent 1 (from `## Branch slug` in the
+ * should prefer a slug chosen by refine (from `## Branch slug` in the
  * refinement markdown) and fall back to `slugifyTitle` on the title when
  * that section is absent.
  *

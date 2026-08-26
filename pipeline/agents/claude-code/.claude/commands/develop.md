@@ -10,7 +10,7 @@ Start de ontwikkeling van ticket `$1` (sprint `$2` indien opgegeven).
 
 Zoek `state/sprints/*/$1.md`. Als sprintId gegeven: gebruik
 `state/sprints/$2/$1.md`. Als het niet bestaat: STOP en vertel me
-dat agent 1 eerst gedraaid moet zijn.
+dat refine eerst gedraaid moet zijn.
 
 ## Stap 2 - Initialiseer ticket state
 

@@ -41,15 +41,21 @@ uitgezonderd omdat patch-context exact moet blijven.
 
 ## De vier agents en hun rollen
 
-| # | Naam | Runtime | Model | Rol |
-|---|------|---------|-------|-----|
-| 1 | refine | Claude Agent SDK (Node) | Opus + Sonnet | Analyseert Jira-tickets, schrijft uitgebreide refinement-markdown per ticket + (Sonnet) een beknopte Jira-comment-versie |
-| 2 | plan | Claude Agent SDK (Node) | Opus | Leest alle markdowns van een sprint, produceert volgorde + dependency graph |
-| 3 | develop | Claude Agent SDK (Node) | Sonnet | Per-ticket git worktree, implementeert op feature-branch, lokale commits |
-| 4 | review | Claude Agent SDK (Node) | Opus | Reviewt op dezelfde worktree, bij approval: lokale squash + schrijft PR-body-artifact (`_pr-body.md`). Pusht niet en maakt geen PR. |
+De agents heten naar hun rol; die naam is ook de naam van het prompt-bestand
+(`pipeline/agents/prompts/<naam>.md`), van het script en van de
+model-instelling (`AGENT_<NAAM>_MODEL`). Nummer ze niet ("agent 1"), noem ze.
+
+| Agent | TUI-actie | Runtime | Model | Rol |
+|-------|-----------|---------|-------|-----|
+| refine | analyse | Claude Agent SDK (Node) | Opus + Sonnet (`refine-summary`) | Analyseert Jira-tickets, schrijft uitgebreide refinement-markdown per ticket + (Sonnet) een beknopte Jira-comment-versie |
+| plan | planning | Claude Agent SDK (Node) | Opus | Leest alle markdowns van een sprint, produceert volgorde + dependency graph |
+| develop | ontwikkel, itereer | Claude Agent SDK (Node) | Sonnet | Per-ticket git worktree, implementeert op feature-branch, lokale commits |
+| review | review, itereer | Claude Agent SDK (Node) | Opus | Reviewt op dezelfde worktree, bij approval: lokale squash + schrijft PR-body-artifact (`_pr-body.md`). Pusht niet en maakt geen PR. |
+| converge | convergeer | Claude Agent SDK (Node) | Opus | Combineert twee profielruns tot één branch (§12) |
+| review-external | externe review | Claude Agent SDK (Node) | Opus | Reviewt andermans branch, zonder pipeline-state (zijtak) |
 
 Daarnaast zijn er **deterministische scripts** (geen LLM-oordeel nodig):
-- `pipeline/jira/publish.ts` - sprint-output van agents 1 + 2 naar Jira (zie §9)
+- `pipeline/jira/publish.ts` - sprint-output van refine + plan naar Jira (zie §9)
 - `pipeline/jira/publish-review.ts` - losse externe-review-md naar Jira (zie zijtak hierboven)
 - `pipeline/git/push.ts` (`npm run git:push`) - pusht de feature-branch van een
   goedgekeurd ticket naar origin (zie §11)
@@ -67,7 +73,7 @@ En er zijn **orchestrators** die de agents en scripts na elkaar draaien:
   profielruns van hetzelfde ticket tot één profielloze branch + push + draft-PR
   (eigen Opus LLM-stap voor het combineren, zie §12)
 
-Agents 3 en 4 hebben ook een **Claude Code subagent variant** in
+Develop en review hebben ook een **Claude Code subagent variant** in
 `pipeline/agents/claude-code/.claude/agents/` (ticket-author.md, ticket-reviewer.md)
 voor interactieve debugging. De SDK-scripts laden diezelfde markdowns
 (frontmatter gestript) als system prompt - één bron van waarheid.
@@ -84,13 +90,13 @@ Jira sprint
     │
     ▼  npm run pipeline:refine -- <sprint>
 ┌─────────────┐
-│ agent 1     │ → state/sprints/<sprint>/FLUX-*.md         (uitgebreid, Opus)
+│ refine      │ → state/sprints/<sprint>/FLUX-*.md         (uitgebreid, Opus)
 │             │ → state/sprints/<sprint>/FLUX-*.jira.md    (beknopt, Sonnet)
 └─────────────┘
     │
     ▼  npm run pipeline:plan -- <sprint>
 ┌─────────────┐
-│ agent 2     │ → state/sprints/<sprint>/_order.md
+│ plan        │ → state/sprints/<sprint>/_order.md
 └─────────────┘
     │
     ▼  npm run jira:publish -- <sprint>   (optioneel, indien zichtbaar in Jira gewenst)
@@ -102,12 +108,12 @@ Jira sprint
     │
     ▼  npm run pipeline:develop -- FLUX-123 [sprint]
 ┌─────────────┐
-│ agent 3     │◀──┐ per-ticket worktree + feature-v2/... branch
+│ develop     │◀──┐ per-ticket worktree + feature-v2/... branch
 └─────────────┘   │ lokale commits, géén push, géén PR
     │             │
     ▼  npm run pipeline:review -- FLUX-123
 ┌─────────────┐   │
-│ agent 4     │───┘ CHANGES_REQUESTED → opnieuw npm run pipeline:develop --
+│ review      │───┘ CHANGES_REQUESTED → opnieuw npm run pipeline:develop --
 │             │       (automatisch in address-modus via _status.json)
 │             │     APPROVED → lokale squash + _pr-body.md (géén push, géén PR)
 │             │     ESCALATED → ronde 3 bereikt, Kris stapt in
@@ -126,7 +132,7 @@ Jira sprint
 
 Naast de pipeline hierboven is er een losse modus om een feature-branch
 van een andere developer te reviewen. Dat ticket zit niet in een sprint
-die door agent 1 + 2 verwerkt is, en er is geen `_status.json` of
+die door refine + plan verwerkt is, en er is geen `_status.json` of
 `code-changes.md`.
 
 ```
@@ -166,7 +172,7 @@ simpeler dan state syncen. (c) Als een agent fout gaat, staat er
 nog steeds iets bruikbaars op disk. (d) De volledige geschiedenis
 van een ticket is lokaal traceerbaar.
 
-### 2. Ronde-gebaseerde iteratie tussen agent 3 en 4, max 3 rondes
+### 2. Ronde-gebaseerde iteratie tussen develop en review, max 3 rondes
 
 `_status.json` houdt `round` en `status` bij. Elke agent-overgang
 bumpt de ronde. Bij ronde 3 zonder approval → `ESCALATED`.
@@ -178,11 +184,11 @@ legitieme feedback-cycli zonder eindeloos te worden.
 
 ### 3. Nieuwe commits per ronde, lokale squash bij APPROVED
 
-Tijdens iteraties committeert agent 3 elke ronde als aparte commit
-(`fix: FLUX-123 - address review ronde 2`). Pas wanneer agent 4
+Tijdens iteraties committeert develop elke ronde als aparte commit
+(`fix: FLUX-123 - address review ronde 2`). Pas wanneer review
 APPROVED geeft, doet die een `git reset --soft <base>` + één nette
 commit (subject `<type>: <scope> - <omschrijving>`). Die squash blijft
-**lokaal** - agent 4 pusht niet
+**lokaal** - review pusht niet
 en maakt geen PR. Het pushen en de PR-creatie zijn losgetrokken naar de
 deterministische scripts `npm run git:push` en `npm run git:pr` (zie §11).
 
@@ -200,7 +206,7 @@ NIET op review comments van mensen. De enige GitHub-schrijfacties in
 de hele pipeline zijn (a) `git push` van één feature-branch via
 `pipeline/git/push.ts` en (b) één `gh pr create --draft` via `pipeline/git/pr.ts`.
 Beide zijn losse, deterministische scripts die Kris zelf draait op een
-ticket met status `approved` - geen LLM, geen agent 4.
+ticket met status `approved` - geen LLM, geen review.
 
 **Waarom:** (a) Tijdens de leerfase wil Kris geen noise op de
 VO-repo. (b) Formele review/approve in een VO-context hoort van een
@@ -208,9 +214,9 @@ mens te komen. (c) Simpeler mentaal model: agents werken lokaal,
 GitHub is voor mensen - en de netwerk-schrijfacties zitten in expliciete
 scripts, niet verstopt in een LLM-run.
 
-### 5. Agent 1 leest Jira via REST, herstart idempotent
+### 5. Refine leest Jira via REST, herstart idempotent
 
-Agent 1 hasht de inhoudelijke velden van elk Jira-ticket (`summary`,
+Refine hasht de inhoudelijke velden van elk Jira-ticket (`summary`,
 `description`, `status`, menselijke `comments`,
 en image-attachments). Een snelle pre-check op `updated` skipt het
 meeste werk; pas als de timestamp verschilt wordt de hash herberekend
@@ -225,7 +231,7 @@ volgende run automatisch een re-refine. AI-gegenereerde comments
 anders zou de pipeline zichzelf eindeloos triggeren. Het filter staat in
 `pipeline/agents/shared/jira.ts` (`isAiGeneratedComment`/`humanComments`).
 
-Agent 1 haalt de ticket-velden (description, status, labels, links,
+Refine haalt de ticket-velden (description, status, labels, links,
 comments) via Jira REST op (`getFullIssueDetails` in
 `pipeline/agents/shared/jira.ts`) en injecteert ze rechtstreeks in de user-prompt -
 géén interactieve MCP tool-call meer. Comments worden vóór injectie op
@@ -256,7 +262,7 @@ vandaar comments-in-hash, niet alleen description.
 
 ### 5b. Twee outputs per ticket: uitgebreid + beknopt
 
-Direct na de Opus-refinement doet agent 1 een tweede LLM-call (Sonnet,
+Direct na de Opus-refinement doet refine een tweede LLM-call (Sonnet,
 override via `AGENT_REFINE_SUMMARY_MODEL`) die het uitgebreide rapport inkort
 tot een Jira-comment-vriendelijke versie. De Sonnet-call krijgt enkel
 de tekst van de `.md` mee - geen tools, geen MCP. Output:
@@ -270,7 +276,7 @@ samenvatting post.
 
 **Backfill voor bestaande sprints:** als een ticket op disk al een
 `.md` heeft maar nog geen `.jira.md` (sprint gerefined vóór deze
-feature bestond), genereert agent 1 hem alsnog tijdens de skip-paden -
+feature bestond), genereert refine hem alsnog tijdens de skip-paden -
 een `npm run pipeline:refine -- <sprint>` op een onveranderde sprint vult de
 ontbrekende samenvattingen aan zonder dat `_meta.json` weggegooid
 hoeft te worden.
@@ -281,24 +287,24 @@ outputs, en je kan de samenvatting opnieuw genereren zonder de zware
 Opus-refine te hoeven herhalen. Sonnet is hier ruim voldoende - Opus
 voor inkorten is overkill.
 
-### 6. Agent 2 heeft geen tools nodig
+### 6. Plan heeft geen tools nodig
 
-Alle ticket-data zit al in markdown-vorm in `state/sprints/`. Agent 2
+Alle ticket-data zit al in markdown-vorm in `state/sprints/`. Plan
 krijgt die gebundeld in het prompt en produceert `_order.md`.
 `allowedTools: []` expliciet.
 
 **Waarom:** kleinste attack surface, snelste run.
 
-### 7. Managed clone + per-ticket worktree (SDK-first voor agents 3/4)
+### 7. Managed clone + per-ticket worktree (SDK-first voor develop/review)
 
 De pipeline beheert zijn eigen clone van flux-web-components onder
 `state/clone/flux-web-components/` (gitignored), opgezet bij de eerste
-run op basis van `FLUX_REPO_URL` uit `.env`. Agents 1, 3 en 4 spawnen
+run op basis van `FLUX_REPO_URL` uit `.env`. Refine, develop en review spawnen
 hier worktrees uit (alle worktrees zitten onder `state/worktrees/`):
-- Agent 1: één gedeelde worktree op `origin/<FLUX_BASE_BRANCH>`
+- Refine: één gedeelde worktree op `origin/<FLUX_BASE_BRANCH>`
   (`state/worktrees/_base/<baseBranch>/`), detached HEAD, alleen voor
   code-lezen.
-- Agents 3/4: per-ticket worktree op een feature-branch, per sprint
+- develop/review: per-ticket worktree op een feature-branch, per sprint
   gegroepeerd (`state/worktrees/<sprint>/<KEY>/`), afgesplitst van
   `origin/<FLUX_BASE_BRANCH>`. Bij een `--profile` (zie §10) zit het
   label `<profiel>-<modelcode>` in de mapnaam -
@@ -320,7 +326,7 @@ dan `npm run dev:sync-cc` om de CC-mirror bij te werken.
 
 ### 8. Jira lezen via directe REST (geen Docker/MCP)
 
-Agent 1 leest Jira via directe REST-calls met het Personal Access Token
+Refine leest Jira via directe REST-calls met het Personal Access Token
 (`searchJql` voor de sprint-lookup, `getFullIssueDetails` per ticket, beide
 in `pipeline/agents/shared/jira.ts`). De opgehaalde velden worden in de user-prompt
 geïnjecteerd; het LLM-werk blijft de analyse, niet het ophalen. Er is dus
@@ -338,7 +344,7 @@ dependency-vrij. Publicatie naar Jira gebruikt al langer directe REST (zie §9).
 ### 9. Publicatie naar Jira via `pipeline/jira/publish.ts`
 
 Publish leest `state/sprints/<sprint>/FLUX-*.md` (en bij voorkeur
-`FLUX-*.jira.md`) en `_order.md` (output van agent 1 + 2) en schrijft
+`FLUX-*.jira.md`) en `_order.md` (output van refine + plan) en schrijft
 die naar Jira via directe REST-calls:
 - Per ticket → comment met vaste header `## Sprint-analyse - AI`.
   Publish prefereert `FLUX-XXX.jira.md` als die bestaat (de beknopte
@@ -362,7 +368,7 @@ bij. Tweede run zonder content-wijziging slaat alles over. Bij wijziging
 wordt een NIEUWE comment toegevoegd (geen oude verwijderen). Het
 umbrella-ticket wordt geupdated, niet gedupliceerd.
 
-**Waarom een aparte stap en niet in agent 1:** (a) Refinement en
+**Waarom een aparte stap en niet in refine:** (a) Refinement en
 publicatie hebben verschillende cadansen - Kris wil meestal eerst
 lokaal lezen/aanpassen voor er iets in Jira terechtkomt. (b) Failures
 in de Jira-write-pad mogen de refinement-output (die op disk staat)
@@ -371,7 +377,7 @@ hij vóór commit kan reviewen wat er naar Jira zou gaan.
 
 **Markdown-conversie:** Jira Data Center API verwacht wiki markup
 (`h1.`, `*bold*`, `||header||`, `{code}`). Het script bevat een kleine
-converter (`markdownToJiraWiki`) voor wat agents 1 + 2 produceren -
+converter (`markdownToJiraWiki`) voor wat refine + plan produceren -
 headings, lijsten, tables, fenced code, bold, inline code, links, hr.
 Italic en images worden niet gebruikt en niet ondersteund.
 
@@ -472,7 +478,7 @@ profile-specifieke config; plan heeft geen worktree.
 
 ### 10b. Analyse per model-label + expliciete keuze (`analyses/<label>/`)
 
-`refine` (agent 1) schrijft zijn output niet meer plat in de sprint-root maar
+`refine` schrijft zijn output niet meer plat in de sprint-root maar
 in een **label-folder** `sprints/<SPRINT>/analyses/<label>/`, analoog aan de
 per-profiel dev-runs (§10). Voor analyse varieert niet het profiel maar het
 **model**: het profiel staat vast op `no`, dus het label is `no-<modelcode>`
@@ -512,7 +518,7 @@ als `ticket.md` geseed wordt.
 
 ### 11. Push en PR als aparte deterministische scripts
 
-Agent 4 (review) doet bij APPROVED enkel de **lokale** squash en schrijft
+review doet bij APPROVED enkel de **lokale** squash en schrijft
 de PR-body naar `_pr-body.md` in de ticket-state. Het pushen en de
 PR-creatie zijn losgetrokken naar twee deterministische scripts (geen LLM,
 zoals `publish.ts`):
@@ -784,22 +790,22 @@ flux-agents-state/                ← aparte repo (STATE_DIR)
 ├── clone/                        ← gitignored (managed clone, bij eerste run aangemaakt)
 │   └── flux-web-components/      ← volledig los van Kris' eigen werkclone
 ├── worktrees/                    ← gitignored (álle worktrees in één tree)
-│   ├── <SPRINT>/<KEY>[-<label>]/              ← agents 3/4, per sprint gegroepeerd (§7)
-│   ├── _base/<baseBranch>/                    ← agent 1 leest hieruit (read-only)
+│   ├── <SPRINT>/<KEY>[-<label>]/              ← develop/review, per sprint gegroepeerd (§7)
+│   ├── _base/<baseBranch>/                    ← refine leest hieruit (read-only)
 │   └── _external/<KEY>[-<label>]/             ← externe-review worktrees (zijtak)
 ├── sprints/<SPRINT>/             ← gecommit (sprint = refinement + ticketwerk)
 │   ├── _chosen.json              ← pointer naar de gekozen analyse (§10b)
-│   ├── analyses/<label>/         ← agent 1 output per model-label (`no-<code>`, §10b)
-│   │   ├── _meta.json            ← agent 1 hashes (per analyse)
-│   │   ├── _order.md             ← agent 2 output (per analyse)
+│   ├── analyses/<label>/         ← refine output per model-label (`no-<code>`, §10b)
+│   │   ├── _meta.json            ← refine hashes (per analyse)
+│   │   ├── _order.md             ← plan output (per analyse)
 │   │   ├── _published.json       ← publish.ts state (per analyse)
-│   │   ├── FLUX-*.md             ← agent 1 output per ticket (uitgebreid, Opus)
-│   │   └── FLUX-*.jira.md        ← agent 1 beknopte versie (Sonnet, voor Jira-comment)
+│   │   ├── FLUX-*.md             ← refine output per ticket (uitgebreid, Opus)
+│   │   └── FLUX-*.jira.md        ← refine beknopte versie (Sonnet, voor Jira-comment)
 │   └── tickets/<KEY>/            ← gecommit (per-ticket werk onder de sprint)
 │       ├── ticket.md             ← kopie van refinement (zonder profile)
-│       ├── code-changes.md       ← agent 3 per ronde (zonder profile)
-│       ├── review-r<N>.md        ← agent 4 per ronde (zonder profile)
-│       ├── _pr-body.md           ← agent 4 bij APPROVED; body voor `npm run git:pr` (§11)
+│       ├── code-changes.md       ← develop per ronde (zonder profile)
+│       ├── review-r<N>.md        ← review per ronde (zonder profile)
+│       ├── _pr-body.md           ← review bij APPROVED; body voor `npm run git:pr` (§11)
 │       ├── _converge.md          ← converge: verslag van bronnen + keuzes (§12)
 │       ├── _status.json          ← round, status, baseBranch, branch, prUrl, profile?
 │       └── <profiel>-<code>/     ← mét --profile: eigen kopie per profiel+model (§10)
@@ -835,7 +841,7 @@ visibility (tool mag publiek, state bevat interne ticket-details).
 
 ## Technische stack
 
-### SDK side (agents 1 en 2)
+### SDK side (refine en plan)
 - **Node 20+**, ESM modules, TypeScript strict
 - **`@anthropic-ai/claude-agent-sdk`** - de officiële Claude Agent SDK
 - **`tsx`** voor directe uitvoering zonder build step
@@ -847,7 +853,7 @@ visibility (tool mag publiek, state bevat interne ticket-details).
 - Native `fetch` (Node 20+) tegen Jira Data Center REST API v2
 - Eigen kleine markdown→wiki markup converter (geen externe dep)
 
-### Claude Code side (agent 3 en 4)
+### Claude Code side (develop en review)
 - Markdown files met YAML frontmatter in `.claude/commands/` en `.claude/agents/`
 - Frontmatter velden gebruikt: `description`, `argument-hint`,
   `allowed-tools`, `tools`, `model`
@@ -856,7 +862,7 @@ visibility (tool mag publiek, state bevat interne ticket-details).
   via proactive triggers)
 
 ### External tools
-- **Jira Data Center REST API v2** - direct vanuit agent 1 (`pipeline/agents/shared/jira.ts`)
+- **Jira Data Center REST API v2** - direct vanuit refine (`pipeline/agents/shared/jira.ts`)
   én `pipeline/jira/publish.ts`/`publish-review.ts` met `fetch`. Geen Docker/MCP meer.
 - **`gh` CLI** voor de ene GitHub-actie (PR aanmaken)
 - **`git`** - vereist minstens 2.23+ voor `switch`
@@ -896,10 +902,10 @@ Als je (Claude in een toekomstige sessie) iets aanpast, valideer:
    `state/sprints/<SPRINT>/tickets/*` folders nog door de nieuwe code gelezen
    worden? Layout- of `_status.json`-schemawijzigingen vereisen een
    migratie-strategie (eenmalig migratiescript dat Kris zelf draait).
-3. **Idempotentie agent 1** - herstart blijft non-destructief?
+3. **Idempotentie refine** - herstart blijft non-destructief?
 4. **Max rondes** - blijft escalatie-logica intact?
 5. **Geen nieuwe netwerk-endpoints** - we praten alleen met Jira REST
-   direct (agent 1, publish.ts en publish-review.ts), Anthropic API
+   direct (refine, publish.ts en publish-review.ts), Anthropic API
    (via SDK), GitHub (via gh CLI)
 6. **Profile-paden** - als je helpers in `shared/repo.ts` of
    `shared/ticket.ts` wijzigt die het worktree-pad, branch-naam of
@@ -947,18 +953,18 @@ Veel waarschijnlijke foutmodes:
 - **Sprint-lookup geeft geen tickets** → de `sprint = "<naam>"` JQL-clause
   matcht op exacte sprintnaam; quote multi-word namen en controleer of de
   naam klopt, of gebruik `--jql`/`--tickets`
-- **Agent 1 vindt geen acceptance criteria** → dat is de norm (de prompt
+- **Refine vindt geen acceptance criteria** → dat is de norm (de prompt
   gaat ervan uit dat AC zelden aanwezig zijn en leidt het doel af uit
   ticket + code). Een apart AC-customfield ondersteunen we bewust niet
   (de vroegere `JIRA_AC_FIELD` was ongebruikt en is verwijderd); komt dat
   ooit wel, voeg het dan toe aan `ENV_SCHEMA` zodat het via de app
   instelbaar is, niet als losse env-var
-- **Agent 2 krijgt te weinig context** → als een sprint >20 tickets
+- **Plan krijgt te weinig context** → als een sprint >20 tickets
   heeft, kan de prompt te groot worden. Overweeg truncation of
   chunking (nog niet geïmplementeerd)
 - **`npm run pipeline:develop` vindt de ticket markdown niet** → sprint-ID moet
   exact matchen met de folder naam in `state/sprints/`, of je laat de
-  sprint weg en dan spoort agent 3 hem zelf op (werkt alleen als het
+  sprint weg en dan spoort develop hem zelf op (werkt alleen als het
   ticket in exact één sprint-folder voorkomt)
 - **Per-ticket worktree botst** → bestaat al van een eerdere poging?
   Kijk onder `state/worktrees/<sprint>/<KEY>/`, ruim op met

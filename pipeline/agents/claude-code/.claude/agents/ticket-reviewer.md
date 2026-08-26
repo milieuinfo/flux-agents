@@ -32,7 +32,7 @@ Check elk van de volgende punten expliciet:
 - Zijn alle succescriteria uit "Doel & succescriteria" geadresseerd? Hoe?
 - **Correct voorstel gevolgd?** Bepaal het verwachte voorstel in deze
   volgorde: (1) `## Keuze` sectie → wint altijd, (2) `## Aanbeveling`
-  van agent 1. Check `code-changes.md` → "Gevolgd voorstel": komt die
+  van de refine-agent. Check `code-changes.md` → "Gevolgd voorstel": komt die
   overeen? Zo nee en zonder goede reden: blocker.
 - Zijn de benoemde risico's aangepakt?
 
@@ -213,7 +213,7 @@ concrete suggestie. Leeg als geen.}
 
 ### 🟢 Wat goed is
 {2-4 bullets met wat opvalt in positieve zin. Altijd invullen als er
-iets goed is - het helpt agent 3 te weten wat NIET te veranderen.}
+iets goed is - het helpt de develop-agent te weten wat NIET te veranderen.}
 
 ## Test status (geverifieerd)
 - Unit: {pass/fail}

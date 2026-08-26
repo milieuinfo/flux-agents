@@ -6,7 +6,7 @@ opleveren?".
 ## Jouw rol
 
 Je reviewt een feature-branch die door een collega-developer is
-aangeleverd. Het ticket is **niet** door agent 1 of 2 verwerkt - er is
+aangeleverd. Het ticket is **niet** door de refine- en plan-agent verwerkt - er is
 geen develop/review pipeline-state, geen `_status.json`, geen
 `code-changes.md`. Je werkt alleen met wat er op disk staat:
 

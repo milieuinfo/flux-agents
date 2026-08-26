@@ -88,8 +88,8 @@ export interface JiraIssueResponse {
 
 /**
  * Haal een issue op met enkel de gevraagde velden. Wrapper rond
- * `GET /rest/api/2/issue/{key}?fields=...`. Wordt o.a. gebruikt door agent 1
- * (refine) om snel de inhoudelijke velden van een ticket op te halen voor de
+ * `GET /rest/api/2/issue/{key}?fields=...`. Wordt o.a. gebruikt door refine
+ * om snel de inhoudelijke velden van een ticket op te halen voor de
  * content-hash vergelijking, zonder een LLM-run te starten.
  */
 export async function getIssueFields(
@@ -121,7 +121,7 @@ interface JiraSearchResponse {
 }
 
 /**
- * Zoek tickets via JQL en geef per issue de lichte velden terug die agent 1
+ * Zoek tickets via JQL en geef per issue de lichte velden terug die refine
  * nodig heeft voor de idempotency-pass (key, summary, status, updated). Vervangt
  * de vroegere MCP-lookup - een directe REST-call is sneller, deterministisch en
  * kost geen LLM-beurten. Pagineert zodat sprints met >50 tickets volledig
@@ -317,7 +317,7 @@ export function isAiGeneratedComment(body: string): boolean {
 
 /**
  * Geef alleen menselijke comments terug, gesorteerd op created. Wordt zowel
- * door agent 1's content-hash als door de prompt-builder gebruikt zodat het
+ * door refine's content-hash als door de prompt-builder gebruikt zodat het
  * filter-criterium op één plek staat.
  */
 export function humanComments(comments: JiraComment[]): JiraComment[] {
@@ -340,7 +340,7 @@ export interface JiraFullIssue {
 
 /**
  * Haal in één REST-call de volledige inhoudelijke velden van een ticket op die
- * agent 1 nodig heeft om de refinement te schrijven: description, status,
+ * refine nodig heeft om de refinement te schrijven: description, status,
  * labels, links en alle comments. Acceptatiecriteria staan (als ze er zijn) in
  * de description; een apart AC-customfield wordt bewust niet ondersteund.
  * Vervangt de vroegere MCP-fetch waarbij het model interactief `jira_get_issue`
@@ -508,7 +508,7 @@ export async function listFields(client: JiraClient): Promise<JiraField[]> {
 
 /**
  * Pragmatische converter van CommonMark-achtige markdown naar Jira Data Center
- * wiki markup. Dekt wat agent 1 + 2 + 4 (review-external) produceren: headings,
+ * wiki markup. Dekt wat refine, plan en review-external produceren: headings,
  * lijsten, tables, bold, inline code, fenced code blocks, hr's, links. Italic
  * en images niet - die gebruiken de agents niet.
  */

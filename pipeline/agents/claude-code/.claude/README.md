@@ -1,7 +1,7 @@
 # Claude Code subagent-variant
 
 Deze map (`pipeline/agents/claude-code/.claude/`) bevat de **interactieve Claude
-Code-variant** van agents 3 (develop) en 4 (review). Ze bestaat naast de
+Code-variant** van develop en review. Ze bestaat naast de
 SDK-pipeline om de pipeline zelf interactief te kunnen debuggen vanuit een
 gewone Claude Code-sessie.
 
@@ -45,7 +45,7 @@ geplakt. Elke mirror draagt bovenaan een waarschuwing:
    heeft dat niet nodig - daar worden model en tools in TypeScript gezet -
    dus de canonical bestanden blijven kaal.
 3. **Slechts 2 van de 7** canonical prompts hebben een CC-variant: alleen
-   agents 3 en 4, want dat zijn de enige die je interactief wil debuggen.
+   develop en review, want dat zijn de enige die je interactief wil debuggen.
    `refine`, `plan`, `converge`, enz. hebben geen CC-tegenhanger.
 
 Het is dus bewuste, **eenrichtings-gesynchroniseerde** duplicatie (zoals een

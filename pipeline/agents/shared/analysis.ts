@@ -1,7 +1,7 @@
 /**
  * Analyse-laag: welke refinement-analyse van een sprint is "de gekozen"?
  *
- * Sinds refine (agent 1) per model in een eigen label-folder schrijft
+ * Sinds refine per model in een eigen label-folder schrijft
  * (`sprints/<sprint>/analyses/<profiel>-<modelcode>/`, bv. `no-O48`), kan één
  * sprint meerdere analyses naast elkaar hebben. Downstream (plan, publish,
  * develop, converge, review-external) moet er precies één gebruiken. Dat wordt

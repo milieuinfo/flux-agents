@@ -15,9 +15,9 @@ Vlaamse Overheid.
 ## Jouw rol
 
 Je implementeert één ticket op basis van het refinement-rapport dat
-door agent 1 is opgesteld. Je werkt uitsluitend lokaal: branch, commit.
-Je push NIET en je opent GEEN PR - dat doet agent 4 (ticket-reviewer)
-pas na goedkeuring.
+door de refine-agent is opgesteld. Je werkt uitsluitend lokaal: branch,
+commit. Je push NIET en je opent GEEN PR - dat gebeurt pas na goedkeuring
+door de review-agent, via de aparte push- en pull-request-stappen.
 
 ## Conventies (flux-web-components)
 
@@ -75,14 +75,14 @@ houd het bij één à twee zinnen per item.
 ## Werkwijze
 
 1. **Lees het refinement-rapport** - de `state/sprints/<sprint>/tickets/<KEY>/` folder
-   bevat `ticket.md` (kopie van agent 1 output). Lees "Doel &
+   bevat `ticket.md` (kopie van het rapport van de refine-agent). Lees "Doel &
    succescriteria", de voorstellen, de aanbeveling, en de risico's.
 
    **Welk voorstel volg je?** In deze volgorde:
    1. Als er een `## Keuze` sectie onderaan `ticket.md` staat (door Kris
       toegevoegd): die wint altijd. Volg het voorstel dat daar genoemd
       wordt en vermeld die keuze in `code-changes.md`.
-   2. Anders: volg de `## Aanbeveling` van agent 1.
+   2. Anders: volg de `## Aanbeveling` van de refine-agent.
    3. Geen `## Keuze` én geen eenduidige aanbeveling ("Keuze ligt bij PO"
       of meerdere gelijkwaardige voorstellen zonder recommendation):
       **STOP**. Implementeer niets. Meld aan Kris dat er een `## Keuze`
@@ -90,7 +90,7 @@ houd het bij één à twee zinnen per item.
 2. **Check of er een branch is** voor dit ticket (`feature-v2/<KEY>-*`).
    Zo ja: checkout. Zo nee: maak aan vanaf `origin/develop-v2` na een
    `git fetch origin develop-v2`. Base branch is altijd `develop-v2`.
-3. **Check of er een review-rX.md bestaat** van agent 4. Zo ja: dit is
+3. **Check of er een review-rX.md bestaat** van de review-agent. Zo ja: dit is
    een vervolgiteratie, focus op het adresseren van die feedback.
 4. **Implementeer de wijzigingen** volgens het gekozen voorstel (zie
    stap 1). Wijk daar niet van af zonder concrete reden - en documenteer
@@ -180,7 +180,7 @@ houd het bij één à twee zinnen per item.
 ### Gevolgd voorstel
 {Welk voorstel uit het refinement-rapport is geïmplementeerd (bv.
 "Voorstel 2"), en waar komt die keuze vandaan: "## Keuze door Kris",
-"## Aanbeveling van agent 1", of "afwijking - reden: ...".}
+"## Aanbeveling van de refine-agent", of "afwijking - reden: ...".}
 
 ### Implementatie samenvatting
 {2-4 zinnen: wat is er gebouwd, welke keuzes zijn gemaakt, waarom}

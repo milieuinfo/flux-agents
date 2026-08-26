@@ -2,7 +2,7 @@
 /**
  * Publish-script - directe Jira REST-calls
  *
- * Publiceert refinement-output (agent 1) en sprint-overzicht (agent 2)
+ * Publiceert refinement-output (refine) en sprint-overzicht (plan)
  * terug naar Jira:
  *   - Per ticket-markdown (FLUX-*.md) → comment op het Jira-ticket met vaste
  *     header `## Sprint-analyse - AI`
@@ -508,7 +508,7 @@ async function loadSprintMeta(sprintDir: string): Promise<{ sprintName: string }
   const raw = await readFile(metaPath, 'utf-8');
   const meta = JSON.parse(raw);
   if (!meta.sprintName || typeof meta.sprintName !== 'string') {
-    throw new Error('_meta.json bevat geen geldige sprintName - heb je agent 1 al gedraaid?');
+    throw new Error('_meta.json bevat geen geldige sprintName - heb je refine al gedraaid?');
   }
   return { sprintName: meta.sprintName as string };
 }
@@ -624,7 +624,7 @@ async function publishOverview(
 ): Promise<'created' | 'updated' | 'unchanged' | 'skipped' | 'failed'> {
   const orderPath = join(sprintDir, '_order.md');
   if (!(await fileExists(orderPath))) {
-    log.info('No _order.md found - skipping sprint-overview ticket. Run agent 2 first.');
+    log.info('No _order.md found - skipping sprint-overview ticket. Run plan first.');
     return 'skipped';
   }
 
@@ -686,7 +686,7 @@ async function publishOverview(
       if (!anyTicketKeyForSprintLookup) {
         throw new Error(
           'Kan umbrella-ticket niet aanmaken: geen bestaand ticket beschikbaar om ' +
-            'het sprint-ID op te zoeken. Run agent 1 zodat de sprint minstens één ' +
+            'het sprint-ID op te zoeken. Run refine zodat de sprint minstens één ' +
             'ticket-markdown heeft, of zet de umbrella handmatig op.',
         );
       }

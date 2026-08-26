@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 /**
- * Agent 3: Develop (SDK)
+ * Develop-agent (SDK)
  *
  * Implements (or iterates on) a single ticket in a per-ticket git worktree.
  * - Round 1: creates the worktree + feature branch from origin/develop-v2.

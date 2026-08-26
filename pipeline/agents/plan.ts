@@ -1,8 +1,8 @@
 #!/usr/bin/env tsx
 /**
- * Agent 2: Plan
+ * Plan-agent
  *
- * Leest alle ticket-markdowns van een sprint (output van agent 1) en
+ * Leest alle ticket-markdowns van een sprint (output van refine) en
  * produceert _order.md met uitvoeringsvolgorde, dependency graph, en
  * aanbevelingen.
  *
@@ -55,7 +55,7 @@ async function loadSprintMarkdowns(sprintDir: string): Promise<string> {
     .sort();
 
   if (ticketFiles.length === 0) {
-    throw new Error(`No ticket markdowns found in ${sprintDir}. Run agent 1 first.`);
+    throw new Error(`No ticket markdowns found in ${sprintDir}. Run refine first.`);
   }
 
   const parts: string[] = [];
@@ -80,7 +80,7 @@ async function runQuery(prompt: string, systemPrompt: string): Promise<string> {
       // the preset makes the model think it's a tool-using agent and triggers
       // "permission to write" style responses even with allowedTools: [].
       systemPrompt,
-      // Agent 2 needs no tools - all input is inlined in the prompt
+      // Plan needs no tools - all input is inlined in the prompt
       allowedTools: [],
     },
   });

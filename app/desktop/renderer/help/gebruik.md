@@ -14,17 +14,32 @@ en scrollen kan, typen niet. Meerdere acties tegelijk = meerdere tabs, parallel.
 
 ```
 Jira-sprint
-    │  analyse      → per ticket een refinement-rapport (uitgebreid + beknopt)
-    │  planning     → uitvoeringsvolgorde + afhankelijkheden (_order.md)
-    │  publicatie   → (optioneel) rapporten als Jira-comments + umbrella-ticket
+    │  analyse       (refine)   → per ticket een refinement-rapport (uitgebreid + beknopt)
+    │  planning      (plan)     → uitvoeringsvolgorde + afhankelijkheden (_order.md)
+    │  publicatie               → (optioneel) rapporten als Jira-comments + umbrella-ticket
     ▼  jij kiest een ticket
-    │  ontwikkel    → per-ticket worktree + feature-branch, lokale commits
-    │  review       → CHANGES_REQUESTED ⟳ ontwikkel  |  APPROVED → lokale squash
+    │  ontwikkel     (develop)  → per-ticket worktree + feature-branch, lokale commits
+    │  review        (review)   → CHANGES_REQUESTED ⟳ ontwikkel  |  APPROVED → lokale squash
     │  (itereer = ontwikkel → review in één lus, max. 3 rondes)
-    │  push         → goedgekeurde branch naar origin
-    │  pull request → draft-PR op GitHub
+    │  push                     → goedgekeurde branch naar origin
+    │  pull request             → draft-PR op GitHub
     ▼  jij zet de PR ready en merget zelf
 ```
+
+Achter de stappen tussen haakjes staat de **agent** die het werk doet. Elke
+agent heet naar zijn rol; die naam is ook de naam van zijn prompt (de tabs
+hierboven) en van zijn model-instelling (bv. "Refine-model"). Publicatie, push,
+pull request en onderhoud zijn scripts zonder AI.
+
+| Agent | TUI-actie | Doet |
+|---|---|---|
+| `refine` | analyse | leest het Jira-ticket en de code, schrijft het refinement-rapport (`FLUX-123.md`) |
+| `refine-summary` | analyse (tweede stap) | kort dat rapport in tot de Jira-comment-versie (`FLUX-123.jira.md`) |
+| `plan` | planning | leidt uit alle rapporten de volgorde en afhankelijkheden af (`_order.md`) |
+| `develop` | ontwikkel, itereer | implementeert het ticket op een feature-branch, schrijft `code-changes.md` |
+| `review` | review, itereer | reviewt, squasht bij APPROVED en schrijft `_pr-body.md` |
+| `converge` | convergeer | combineert twee profielruns tot één branch, schrijft `_converge.md` |
+| `review-external` | externe review | reviewt andermans branch (`review-<timestamp>.md`) |
 
 ## Aanbevolen volgorde
 
@@ -55,14 +70,15 @@ Jira-sprint
 
 ### analyse
 
-Analyseert een volledige sprint of één individueel ticket. Bij een sprint kies
-je uit de Jira-sprints; bij een ticket vraagt de TUI in welke sprint-map het
-rapport moet komen, zodat planning en ontwikkel het later terugvinden.
+De refine-agent analyseert een volledige sprint of één individueel ticket. Bij
+een sprint kies je uit de Jira-sprints; bij een ticket vraagt de TUI in welke
+sprint-map het rapport moet komen, zodat planning en ontwikkel het later
+terugvinden.
 
-Per ticket haalt de agent de velden via Jira REST op - omschrijving,
-acceptatiecriteria, status, menselijke comments en screenshots - en schrijft
-twee bestanden: een uitgebreid rapport (`FLUX-123.md`) en een beknopte versie
-voor de Jira-comment (`FLUX-123.jira.md`), die van een lichter model komt.
+Per ticket haalt hij de velden via Jira REST op - omschrijving, status,
+menselijke comments en screenshots - en schrijft het uitgebreide rapport
+(`FLUX-123.md`). Daarna kort de refine-summary-agent (een lichter model) dat
+in tot de Jira-comment-versie (`FLUX-123.jira.md`).
 
 Herhalen is veilig: ongewijzigde tickets worden overgeslagen. Wijzigt een
 ticket (nieuwe comment, andere screenshot), dan blijft het bestaande rapport
@@ -72,7 +88,7 @@ modellen naast elkaar kan analyseren.
 
 ### planning
 
-Leest alle rapporten van een sprint en schrijft `_order.md`: de aanbevolen
+De plan-agent leest alle rapporten van een sprint en schrijft `_order.md`: de aanbevolen
 volgorde, de afhankelijkheden tussen tickets en de reden. Heeft de sprint
 meerdere analyses (meerdere modellen), dan vraagt de TUI welke je gebruikt; die
 keuze wordt onthouden voor publicatie en ontwikkel.
@@ -117,24 +133,25 @@ Uitkomsten:
 ### convergeer
 
 Combineert twee (of meer) afgewerkte profielruns van hetzelfde ticket tot één
-profielloze branch: een agent bekijkt beide implementaties en neemt per
-onderdeel het beste. Vereist dat elke bron `approved` is - het eindpunt van
+profielloze branch: de converge-agent bekijkt beide implementaties en neemt
+per onderdeel het beste. Vereist dat elke bron `approved` is - het eindpunt van
 itereer. Dit is de **enige actie die zelf pusht en een draft-PR aanmaakt**.
 Naast de PR-body schrijft hij `_converge.md`: wat hij in elke bron vond en
 welke keuzes hij maakte.
 
 ### ontwikkel
 
-Eén ontwikkel-ronde, zonder review of push. De eerste keer kopieert hij het
-rapport naar `ticket.md`, maakt de worktree en de feature-branch
+Eén ronde van de develop-agent, zonder review of push. De eerste keer kopieert
+hij het rapport naar `ticket.md`, maakt de worktree en de feature-branch
 (`feature-v2/FLUX-123-<slug>`) en implementeert. Ligt er al een review met
 CHANGES_REQUESTED, dan adresseert hij die feedback in een nieuwe ronde.
 Schrijft `code-changes.md` met wat er veranderd is en waarom.
 
 ### review
 
-Eén review-ronde op het ontwikkelde ticket: correctheid, conventies, tests,
-toegankelijkheid. Schrijft `review-r<N>.md` en zet de status. Bij APPROVED
+Eén ronde van de review-agent op het ontwikkelde ticket: correctheid,
+conventies, tests, toegankelijkheid. Schrijft `review-r<N>.md` en zet de
+status. Bij APPROVED
 squasht hij lokaal en schrijft hij de PR-body - hij pusht niet en maakt geen PR.
 
 ### push
@@ -158,8 +175,9 @@ GitHub.
 
 ### externe review
 
-Reviewt de feature-branch van een collega, los van de sprint-flow: je geeft
-ticket, branch en een bewust gekozen profiel (`no` = zonder AI-configuratie
+De review-external-agent reviewt de feature-branch van een collega, los van de
+sprint-flow: je geeft ticket, branch en een bewust gekozen profiel (`no` =
+zonder AI-configuratie
 uit de repo). Geen squash, geen push, geen PR - enkel een review-md onder
 `external-reviews/FLUX-123/`, één per run. Naar Jira zetten doe je via
 **publicatie → een externe code review**.

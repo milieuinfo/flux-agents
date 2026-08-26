@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 /**
- * Agent 1: Refine
+ * Refine-agent
  *
  * Leest alle tickets van een sprint via de Jira REST API en produceert een
  * markdown-bestand per ticket met een refinement analyse. Output gaat in een
@@ -560,7 +560,7 @@ function filterUmbrella(
 
 /**
  * Haal de inhoudelijke velden van een ticket op via Jira REST en bereken
- * de content-hash (zonder `updated`). Wordt gebruikt door agent 1 om te
+ * de content-hash (zonder `updated`). Wordt gebruikt door refine om te
  * detecteren of een ticket waarvan enkel `updated` is gewijzigd écht nieuw
  * gerefined moet worden.
  *

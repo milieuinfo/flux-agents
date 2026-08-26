@@ -126,27 +126,27 @@ export function modelShort(model: string): string {
  * (`AGENT_REFINE_MODEL`, `AGENT_DEVELOP_MODEL`, …) - één bron per rol.
  */
 
-/** Model voor agent 1 (refine). */
+/** Model voor refine. */
 export function refineModel(): string {
   return process.env.AGENT_REFINE_MODEL ?? 'claude-opus-5';
 }
 
-/** Model voor de beknopte Jira-samenvatting van agent 1 (§5b). */
+/** Model voor de beknopte Jira-samenvatting van refine (§5b). */
 export function refineSummaryModel(): string {
   return process.env.AGENT_REFINE_SUMMARY_MODEL ?? 'claude-sonnet-5';
 }
 
-/** Model voor agent 2 (plan). */
+/** Model voor plan. */
 export function planModel(): string {
   return process.env.AGENT_PLAN_MODEL ?? 'claude-opus-5';
 }
 
-/** Model voor agent 3 (develop). Bepaalt ook de model-code in run-paden (§10). */
+/** Model voor develop. Bepaalt ook de model-code in run-paden (§10). */
 export function developModel(): string {
   return process.env.AGENT_DEVELOP_MODEL ?? 'claude-sonnet-5';
 }
 
-/** Model voor agent 4 (review). */
+/** Model voor review. */
 export function reviewModel(): string {
   return process.env.AGENT_REVIEW_MODEL ?? 'claude-opus-5';
 }
@@ -214,27 +214,27 @@ function readEffort(envVar: string): EffortLevel {
     : DEFAULT_EFFORT;
 }
 
-/** Effort voor agent 1 (refine). */
+/** Effort voor refine. */
 export function refineEffort(): EffortLevel {
   return readEffort('AGENT_REFINE_EFFORT');
 }
 
-/** Effort voor de beknopte Jira-samenvatting van agent 1 (§5b). */
+/** Effort voor de beknopte Jira-samenvatting van refine (§5b). */
 export function refineSummaryEffort(): EffortLevel {
   return readEffort('AGENT_REFINE_SUMMARY_EFFORT');
 }
 
-/** Effort voor agent 2 (plan). */
+/** Effort voor plan. */
 export function planEffort(): EffortLevel {
   return readEffort('AGENT_PLAN_EFFORT');
 }
 
-/** Effort voor agent 3 (develop). */
+/** Effort voor develop. */
 export function developEffort(): EffortLevel {
   return readEffort('AGENT_DEVELOP_EFFORT');
 }
 
-/** Effort voor agent 4 (review). */
+/** Effort voor review. */
 export function reviewEffort(): EffortLevel {
   return readEffort('AGENT_REVIEW_EFFORT');
 }

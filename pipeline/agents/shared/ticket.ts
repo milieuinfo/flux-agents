@@ -144,7 +144,7 @@ export async function locateRefinement(
   if (sprintsWithTicket.length === 0) {
     throw new Error(
       `No refinement markdown for ${key} found in any sprint under ${sprintsRoot}. ` +
-        `Run agent 1 (refine) first, or pass the sprint id explicitly.`,
+        `Run refine first, or pass the sprint id explicitly.`,
     );
   }
   if (sprintsWithTicket.length > 1) {

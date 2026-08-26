@@ -1,9 +1,9 @@
 #!/usr/bin/env tsx
 /**
- * Agent 4: Review (SDK)
+ * Review-agent (SDK)
  *
  * Reviews the current round of a ticket's feature branch. Uses the same
- * per-ticket worktree that agent 3 (develop) created.
+ * per-ticket worktree that develop created.
  *
  * Outcomes:
  *  - APPROVED: agent squashes commits against origin/<baseBranch> into one

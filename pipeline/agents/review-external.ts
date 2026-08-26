@@ -92,7 +92,7 @@ async function runReviewExternal(args: ReviewExternalArgs): Promise<void> {
   const outputPath = resolve(reviewsDir, `review-${timestampSlug()}.md`);
 
   // Refinement is optioneel - externe branches komen vaak van iemand
-  // anders en zijn niet door agent 1 gerefined. Als er wél een
+  // anders en zijn niet door refine gerefined. Als er wél een
   // refinement-rapport bestaat onder state/sprints/, geven we dat pad mee.
   let refinementPath: string | null = null;
   try {
