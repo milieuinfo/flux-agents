@@ -19,7 +19,7 @@ import { log } from '../agents/shared/logger.js';
 import { runMain } from '../agents/shared/cli.js';
 import { runPush, type PushArgs } from '../agents/shared/push.js';
 
-config();
+config({ quiet: true });
 
 function parseArgs(): PushArgs {
   const argv = process.argv.slice(2);

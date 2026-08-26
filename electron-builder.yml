@@ -21,13 +21,14 @@ files:
   - tsconfig.renderer.json
   - '!**/*.map'
 
-# electron-builder zijn eigen native rebuild overslaan. Het bundelt een oude
-# node-gyp (9.x) waarvan `gyp` `distutils` importeert - verwijderd uit Python
-# 3.12+, dus die rebuild faalt (en wist bovendien de werkende node-pty-build).
-# `npm run app:rebuild` (electron-rebuild met node-gyp 12.x, distutils-vrij)
-# bouwt node-pty al tegen Electron's ABI; electron-builder hoeft dat niet over te
-# doen. Draai dus vóór `npm run app:dist` minstens één keer `npm run app:rebuild`
-# (postinstall doet dit normaal automatisch).
+# electron-builder zijn eigen native rebuild overslaan: `npm run app:rebuild`
+# (electron-rebuild, draait ook in postinstall) bouwt node-pty al tegen
+# Electron's ABI, en een tweede rebuild tijdens het packagen zou dat werk
+# overdoen (en bij een mislukking de werkende build wissen). Historisch was dit
+# ook nodig omdat electron-builder 25 een oude node-gyp (9.x, distutils)
+# bundelde; sinds electron-builder 26 is dat opgelost, maar de instelling blijft
+# bewust. Draai dus vóór `npm run app:dist` minstens één keer `npm run
+# app:rebuild` (postinstall doet dit normaal automatisch).
 npmRebuild: false
 
 # Na het uitpakken (vóór signen): node-pty's `spawn-helper` weer uitvoerbaar

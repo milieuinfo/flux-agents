@@ -27,7 +27,7 @@ import { resolveAnalysisDir } from './shared/analysis.js';
 import { loadPrompt } from './shared/prompts.js';
 import { extractAnchoredDocument, extractMarkdown, runAgent } from './shared/query.js';
 
-config();
+config({ quiet: true });
 
 function parseArgs(): { sprintId: string; analysis?: string } {
   const argv = process.argv.slice(2);

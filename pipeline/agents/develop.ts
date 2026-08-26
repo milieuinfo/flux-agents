@@ -48,7 +48,7 @@ import {
   seedTicketMd,
 } from './shared/ticket.js';
 
-config();
+config({ quiet: true });
 
 export interface DevelopArgs {
   key: string;

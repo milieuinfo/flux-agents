@@ -1,7 +1,7 @@
 {
   "name": "flux-agents",
   "productName": "Flux Agents",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Lokale agent pipeline voor Flux web components ticket workflow",
   "private": true,
   "type": "module",
@@ -42,23 +42,22 @@
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.229",
-    "@anthropic-ai/sdk": "^0.116.0",
     "@clack/prompts": "^1.5.1",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/addon-web-links": "^0.12.0",
     "@xterm/xterm": "^6.0.0",
-    "dotenv": "^16.4.5",
+    "dotenv": "^17.4.2",
     "node-pty": "^1.1.0",
     "tsx": "^4.19.0"
   },
   "devDependencies": {
     "@electron/rebuild": "^4.0.4",
     "@types/node": "^22.0.0",
-    "electron": "^42.4.1",
-    "electron-builder": "^25.1.8",
+    "electron": "^44.0.0",
+    "electron-builder": "^26.15.3",
     "esbuild": "^0.28.1",
     "patch-package": "^8.0.1",
-    "typescript": "^5.6.0"
+    "typescript": "^7.0.2"
   },
   "engines": {
     "node": ">=20"

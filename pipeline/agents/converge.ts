@@ -61,7 +61,7 @@ import {
 import { runPush } from './shared/push.js';
 import { runPr } from './shared/pr.js';
 
-config();
+config({ quiet: true });
 
 interface ConvergeArgs {
   key: string;

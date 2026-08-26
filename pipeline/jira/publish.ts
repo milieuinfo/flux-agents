@@ -49,7 +49,7 @@ import {
   type JiraLinkType,
 } from '../agents/shared/jira.js';
 
-config();
+config({ quiet: true });
 
 // Jira Data Center heeft vaak een self-signed cert; respect JIRA_SSL_VERIFY=false
 // door TLS-verificatie globaal uit te zetten voor dit proces. Moet vóór de

@@ -38,7 +38,7 @@ import { bashAgentHooks } from './shared/observability.js';
 import { runAgent } from './shared/query.js';
 import { locateRefinement } from './shared/ticket.js';
 
-config();
+config({ quiet: true });
 
 interface ReviewExternalArgs {
   key: string;

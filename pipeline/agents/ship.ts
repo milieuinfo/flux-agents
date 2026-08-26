@@ -26,7 +26,7 @@ import { runMain } from './shared/cli.js';
 import { runDevelopReviewLoop } from './shared/loop.js';
 import { runPush } from './shared/push.js';
 
-config();
+config({ quiet: true });
 
 interface ShipArgs {
   key: string;

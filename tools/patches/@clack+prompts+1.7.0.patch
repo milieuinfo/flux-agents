@@ -1,0 +1,40 @@
+diff --git a/node_modules/@clack/prompts/dist/index.mjs b/node_modules/@clack/prompts/dist/index.mjs
+index 0aa53bf..71f809b 100644
+--- a/node_modules/@clack/prompts/dist/index.mjs
++++ b/node_modules/@clack/prompts/dist/index.mjs
+@@ -544,7 +544,7 @@ ${styleText("gray", S_BAR)}` : ""}`;
+             options: this.options,
+             cursor: this.cursor,
+             maxItems: i.maxItems,
+-            columnPadding: n.length,
++            columnPadding: n.replace(/\u001b\[[0-9;]*m/g, "").length,
+             rowPadding: s + h,
+             style: p
+           }).join(`
+@@ -561,7 +561,7 @@ ${l}
+             options: this.options,
+             cursor: this.cursor,
+             maxItems: i.maxItems,
+-            columnPadding: n.length,
++            columnPadding: n.replace(/\u001b\[[0-9;]*m/g, "").length,
+             rowPadding: l + $,
+             style: p
+           }).join(`
+@@ -692,7 +692,7 @@ ${styleText("gray", S_BAR)}` : ""}` : ""}`;
+             options: this.options,
+             cursor: this.cursor,
+             maxItems: o.maxItems,
+-            columnPadding: t.length,
++            columnPadding: t.replace(/\u001b\[[0-9;]*m/g, "").length,
+             rowPadding: u + r,
+             style: a
+           }).join(`
+@@ -709,7 +709,7 @@ ${s}
+             options: this.options,
+             cursor: this.cursor,
+             maxItems: o.maxItems,
+-            columnPadding: t.length,
++            columnPadding: t.replace(/\u001b\[[0-9;]*m/g, "").length,
+             rowPadding: s + c,
+             style: a
+           }).join(`

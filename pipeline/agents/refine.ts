@@ -71,7 +71,7 @@ import {
   type RunAgentOptions,
 } from './shared/query.js';
 
-config();
+config({ quiet: true });
 
 interface CliArgs {
   sprintName?: string;

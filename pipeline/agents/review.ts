@@ -52,7 +52,7 @@ import {
   locateTicketSprint,
 } from './shared/ticket.js';
 
-config();
+config({ quiet: true });
 
 export interface ReviewArgs {
   key: string;

@@ -22,7 +22,7 @@ import { log } from '../agents/shared/logger.js';
 import { runMain } from '../agents/shared/cli.js';
 import { runPr, type PrArgs } from '../agents/shared/pr.js';
 
-config();
+config({ quiet: true });
 
 function parseArgs(): PrArgs {
   const argv = process.argv.slice(2);

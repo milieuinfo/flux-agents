@@ -16,7 +16,7 @@ import { closeExternalAction } from './close-external.js';
 import { refreshProfilesAction } from './refresh-profiles.js';
 import { isDesktop } from './launch.js';
 
-config();
+config({ quiet: true });
 
 // Optie-`value`s zijn de pipeline-codes zodat latere increments er direct op
 // kunnen routeren; de labels zijn NL voor het menu.

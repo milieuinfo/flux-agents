@@ -21,7 +21,7 @@ import { runMain } from '../agents/shared/cli.js';
 import { pathExists } from '../agents/shared/repo.js';
 import { removeIfEmpty, removeWorktrees } from './worktree-cleanup.js';
 
-config();
+config({ quiet: true });
 
 export async function runCloseSprint(sprint: string, dryRun: boolean): Promise<void> {
   const stateDir = resolve(process.env.STATE_DIR ?? './state');

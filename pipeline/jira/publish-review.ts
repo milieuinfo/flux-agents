@@ -29,7 +29,7 @@ import {
   createJiraClient,
 } from '../agents/shared/jira.js';
 
-config();
+config({ quiet: true });
 
 applyJiraSslConfig();
 

@@ -17,7 +17,7 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 import type { ModelInfo, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk';
 import { compareModels, type ModelChoice } from './shared/config.js';
 
-config();
+config({ quiet: true });
 
 export const BEGIN = '__FLUX_MODELS_BEGIN__';
 export const END = '__FLUX_MODELS_END__';

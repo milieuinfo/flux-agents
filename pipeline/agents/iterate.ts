@@ -20,7 +20,7 @@ import { log } from './shared/logger.js';
 import { runMain } from './shared/cli.js';
 import { runDevelopReviewLoop } from './shared/loop.js';
 
-config();
+config({ quiet: true });
 
 interface IterateArgs {
   key: string;
