@@ -101,7 +101,6 @@ tokenverbruiker). Het `.env.example` toont een werkende voorbeeldconfiguratie.
 | `AGENT_BASH_TIMEOUT_MS` | 600000 | harde timeout per Bash-call (clamp via hook) |
 | `JIRA_REFINE_IMAGE_MAX_COUNT` | 5 | max image-attachments die refine als vision meeneemt |
 | `JIRA_REFINE_IMAGE_MAX_BYTES` | 5000000 | totaal byte-budget voor images |
-| `JIRA_AC_FIELD` | - | customfield-key voor acceptance criteria (leeg = uit description) |
 | `LOG_LEVEL` | `info` | `debug` \| `info` \| `warn` \| `error`. `info` = compacte voortgang (stappen ▸/✓, narratie van de agent, één regel per tool-call, heartbeat bij stilte); `debug` = daarbovenop de volledige SDK-stroom (tool-inputs en -resultaten, shell-output, stacktraces). Bekijk de opmaak zonder LLM met `npm run dev:log-preview`. |
 
 ### Git-commit-identiteit

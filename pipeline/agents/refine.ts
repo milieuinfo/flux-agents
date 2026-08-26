@@ -196,10 +196,6 @@ function formatTicketForPrompt(
 
   parts.push(`\n#### Description\n${details.description?.trim() || '(geen description)'}`);
 
-  if (details.acceptanceCriteria?.trim()) {
-    parts.push(`\n#### Acceptance criteria\n${details.acceptanceCriteria.trim()}`);
-  }
-
   if (details.issuelinks.length) {
     const links = details.issuelinks
       .map((l) => {
@@ -239,7 +235,6 @@ async function refineTicket(
   systemPrompt: string,
   worktreeDir: string,
   jira: JiraClient,
-  acFieldId: string | undefined,
   progress: TicketProgress,
 ): Promise<string> {
   const updateInstruction = existingMarkdown
@@ -272,7 +267,7 @@ async function refineTicket(
   // Ticket-data via REST ophalen en in de prompt injecteren (was vroeger een
   // MCP tool-call). Comments filteren we op menselijke - AI-comments van de
   // pipeline zelf worden weggelaten zodat ze geen feedback-loop voeden.
-  const details = await getFullIssueDetails(jira, key, acFieldId);
+  const details = await getFullIssueDetails(jira, key);
   const comments = humanComments(details.comments);
   const ticketBlock = formatTicketForPrompt(details, comments);
 
@@ -575,15 +570,9 @@ function filterUmbrella(
  * geen self-loop creëert. Image-attachments wegen ook mee - een nieuw
  * screenshot bij een visuele bug triggert een re-refine.
  */
-async function fetchContentHash(
-  jira: JiraClient,
-  key: string,
-  acFieldId: string | undefined,
-): Promise<string> {
-  const fields = ['summary', 'description', 'status'];
-  if (acFieldId) fields.push(acFieldId);
+async function fetchContentHash(jira: JiraClient, key: string): Promise<string> {
   const [f, comments, attachments] = await Promise.all([
-    getIssueFields(jira, key, fields),
+    getIssueFields(jira, key, ['summary', 'description', 'status']),
     getIssueComments(jira, key),
     selectImageAttachments(jira, key),
   ]);
@@ -592,11 +581,6 @@ async function fetchContentHash(
   return hashTicketContent({
     summary: String(f.summary ?? ''),
     description: f.description == null ? null : String(f.description),
-    acceptanceCriteria: acFieldId
-      ? f[acFieldId] == null
-        ? null
-        : String(f[acFieldId])
-      : null,
     status: status?.name ?? '',
     comments: human,
     attachments: attachments.map((a) => `${a.id}:${a.size}`),
@@ -708,7 +692,6 @@ async function main(args: CliArgs) {
   await state.ensureDir();
 
   const jira = createJiraClient();
-  const acFieldId = process.env.JIRA_AC_FIELD || undefined;
 
   const existingMeta = await state.readMeta();
   const overviewKey = await readOverviewKey(state);
@@ -754,7 +737,7 @@ async function main(args: CliArgs) {
     // `updated` wijzigt, maar de inhoud niet - dan is `contentHash` ongewijzigd.
     let contentHash: string;
     try {
-      contentHash = await fetchContentHash(jira, t.key, acFieldId);
+      contentHash = await fetchContentHash(jira, t.key);
     } catch (err) {
       log.warn(`${pos}: kon de inhoud niet ophalen via REST - val terug op analyseren:`, err);
       contentHash = '';
@@ -788,7 +771,7 @@ async function main(args: CliArgs) {
 
     const existing = markdownExists ? await state.readTicketMarkdown(t.key) : null;
     try {
-      const md = await refineTicket(t.key, existing, systemPrompt, worktreeDir, jira, acFieldId, {
+      const md = await refineTicket(t.key, existing, systemPrompt, worktreeDir, jira, {
         index: i + 1,
         total,
         isUpdate,

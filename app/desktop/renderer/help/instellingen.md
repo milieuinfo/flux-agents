@@ -89,6 +89,3 @@ als een run structureel stopt met `error_max_turns`; zet het log level op
 `debug` als je bij een probleem de volledige tool-stroom in de tab wil zien.
 
 {{velden:Geavanceerd}}
-
-Niet instelbaar in de app (enkel via `.env` bij CLI-gebruik): `JIRA_AC_FIELD`,
-de customfield-key als je acceptatiecriteria in een apart Jira-veld bewaart.

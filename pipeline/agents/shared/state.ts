@@ -141,6 +141,12 @@ export class SprintState {
 export function hashTicketContent(ticket: {
   summary: string;
   description: string | null;
+  /**
+   * Niet meer gevuld (het aparte AC-customfield is verwijderd), maar de sleutel
+   * blijft als lege string in de canonieke hash-input staan zodat bestaande
+   * `_meta.json`-hashes geldig blijven en een herstart niet alle tickets
+   * opnieuw analyseert.
+   */
   acceptanceCriteria?: string | null;
   status: string;
   comments?: string[];

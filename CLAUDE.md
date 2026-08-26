@@ -211,7 +211,7 @@ scripts, niet verstopt in een LLM-run.
 ### 5. Agent 1 leest Jira via REST, herstart idempotent
 
 Agent 1 hasht de inhoudelijke velden van elk Jira-ticket (`summary`,
-`description`, `acceptance criteria`, `status`, menselijke `comments`,
+`description`, `status`, menselijke `comments`,
 en image-attachments). Een snelle pre-check op `updated` skipt het
 meeste werk; pas als de timestamp verschilt wordt de hash herberekend
 en eventueel het ticket opnieuw geanalyseerd. Bij een update wordt de
@@ -225,7 +225,7 @@ volgende run automatisch een re-refine. AI-gegenereerde comments
 anders zou de pipeline zichzelf eindeloos triggeren. Het filter staat in
 `pipeline/agents/shared/jira.ts` (`isAiGeneratedComment`/`humanComments`).
 
-Agent 1 haalt de ticket-velden (description, AC, status, labels, links,
+Agent 1 haalt de ticket-velden (description, status, labels, links,
 comments) via Jira REST op (`getFullIssueDetails` in
 `pipeline/agents/shared/jira.ts`) en injecteert ze rechtstreeks in de user-prompt -
 géén interactieve MCP tool-call meer. Comments worden vóór injectie op
@@ -951,10 +951,12 @@ Veel waarschijnlijke foutmodes:
 - **Sprint-lookup geeft geen tickets** → de `sprint = "<naam>"` JQL-clause
   matcht op exacte sprintnaam; quote multi-word namen en controleer of de
   naam klopt, of gebruik `--jql`/`--tickets`
-- **Agent 1 vindt geen acceptance criteria** → VO Jira heeft mogelijk
-  een custom field voor AC (e.g. `customfield_10xxx`). De prompt is
-  generiek; als dit structureel fout gaat, introduceer een
-  `JIRA_AC_FIELD` env var en pas het prompt aan
+- **Agent 1 vindt geen acceptance criteria** → dat is de norm (de prompt
+  gaat ervan uit dat AC zelden aanwezig zijn en leidt het doel af uit
+  ticket + code). Een apart AC-customfield ondersteunen we bewust niet
+  (de vroegere `JIRA_AC_FIELD` was ongebruikt en is verwijderd); komt dat
+  ooit wel, voeg het dan toe aan `ENV_SCHEMA` zodat het via de app
+  instelbaar is, niet als losse env-var
 - **Agent 2 krijgt te weinig context** → als een sprint >20 tickets
   heeft, kan de prompt te groot worden. Overweeg truncation of
   chunking (nog niet geïmplementeerd)

@@ -338,7 +338,6 @@ export interface JiraFullIssue {
   key: string;
   summary: string;
   description: string | null;
-  acceptanceCriteria: string | null;
   status: string;
   labels: string[];
   issuelinks: JiraIssueLink[];
@@ -347,10 +346,11 @@ export interface JiraFullIssue {
 
 /**
  * Haal in één REST-call de volledige inhoudelijke velden van een ticket op die
- * agent 1 nodig heeft om de refinement te schrijven: description, acceptance
- * criteria (custom field, optioneel via `acFieldId`), status, labels, links en
- * alle comments. Vervangt de vroegere MCP-fetch waarbij het model interactief
- * `jira_get_issue` aanriep; nu injecteren we de data rechtstreeks in de prompt.
+ * agent 1 nodig heeft om de refinement te schrijven: description, status,
+ * labels, links en alle comments. Acceptatiecriteria staan (als ze er zijn) in
+ * de description; een apart AC-customfield wordt bewust niet ondersteund.
+ * Vervangt de vroegere MCP-fetch waarbij het model interactief `jira_get_issue`
+ * aanriep; nu injecteren we de data rechtstreeks in de prompt.
  *
  * Comment-filtering (AI vs mens) blijft de verantwoordelijkheid van de caller
  * via `humanComments` - net als bij `getIssueComments`.
@@ -358,10 +358,8 @@ export interface JiraFullIssue {
 export async function getFullIssueDetails(
   client: JiraClient,
   key: string,
-  acFieldId?: string,
 ): Promise<JiraFullIssue> {
   const fields = ['summary', 'description', 'status', 'labels', 'issuelinks', 'comment'];
-  if (acFieldId) fields.push(acFieldId);
   const f = await getIssueFields(client, key, fields);
   const status = f.status as { name?: string } | null;
   const commentBlock = f.comment as JiraCommentBlock | undefined;
@@ -369,8 +367,6 @@ export async function getFullIssueDetails(
     key,
     summary: String(f.summary ?? ''),
     description: f.description == null ? null : String(f.description),
-    acceptanceCriteria:
-      acFieldId && f[acFieldId] != null ? String(f[acFieldId]) : null,
     status: status?.name ?? '',
     labels: Array.isArray(f.labels) ? (f.labels as string[]) : [],
     issuelinks: Array.isArray(f.issuelinks) ? (f.issuelinks as JiraIssueLink[]) : [],
