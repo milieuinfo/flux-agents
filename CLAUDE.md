@@ -345,17 +345,17 @@ die naar Jira via directe REST-calls:
   Sonnet-versie uit §5b); valt terug op de uitgebreide `FLUX-XXX.md`
   als de samenvatting ontbreekt. Eén comment per ticket per run.
 - `_order.md` → description van een umbrella-ticket (Task, label
-  `sprint-overview`, story points 0, gekoppeld aan de sprint).
+  `sprint-overview`, gekoppeld aan de sprint; het sprint-customfield
+  wordt per run gedetecteerd op de shape van een sprint-ticket).
   Find-or-update via JQL: één umbrella per sprint, nooit dupliceren.
 - Issue-links: umbrella "Wordt gerealiseerd door" elk sprint-ticket
   (link-type wordt opgezocht via `/rest/api/2/issueLinkType` op basis
-  van de inward-description; override via `JIRA_REALIZATION_LINK_TYPE`).
-  Idempotent - bestaande links worden overgeslagen.
+  van de inward-description, NL of EN). Idempotent - bestaande links
+  worden overgeslagen.
 - Epic-link: als `JIRA_UMBRELLA_EPIC` is gezet (issue-key of Epic Name),
   hangt de umbrella onder die epic. Epic Link en Epic Name customfields
-  worden auto-gedetecteerd via `/rest/api/2/field`; override via
-  `JIRA_EPIC_LINK_FIELD` / `JIRA_EPIC_NAME_FIELD`. Idempotent - alleen
-  PUT als de huidige waarde mist of afwijkt.
+  worden gedetecteerd via `/rest/api/2/field`. Idempotent - alleen PUT
+  als de huidige waarde mist of afwijkt.
 
 `_published.json` houdt per ticket een hash van de gepubliceerde body
 bij. Tweede run zonder content-wijziging slaat alles over. Bij wijziging
@@ -375,21 +375,17 @@ converter (`markdownToJiraWiki`) voor wat agents 1 + 2 produceren -
 headings, lijsten, tables, fenced code, bold, inline code, links, hr.
 Italic en images worden niet gebruikt en niet ondersteund.
 
-**Vereiste env vars** voor publish (boven op de bestaande):
-- `JIRA_SPRINT_FIELD` (default `customfield_10020`) - custom field key
-  voor de sprint-array op een issue. Wijkt af tussen Jira instances.
-- `JIRA_STORYPOINTS_FIELD` (optioneel) - custom field key voor story
-  points. Niet gezet → veld blijft leeg op de umbrella (functioneel
-  equivalent aan 0 voor velocity).
-- `JIRA_REALIZATION_LINK_TYPE` (optioneel) - exacte naam van het issue
-  link-type voor "Wordt gerealiseerd door" (bv. `Realization`). Niet
-  gezet → het script zoekt zelf via inward-description.
-- `JIRA_UMBRELLA_EPIC` (optioneel) - epic waaraan het umbrella-ticket
-  wordt gehangen. Mag een issue-key zijn (`FLUX-42`) of een Epic Name
-  (`[2026] - samenwerking`). Leeg → geen epic-link.
-- `JIRA_EPIC_LINK_FIELD` / `JIRA_EPIC_NAME_FIELD` (optioneel) - overrides
-  voor de Epic Link en Epic Name customfields. Leeg → auto-detect via
-  `/rest/api/2/field`.
+**Enige publish-instelling:** `JIRA_UMBRELLA_EPIC` (optioneel) - epic
+waaraan het umbrella-ticket wordt gehangen, als issue-key (`FLUX-42`) of
+Epic Name (`[2026] - samenwerking`); leeg → geen epic-link. In de app staat
+dit als "Epic voor sprint-overzicht" bij Jira. De vroegere instellingen
+`JIRA_SPRINT_FIELD`, `JIRA_STORYPOINTS_FIELD`, `JIRA_REALIZATION_LINK_TYPE`,
+`JIRA_EPIC_LINK_FIELD` en `JIRA_EPIC_NAME_FIELD` zijn in aug 2026 verwijderd:
+de detectie was al het pad dat werkte (de sprint-field-default was zelfs fout
+voor de VO-instance), story points 0 is functioneel gelijk aan leeg, en
+overrides waren nooit nodig. Faalt een detectie ooit, dan geeft publish een
+duidelijke fout met wat er wél beschikbaar is; pas dan overwegen we opnieuw
+een instelling (via `ENV_SCHEMA`, dus in de app).
 
 ### 10. AI-profile per ticket-run (`--profile`)
 

@@ -157,22 +157,20 @@ async function createUmbrellaIssue(
   client: JiraClient,
   projectKey: string,
   sprintName: string,
-  sprintId: number,
+  sprint: { id: number; field: string },
   description: string,
   epic?: { key: string; linkField: string },
 ): Promise<string> {
   const summary = `[Sprint-analyse] ${sprintName}`;
+  // Geen story points: een leeg veld telt niet mee voor de velocity, net als 0.
   const fields: Record<string, unknown> = {
     project: { key: projectKey },
     summary,
     description: markdownToJiraWiki(description),
     issuetype: { name: 'Task' },
     labels: [OVERVIEW_LABEL],
-    [client.sprintField]: sprintId,
+    [sprint.field]: sprint.id,
   };
-  if (client.storyPointsField) {
-    fields[client.storyPointsField] = 0;
-  }
   if (epic) {
     fields[epic.linkField] = epic.key;
   }
@@ -213,77 +211,52 @@ function detectSprintField(
  * ticket uit de sprint te lezen. Werkt zowel met de moderne object-vorm als
  * met de legacy GreenHopper string-vorm.
  *
- * Probeert eerst het geconfigureerde `JIRA_SPRINT_FIELD`. Als dat niets
- * oplevert (verkeerde key, missing field, fields=null), valt hij terug op
- * een fetch met `fields=*all` en auto-detect via shape. Het gevonden
- * field-key wordt op `client.sprintField` gezet zodat `createUmbrellaIssue`
- * verderop hetzelfde veld gebruikt - zo blijft sprintkoppeling consistent.
+ * Altijd via detectie op shape (`fields=*all` op één ticket van de sprint);
+ * het gevonden field-key komt mee terug zodat `createUmbrellaIssue` hetzelfde
+ * veld gebruikt. Een aparte instelling voor het veld is er bewust niet: de
+ * key verschilt per Jira-instance en de detectie is betrouwbaar.
  */
 async function findSprintIdByName(
   client: JiraClient,
   anyTicketKey: string,
   sprintName: string,
-): Promise<number> {
-  let raw: unknown = undefined;
-
-  // Fast path: configured field
-  try {
-    const issue = await getIssue(client, anyTicketKey, [client.sprintField]);
-    if (issue?.fields && typeof issue.fields === 'object') {
-      raw = issue.fields[client.sprintField];
-    }
-  } catch (err) {
-    log.warn(`  configured sprint-field ${client.sprintField} fetch faalde:`, err);
-  }
-
-  // Fallback: auto-detect via *all
-  if (!Array.isArray(raw)) {
-    log.info(
-      `  sprint-veld ${client.sprintField} leverde geen bruikbare array op - ` +
-        `fallback: alle fields op ${anyTicketKey} ophalen voor auto-detect`,
+): Promise<{ id: number; field: string }> {
+  const issue = await getIssue(client, anyTicketKey, ['*all']);
+  if (!issue?.fields || typeof issue.fields !== 'object') {
+    throw new Error(
+      `Issue ${anyTicketKey} heeft geen fields object - onverwachte response: ${JSON.stringify(
+        issue,
+      ).slice(0, 300)}`,
     );
-    const issue = await getIssue(client, anyTicketKey, ['*all']);
-    if (!issue?.fields || typeof issue.fields !== 'object') {
-      throw new Error(
-        `Issue ${anyTicketKey} heeft geen fields object - onverwachte response: ${JSON.stringify(
-          issue,
-        ).slice(0, 300)}`,
-      );
-    }
-    const detected = detectSprintField(issue.fields as Record<string, unknown>);
-    if (!detected) {
-      const customKeys = Object.keys(issue.fields).filter((k) => k.startsWith('customfield_'));
-      throw new Error(
-        `Geen sprint-veld gedetecteerd op ${anyTicketKey}. ` +
-          `Beschikbare customfields: ${customKeys.join(', ') || '(geen)'}. ` +
-          `Zet JIRA_SPRINT_FIELD expliciet in .env.`,
-      );
-    }
-    log.info(
-      `  sprint-veld auto-gedetecteerd: ${detected.key} ` +
-        `(zet JIRA_SPRINT_FIELD=${detected.key} in .env om dit vast te zetten)`,
-    );
-    client.sprintField = detected.key;
-    raw = detected.value;
   }
+  const detected = detectSprintField(issue.fields as Record<string, unknown>);
+  if (!detected) {
+    const customKeys = Object.keys(issue.fields).filter((k) => k.startsWith('customfield_'));
+    throw new Error(
+      `Geen sprint-veld gedetecteerd op ${anyTicketKey}. ` +
+        `Beschikbare customfields: ${customKeys.join(', ') || '(geen)'}. ` +
+        `Zonder sprint-veld kan het umbrella-ticket niet aan de sprint gekoppeld worden.`,
+    );
+  }
+  log.info(`  sprint-veld gedetecteerd: ${detected.key}`);
 
-  for (const sprint of raw as unknown[]) {
+  for (const sprint of detected.value) {
     if (typeof sprint === 'string') {
       const idMatch = sprint.match(/id=(\d+)/);
       const nameMatch = sprint.match(/name=([^,\]]+)/);
       if (idMatch && nameMatch && nameMatch[1].trim() === sprintName) {
-        return Number(idMatch[1]);
+        return { id: Number(idMatch[1]), field: detected.key };
       }
     } else if (sprint && typeof sprint === 'object') {
       const s = sprint as { id?: number | string; name?: string };
       if (s.name === sprintName && s.id !== undefined) {
-        return Number(s.id);
+        return { id: Number(s.id), field: detected.key };
       }
     }
   }
   throw new Error(
     `Sprint "${sprintName}" niet gevonden op ${anyTicketKey}. ` +
-      `Beschikbaar (op ${client.sprintField}): ${JSON.stringify(raw)}`,
+      `Beschikbaar (op ${detected.key}): ${JSON.stringify(detected.value)}`,
   );
 }
 
@@ -306,9 +279,9 @@ async function getFields(client: JiraClient): Promise<JiraField[]> {
   return cachedFields;
 }
 
+// Epic Link / Epic Name worden gedetecteerd via /rest/api/2/field (schema of
+// naam); er is bewust geen instelling om ze te overschrijven.
 async function findEpicLinkField(client: JiraClient): Promise<string> {
-  const override = process.env.JIRA_EPIC_LINK_FIELD;
-  if (override) return override;
   const fields = await getFields(client);
   const f = fields.find(
     (f) =>
@@ -317,16 +290,15 @@ async function findEpicLinkField(client: JiraClient): Promise<string> {
   );
   if (!f) {
     throw new Error(
-      `Epic Link customfield niet gevonden. Zet JIRA_EPIC_LINK_FIELD ` +
-        `(bv. customfield_10014) in .env.`,
+      `Epic Link customfield niet gevonden in /rest/api/2/field; deze ` +
+        `Jira-instance lijkt geen epics (Jira Software) te hebben. Laat de ` +
+        `umbrella-epic leeg om zonder epic-link te publiceren.`,
     );
   }
   return f.id;
 }
 
 async function findEpicNameField(client: JiraClient): Promise<string> {
-  const override = process.env.JIRA_EPIC_NAME_FIELD;
-  if (override) return override;
   const fields = await getFields(client);
   const f = fields.find(
     (f) =>
@@ -335,8 +307,8 @@ async function findEpicNameField(client: JiraClient): Promise<string> {
   );
   if (!f) {
     throw new Error(
-      `Epic Name customfield niet gevonden. Zet JIRA_EPIC_NAME_FIELD ` +
-        `(bv. customfield_10011) in .env.`,
+      `Epic Name customfield niet gevonden in /rest/api/2/field. Geef de ` +
+        `umbrella-epic op als issue-key (bv. FLUX-42) in plaats van als naam.`,
     );
   }
   return f.id;
@@ -417,25 +389,14 @@ async function setEpicLink(
 }
 
 /**
- * Vind het link-type met inward-description "Wordt gerealiseerd door".
- * Eerst kijken naar `JIRA_REALIZATION_LINK_TYPE` (exacte naam-match).
- * Anders fallback op een Nederlandstalige inward, dan Engelstalig.
+ * Vind het link-type met inward-description "Wordt gerealiseerd door"
+ * (Nederlandstalig, anders Engelstalig). Bewust geen instelling om de naam
+ * te overschrijven: de detectie werkt op de VO-instance.
  */
 async function findRealizationLinkType(
   client: JiraClient,
 ): Promise<JiraLinkType> {
   const types = await listIssueLinkTypes(client);
-  const configured = process.env.JIRA_REALIZATION_LINK_TYPE;
-  if (configured) {
-    const t = types.find((t) => t.name === configured);
-    if (!t) {
-      throw new Error(
-        `JIRA_REALIZATION_LINK_TYPE="${configured}" niet gevonden. ` +
-          `Beschikbaar: ${types.map((t) => t.name).join(', ')}.`,
-      );
-    }
-    return t;
-  }
   const candidates = ['wordt gerealiseerd door', 'is realized by'];
   for (const cand of candidates) {
     const t = types.find((t) => t.inward.toLowerCase() === cand);
@@ -445,8 +406,7 @@ async function findRealizationLinkType(
     `Geen link-type gevonden met inward "Wordt gerealiseerd door". ` +
       `Beschikbaar: ${types
         .map((t) => `${t.name} (in: "${t.inward}", uit: "${t.outward}")`)
-        .join(', ')}. ` +
-      `Zet JIRA_REALIZATION_LINK_TYPE in .env op de juiste naam.`,
+        .join(', ')}.`,
   );
 }
 
@@ -731,13 +691,13 @@ async function publishOverview(
         );
       }
       log.info(`Umbrella: not found, looking up sprint-ID via ${anyTicketKeyForSprintLookup}`);
-      const sprintId = await findSprintIdByName(client, anyTicketKeyForSprintLookup, sprintName);
-      log.info(`Umbrella: creating in ${projectKey} (sprintId: ${sprintId})`);
+      const sprint = await findSprintIdByName(client, anyTicketKeyForSprintLookup, sprintName);
+      log.info(`Umbrella: creating in ${projectKey} (sprintId: ${sprint.id})`);
       key = await createUmbrellaIssue(
         client,
         projectKey,
         sprintName,
-        sprintId,
+        sprint,
         description,
         epic ?? undefined,
       );

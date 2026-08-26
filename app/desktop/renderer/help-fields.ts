@@ -41,7 +41,8 @@ export const FIELD_HELP: Record<string, string> = {
     'Personal Access Token uit je Jira-profiel (Profiel → Personal Access ' +
     'Tokens). Gebruikt om tickets te lezen en comments te posten.',
   JIRA_PROJECT_KEY:
-    'Project-sleutel waarbinnen sprints en tickets gezocht worden.',
+    'Project-sleutel waarbinnen sprints gezocht worden en waarin het ' +
+    'umbrella-ticket komt. Voor flux-web-components altijd `FLUX`.',
   JIRA_SSL_VERIFY:
     'Zet op `false` als de Jira-server een self-signed certificaat gebruikt; ' +
     'anders op `true` laten.',
@@ -91,26 +92,12 @@ export const FIELD_HELP: Record<string, string> = {
   AGENT_REVIEW_EXTERNAL_EFFORT: EFFORT_HELP,
   FLUX_GIT_AUTHOR_NAME: GIT_IDENTITY_HELP,
   FLUX_GIT_AUTHOR_EMAIL: GIT_IDENTITY_HELP,
-  JIRA_SPRINT_FIELD:
-    'Customfield-key van het sprint-veld op een issue (verschilt per ' +
-    'Jira-instance). Nodig om het umbrella-ticket bij publicatie aan de sprint ' +
-    'te koppelen.',
-  JIRA_STORYPOINTS_FIELD:
-    'Customfield-key voor story points; het umbrella-ticket krijgt 0 punten ' +
-    'zodat het de velocity niet beïnvloedt. Leeg = veld blijft leeg.',
-  JIRA_REALIZATION_LINK_TYPE:
-    'Naam van het issue-link-type voor “Wordt gerealiseerd door” (bv. ' +
-    '`Realization`), waarmee het umbrella-ticket aan de sprint-tickets gelinkt ' +
-    'wordt. Leeg = auto-detect via de inward-omschrijving.',
   JIRA_UMBRELLA_EPIC:
-    'Epic waaronder het umbrella-ticket `[Sprint-analyse]` komt te hangen: een ' +
-    'issue-key (`FLUX-42`) of een Epic Name. Leeg = geen epic-link.',
-  JIRA_EPIC_LINK_FIELD:
-    'Customfield-key van het Epic Link-veld. Leeg = auto-detect via ' +
-    '`/rest/api/2/field`.',
-  JIRA_EPIC_NAME_FIELD:
-    'Customfield-key van het Epic Name-veld (om een epic op naam te vinden). ' +
-    'Leeg = auto-detect via `/rest/api/2/field`.',
+    'Enkel voor publicatie van een sprint: de epic waaronder het ' +
+    'umbrella-ticket `[Sprint-analyse]` komt te hangen, als issue-key ' +
+    '(`FLUX-42`) of als Epic Name. Leeg = geen epic-link. Alle andere ' +
+    'Jira-details voor publicatie (sprint-veld, link-type, epic-velden) ' +
+    'detecteert de app zelf.',
   FLUX_REPO_DIR:
     'Overschrijft de locatie van de managed clone (normaal ' +
     '`<state>/clone/flux-web-components`). Doorgaans leeg laten.',

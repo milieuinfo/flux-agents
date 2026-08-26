@@ -45,16 +45,12 @@ umbrella-ticket schrijven bij publicatie. Geen Docker, geen extra tools. Maak
 het token aan in Jira onder je profiel → Personal Access Tokens, en test daarna
 de verbinding met de knop.
 
+De enige keuze voor **publicatie** is de epic waaronder het umbrella-ticket
+`[Sprint-analyse]` komt. De instance-specifieke details (het sprint-veld, het
+link-type "Wordt gerealiseerd door", de Epic Link/Name-velden) zoekt de app
+zelf op via de Jira-API; daar hoef je niets voor in te stellen.
+
 {{velden:Jira}}
-
-## Publish
-
-Enkel gebruikt door **publicatie** van een sprint: het umbrella-ticket
-`[Sprint-analyse]` moet aan de sprint gekoppeld worden, aan de sprint-tickets
-gelinkt en eventueel onder een epic gehangen. Customfield-keys verschillen per
-Jira-instance; de meeste velden mag je leeg laten (auto-detect).
-
-{{velden:Publish}}
 
 ## Auth
 
@@ -84,8 +80,10 @@ wijzig het niet halverwege een ticket.
 
 ## Geavanceerd
 
-Fijnregeling die je normaal niet hoeft aan te raken. Verhoog een max-turns pas
-als een run structureel stopt met `error_max_turns`; zet het log level op
-`debug` als je bij een probleem de volledige tool-stroom in de tab wil zien.
+Fijnregeling die je normaal niet hoeft aan te raken: de Jira project key en
+SSL-verificatie (voor flux-web-components altijd `FLUX` en `true`), de
+clone-locatie, en de limieten van de agents. Verhoog een max-turns pas als een
+run structureel stopt met `error_max_turns`; zet het log level op `debug` als
+je bij een probleem de volledige tool-stroom in de tab wil zien.
 
 {{velden:Geavanceerd}}

@@ -14,7 +14,6 @@ export type ConfigGroup =
   | 'Auth'
   | 'Modellen'
   | 'Git'
-  | 'Publish'
   | 'Geavanceerd';
 
 export interface EnvField {
@@ -160,7 +159,6 @@ export const CONFIG_GROUPS: ConfigGroup[] = [
   'Repo',
   'Git',
   'Jira',
-  'Publish',
   'Auth',
   'Modellen',
   'Geavanceerd',
@@ -185,16 +183,26 @@ export const ENV_SCHEMA: EnvField[] = [
     description: 'Jira PAT voor de REST-calls (lezen + publiceren).',
   },
   {
-    key: 'JIRA_PROJECT_KEY',
-    label: 'Project key',
+    key: 'JIRA_UMBRELLA_EPIC',
+    label: 'Epic voor sprint-overzicht',
     group: 'Jira',
+    placeholder: 'FLUX-42 of "[2026] - samenwerking"',
+    description:
+      'Epic waaronder publicatie het [Sprint-analyse]-ticket hangt (issue-key ' +
+      'of Epic Name). Leeg = geen epic-link.',
+  },
+  // Zelden anders dan de default; daarom onder Geavanceerd i.p.v. bij Jira.
+  {
+    key: 'JIRA_PROJECT_KEY',
+    label: 'Jira project key',
+    group: 'Geavanceerd',
     default: 'FLUX',
-    description: 'Project-sleutel, bv. FLUX.',
+    description: 'Project-sleutel voor sprint-lookup en het umbrella-ticket.',
   },
   {
     key: 'JIRA_SSL_VERIFY',
-    label: 'SSL verifiëren',
-    group: 'Jira',
+    label: 'Jira SSL verifiëren',
+    group: 'Geavanceerd',
     default: 'true',
     description: 'Zet op false bij een self-signed certificaat.',
   },
@@ -362,44 +370,10 @@ export const ENV_SCHEMA: EnvField[] = [
     placeholder: 'kris.speltincx@vlaanderen.be',
   },
 
-  // --- Publish (alleen voor npm run jira:publish) ---
-  {
-    key: 'JIRA_SPRINT_FIELD',
-    label: 'Sprint-field',
-    group: 'Publish',
-    default: 'customfield_10020',
-    description: 'Customfield-key voor de sprint-array.',
-  },
-  {
-    key: 'JIRA_STORYPOINTS_FIELD',
-    label: 'Story points-field',
-    group: 'Publish',
-    placeholder: 'customfield_10004',
-  },
-  {
-    key: 'JIRA_REALIZATION_LINK_TYPE',
-    label: 'Realization link-type',
-    group: 'Publish',
-    placeholder: 'Realization (leeg = auto-detect)',
-  },
-  {
-    key: 'JIRA_UMBRELLA_EPIC',
-    label: 'Umbrella-epic',
-    group: 'Publish',
-    placeholder: 'FLUX-42 of "[2026] - samenwerking"',
-  },
-  {
-    key: 'JIRA_EPIC_LINK_FIELD',
-    label: 'Epic Link-field',
-    group: 'Publish',
-    placeholder: 'customfield_10014 (leeg = auto-detect)',
-  },
-  {
-    key: 'JIRA_EPIC_NAME_FIELD',
-    label: 'Epic Name-field',
-    group: 'Publish',
-    placeholder: 'customfield_10011 (leeg = auto-detect)',
-  },
+  // Publicatie heeft verder geen instellingen: het sprint-veld, het
+  // "Wordt gerealiseerd door"-link-type en de Epic Link/Name-velden worden
+  // door publish.ts zelf gedetecteerd (customfield-keys verschillen per
+  // Jira-instance; de detectie is betrouwbaar en een override was nooit nodig).
 
   // --- Geavanceerd ---
   { key: 'FLUX_REPO_DIR', label: 'Repo-clone override', group: 'Geavanceerd' },

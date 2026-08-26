@@ -5,8 +5,6 @@
  * (umbrella-ticket, sprint-field detectie) blijven in publish.ts zelf.
  */
 
-const DEFAULT_SPRINT_FIELD = 'customfield_10020';
-
 /**
  * Zet `NODE_TLS_REJECT_UNAUTHORIZED=0` als `JIRA_SSL_VERIFY=false`.
  * Moet vóór de eerste fetch worden aangeroepen, vandaar als losse
@@ -31,21 +29,17 @@ export function requireEnv(name: string): string {
 export interface JiraClient {
   baseUrl: string;
   token: string;
-  sprintField: string;
-  storyPointsField?: string;
 }
 
 /**
- * Lees Jira-config uit env en bouw een client. `sprintField` en
- * `storyPointsField` zijn alleen relevant voor de sprint-overview-flow,
- * maar staan op de client zodat publish.ts ze niet apart hoeft te dragen.
+ * Lees Jira-config uit env en bouw een client. Instance-specifieke
+ * customfields (sprint-veld, epic-velden, link-type) worden niet
+ * geconfigureerd maar door publish.ts zelf gedetecteerd.
  */
 export function createJiraClient(): JiraClient {
   return {
     baseUrl: requireEnv('JIRA_URL').replace(/\/$/, ''),
     token: requireEnv('JIRA_PERSONAL_TOKEN'),
-    sprintField: process.env.JIRA_SPRINT_FIELD ?? DEFAULT_SPRINT_FIELD,
-    storyPointsField: process.env.JIRA_STORYPOINTS_FIELD || undefined,
   };
 }
 

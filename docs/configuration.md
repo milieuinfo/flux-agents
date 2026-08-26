@@ -113,9 +113,9 @@ De commits van develop/review/converge krijgen hun auteur+committer uit, in volg
 Ontbreken beide → de push stopt met een duidelijke fout (bewust **geen** ingebakken
 persoon, zodat een andere installateur nooit onder een vreemde naam commit).
 
-### Publish-velden (alleen voor `jira:publish`)
+### Publicatie (alleen voor `jira:publish`)
 
-`JIRA_SPRINT_FIELD` (customfield voor de sprint-array), `JIRA_STORYPOINTS_FIELD`,
-`JIRA_REALIZATION_LINK_TYPE`, `JIRA_UMBRELLA_EPIC`, `JIRA_EPIC_LINK_FIELD`,
-`JIRA_EPIC_NAME_FIELD`. Deze wijken af tussen Jira-instances; zie de commentaren in
-`.env.example` voor de exacte betekenis en auto-detect-gedrag.
+`JIRA_UMBRELLA_EPIC` (optioneel): de epic waaraan het `[Sprint-analyse]`-ticket
+wordt gehangen, als issue-key of Epic Name; leeg = geen epic-link. Het sprint-veld,
+het link-type "Wordt gerealiseerd door" en de Epic Link/Name-velden detecteert
+`publish.ts` zelf via de Jira-API; daar zijn bewust geen variabelen voor.
