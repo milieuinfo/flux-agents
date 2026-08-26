@@ -76,7 +76,8 @@ npm run git:pr   -- FLUX-123        # gh pr create --draft
 ```
 
 `pr` gebruikt de squash-commit-subject als titel en `_pr-body.md` als body, bewaart
-de PR-URL in `_status.json`, en maakt geen tweede PR als er al een bestaat.
+de PR-URL in `_status.json`, en maakt geen tweede PR als er al een bestaat. In de
+TUI/desktop-app: 'ontwikkeling' → **push** / **pull request** (zelfde scripts).
 
 ### 7. Merge
 

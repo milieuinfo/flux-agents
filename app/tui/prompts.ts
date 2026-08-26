@@ -79,19 +79,30 @@ export async function promptBranch(): Promise<string | undefined> {
  * vrije tekst als er (nog) geen profielen ontdekt zijn (base-worktree niet
  * klaar). `undefined` bij annulering.
  */
-export async function promptProfile(): Promise<string | undefined> {
+export async function promptProfile(
+  opts: { allowNone?: boolean } = {},
+): Promise<string | undefined> {
   const profiles = await discoverProfiles();
+  // Profielloze runs (bv. de gecombineerde branch van convergeer, of een
+  // CLI-run zonder --profile) hebben geen label; acties die zo'n run moeten
+  // terugvinden (push, pr) bieden daarom ook "geen profiel" aan. Lege string
+  // = geen profiel.
+  const none = { value: '', label: '(geen profiel, bv. na convergeer)' };
   if (profiles.length > 0) {
     const sel = await p.select<string>({
       message: "Welk profiel? (ook 'no' voor geen AI-config)",
-      options: profiles.map((name) => ({ value: name, label: name })),
+      options: [
+        ...profiles.map((name) => ({ value: name, label: name })),
+        ...(opts.allowNone ? [none] : []),
+      ],
     });
     return p.isCancel(sel) ? undefined : sel;
   }
   const typed = await p.text({
-    message: 'Welk profiel?',
+    message: opts.allowNone ? 'Welk profiel? (leeg = geen profiel)' : 'Welk profiel?',
     placeholder: 'no',
-    validate: (v) => (v?.trim() ? undefined : 'Geef een profiel op.'),
+    validate: (v) =>
+      v?.trim() || opts.allowNone ? undefined : 'Geef een profiel op.',
   });
   return p.isCancel(typed) ? undefined : typed.trim();
 }
@@ -420,12 +431,12 @@ export interface TicketAndProfile {
  * Vraagt achtereenvolgens een ticket-sleutel en een profiel. Geeft `undefined`
  * zodra één van beide geannuleerd wordt, zodat de caller netjes kan afbreken.
  */
-export async function promptTicketAndProfile(): Promise<
-  TicketAndProfile | undefined
-> {
+export async function promptTicketAndProfile(
+  opts: { allowNone?: boolean } = {},
+): Promise<TicketAndProfile | undefined> {
   const key = await promptTicketKey();
   if (key === undefined) return undefined;
-  const profile = await promptProfile();
+  const profile = await promptProfile(opts);
   if (profile === undefined) return undefined;
   return { key, profile };
 }

@@ -21,8 +21,9 @@ Jira-sprint
     │  ontwikkel    → per-ticket worktree + feature-branch, lokale commits
     │  review       → CHANGES_REQUESTED ⟳ ontwikkel  |  APPROVED → lokale squash
     │  (itereer = ontwikkel → review in één lus, max. 3 rondes)
-    ▼  buiten de app: npm run git:push + git:pr  → draft-PR op GitHub
-       jij zet de PR ready en merget zelf
+    │  push         → goedgekeurde branch naar origin
+    │  pull request → draft-PR op GitHub
+    ▼  jij zet de PR ready en merget zelf
 ```
 
 ## Aanbevolen volgorde
@@ -42,10 +43,10 @@ Jira-sprint
 5. Per ticket **ontwikkeling → itereer** (of handmatig **ontwikkel** en
    **review** na elkaar). Bij APPROVED staat er lokaal één nette commit en
    de PR-body klaar.
-6. **Push en PR** gebeuren niet vanuit de app maar in een terminal in de
-   flux-agents-map: `npm run git:push -- FLUX-123` en daarna
-   `npm run git:pr -- FLUX-123`. Uitzondering: **convergeer** pusht zelf en
-   maakt de draft-PR aan.
+6. **ontwikkeling → push** zet de goedgekeurde branch op origin, daarna maakt
+   **ontwikkeling → pull request** de draft-PR aan. Beide zijn deterministisch
+   (geen AI) en veilig te herhalen. Uitzondering: **convergeer** doet beide
+   zelf.
 7. Zet de draft-PR ready op GitHub, laat hem reviewen en merge zelf.
 8. **onderhoud → sprint afsluiten** ruimt de worktrees van een afgewerkte
    sprint op.
@@ -107,8 +108,7 @@ meerdere profielen, dan draait elk profiel in een eigen tab, parallel.
 Uitkomsten:
 
 - **APPROVED** - de commits zijn lokaal gesquasht tot één nette commit en
-  `_pr-body.md` staat klaar; push en PR doe je met `npm run git:push` en
-  `npm run git:pr`.
+  `_pr-body.md` staat klaar; daarna **push** en **pull request**.
 - **CHANGES_REQUESTED** - de volgende ronde start automatisch met de
   review-feedback als input.
 - **ESCALATED** - na 3 rondes nog geen goedkeuring; jij kijkt zelf naar de
@@ -136,6 +136,25 @@ Schrijft `code-changes.md` met wat er veranderd is en waarom.
 Eén review-ronde op het ontwikkelde ticket: correctheid, conventies, tests,
 toegankelijkheid. Schrijft `review-r<N>.md` en zet de status. Bij APPROVED
 squasht hij lokaal en schrijft hij de PR-body - hij pusht niet en maakt geen PR.
+
+### push
+
+Pusht de feature-branch van een **goedgekeurd** ticket naar origin
+(`git push -u origin <branch>`). Geen AI: een deterministisch script dat
+weigert zolang de status niet `approved` is, en dat je veilig kan herhalen
+(al gepusht = niets te doen). De commits krijgen vooraf jouw git-identiteit
+als auteur én committer (zie ⚙ → Git). Maakt geen PR.
+
+Vraagt ticket en profiel; kies "geen profiel" voor een profielloze run (bv. de
+gecombineerde branch van convergeer, als die push mislukte).
+
+### pull request
+
+Maakt de **draft-PR** aan voor een goedgekeurd én gepusht ticket, via de
+`gh`-CLI (moet ingelogd zijn, zie Status). Titel = de squash-commit, body =
+`_pr-body.md` uit de review. Idempotent: bestaat er al een PR voor de branch,
+dan wordt enkel de URL bewaard. De PR ready zetten en mergen doe je zelf op
+GitHub.
 
 ### externe review
 
@@ -173,20 +192,7 @@ meer terug (ze meldt dan een model-mismatch).
 
 - PR's mergen - alleen jij.
 - `git push --force` of remote history herschrijven.
-- Pushen of een PR maken buiten de deterministische stappen (`git:push` /
-  `git:pr`, en convergeer).
+- Pushen of een PR maken buiten de deterministische acties **push** en
+  **pull request** (en convergeer, dat diezelfde stappen hergebruikt).
 - Comments posten op GitHub-PR's of een Jira-workflow-status wijzigen.
 - Dependencies installeren zonder te vragen; secrets opslaan of loggen.
-
-## Buiten de app (CLI)
-
-In een terminal in de flux-agents-map:
-
-```
-npm run git:push -- FLUX-123               # push de goedgekeurde branch (idempotent)
-npm run git:pr   -- FLUX-123               # draft-PR: titel = commit, body = _pr-body.md
-npm run pipeline:ship -- FLUX-123          # itereer + automatisch pushen (PR blijft manueel)
-npm run pipeline:refine:dry -- <sprint>    # verifieert Jira-auth, schrijft niets
-```
-
-Alle commando's staan in `docs/workflows.md` van de flux-agents-repo.

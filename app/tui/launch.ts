@@ -31,6 +31,8 @@ export const SCRIPT_PATHS = {
   converge: 'pipeline/agents/converge.ts',
   publish: 'pipeline/jira/publish.ts',
   'publish-review': 'pipeline/jira/publish-review.ts',
+  push: 'pipeline/git/push.ts',
+  pr: 'pipeline/git/pr.ts',
   'close-sprint': 'pipeline/state/close-sprint.ts',
   'close-external': 'pipeline/state/close-external.ts',
 } as const;

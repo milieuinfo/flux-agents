@@ -19,7 +19,7 @@ export async function reportTicketStatus(key: string, profile: string): Promise<
     if (status.status === 'approved') {
       p.log.success(
         `APPROVED (ronde ${status.round}). Lokale squash + _pr-body.md klaar ` +
-          `(niets gepusht). Push/PR blijven manueel.`,
+          `(niets gepusht). Volgende: 'push', daarna 'pull request'.`,
       );
     } else if (status.status === 'changes_requested') {
       p.log.warn(

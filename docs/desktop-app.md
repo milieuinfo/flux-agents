@@ -10,7 +10,9 @@ secrets in de macOS-keychain).
 
 `npm run app:tui` (of `npm start`) opent een menu met de acties: analyse (refine),
 planning (plan), publicatie (publish), en twee submenu's. Onder **"ontwikkeling"**:
-itereer, convergeer, ontwikkel, review, externe review. Onder **"onderhoud"**:
+itereer, convergeer, ontwikkel, review, push, pull request (de deterministische
+`git:push`/`git:pr`-scripts, zodat een app-gebruiker zonder CLI-checkout een
+goedgekeurd ticket zelf op GitHub krijgt), externe review. Onder **"onderhoud"**:
 profielen verversen, sprint afsluiten en opkuis externe reviews (de
 `state:close-*`-scripts, zie
 [workflows.md](workflows.md#state-onderhoud-worktrees-opruimen)). Elke keuze vraagt

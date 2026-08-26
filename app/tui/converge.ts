@@ -29,8 +29,8 @@ export async function convergeAction(): Promise<void> {
     onError: (code) =>
       p.log.error(
         `Converge eindigde met code ${code}. Zie de output hierboven. Push/PR ` +
-          `kun je idempotent hervatten met 'npm run git:push -- ${key}' en ` +
-          `'npm run git:pr -- ${key}'.`,
+          `kun je idempotent hervatten met de acties 'push' en 'pull request' ` +
+          `(kies daar "geen profiel"; de gecombineerde branch is profielloos).`,
       ),
   });
 }

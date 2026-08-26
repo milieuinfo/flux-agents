@@ -537,6 +537,12 @@ weigeren met een duidelijke melding als de status niet `approved` is, als
 `--profile` ontbreekt terwijl `_status.json` er één bevat, of (bij `pr`) als
 de branch nog niet gepusht is.
 
+In de TUI (en dus de desktop-app) zijn dit de acties **push** en **pull
+request** onder 'ontwikkeling' (`app/tui/push.ts`, `app/tui/pr.ts`): dezelfde
+scripts in een eigen tab, met de optie "geen profiel" voor een profielloze run
+(bv. de convergeer-branch als diens push mislukte). Nodig omdat een teamlid
+met enkel de dmg geen `npm run git:*` kan draaien.
+
 `status === 'approved'` betekent voortaan "gereviewd OK + lokaal gesquasht,
 klaar om te pushen". Of de PR al bestaat blijkt uit `_status.json.prUrl`.
 Geen `_status.json` schema-wijziging - `prUrl` was al optioneel.

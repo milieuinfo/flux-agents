@@ -6,6 +6,8 @@ import { developAction } from './develop.js';
 import { reviewAction } from './review.js';
 import { reviewExternalAction } from './review-external.js';
 import { convergeAction } from './converge.js';
+import { pushAction } from './push.js';
+import { prAction } from './pr.js';
 import { refineAction } from './refine.js';
 import { planAction } from './plan.js';
 import { publishAction } from './publish.js';
@@ -33,6 +35,8 @@ type DevelopChoice =
   | 'converge'
   | 'develop'
   | 'review'
+  | 'push'
+  | 'pr'
   | 'review-external';
 
 const DEVELOP_OPTIONS: { value: DevelopChoice; label: string; hint: string }[] = [
@@ -40,6 +44,8 @@ const DEVELOP_OPTIONS: { value: DevelopChoice; label: string; hint: string }[] =
   { value: 'converge', label: 'convergeer', hint: 'samenvoegen' },
   { value: 'develop', label: 'ontwikkel', hint: '' },
   { value: 'review', label: 'review', hint: 'na ontwikkeling' },
+  { value: 'push', label: 'push', hint: 'na goedkeuring' },
+  { value: 'pr', label: 'pull request', hint: 'na push' },
   { value: 'review-external', label: 'externe review', hint: 'andermans branch' },
 ];
 
@@ -89,6 +95,14 @@ async function developMenu(): Promise<void> {
     }
     if (choice === 'converge') {
       await convergeAction();
+      continue;
+    }
+    if (choice === 'push') {
+      await pushAction();
+      continue;
+    }
+    if (choice === 'pr') {
+      await prAction();
       continue;
     }
 
