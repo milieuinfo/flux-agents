@@ -1,6 +1,6 @@
 /**
  * Leest de canonieke agent-prompts voor het hulppaneel (ⓘ) uit
- * `pipeline/agents/prompts/` — dezelfde map waaruit `loadPrompt` in
+ * `pipeline/agents/prompts/` - dezelfde map waaruit `loadPrompt` in
  * `pipeline/agents/shared/prompts.ts` ze at runtime laadt. Die loader zelf is
  * hier niet importeerbaar (ESM, `import.meta.url`; deze bundle is CJS), dus de
  * padlogica staat hier opnieuw, op `repoRoot`. Werkt in dev én gepackaged:

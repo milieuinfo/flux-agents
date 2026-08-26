@@ -4,7 +4,7 @@ import { runOrLaunch } from './launch.js';
 
 /**
  * TUI-actie 'externe review': reviewt de feature-branch van een andere
- * developer — de zijtak buiten de develop/review-pipeline (geen sprint-context,
+ * developer - de zijtak buiten de develop/review-pipeline (geen sprint-context,
  * geen `_status.json`, geen squash/push/PR). Vraagt een ticket-sleutel, de
  * branch en een bewust gekozen profiel ('no' voor de no-op), en draait dan
  * review-external als `npm run pipeline:review-external -- <KEY> <BRANCH> --profile <naam>`.

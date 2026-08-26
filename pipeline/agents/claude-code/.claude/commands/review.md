@@ -6,7 +6,7 @@ allowed-tools: Read, Write, Bash(git:*), Bash(npm:*), Bash(test:*)
 
 Review de branch voor ticket `$1`.
 
-## Stap 1 — Valideer state
+## Stap 1 - Valideer state
 
 Check dat `state/sprints/<sprint>/tickets/$1/_status.json` bestaat en dat:
 - `status` is `"in_progress"` of `"changes_addressed"`
@@ -14,14 +14,14 @@ Check dat `state/sprints/<sprint>/tickets/$1/_status.json` bestaat en dat:
 
 Als niet: STOP. Vertel Kris welke stap ontbreekt.
 
-## Stap 2 — Valideer branch
+## Stap 2 - Valideer branch
 
 - `git branch --show-current` moet `feature-v2/<KEY>-*` zijn voor deze key
 - Werktree moet clean zijn (commits zijn gedaan)
 
 Als er uncommitted changes zijn: STOP.
 
-## Stap 3 — Delegeer naar ticket-reviewer
+## Stap 3 - Delegeer naar ticket-reviewer
 
 Roep de `ticket-reviewer` subagent aan met deze instructie:
 
@@ -34,7 +34,7 @@ Roep de `ticket-reviewer` subagent aan met deze instructie:
 > `review-r{round}.md`, update `_status.json`, en bij APPROVED: squash
 > lokaal en schrijf `_pr-body.md`. Je pusht NIET en maakt GEEN PR aan.
 
-## Stap 4 — Samenvatting
+## Stap 4 - Samenvatting
 
 Na de subagent terugkomt, lees `_status.json` en toon Kris:
 

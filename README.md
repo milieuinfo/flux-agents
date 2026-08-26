@@ -2,7 +2,7 @@
 
 Lokale multi-agent pipeline voor de **flux-web-components** ticket-workflow. Vier
 LLM-agents (refine, plan, develop, review) plus deterministische scripts en
-orchestrators. Alles wordt **expliciet** gestart — niks draait automatisch op de
+orchestrators. Alles wordt **expliciet** gestart - niks draait automatisch op de
 achtergrond, niks wordt gepusht zonder dat jij dat triggert, en de finale merge doe
 je altijd zelf.
 
@@ -37,11 +37,11 @@ Volledige setup en alle workflows staan in de docs hieronder.
 
 ## Documentatie
 
-- **[docs/architecture.md](docs/architecture.md)** — de onderdelen, de pipeline, iteratie-logica, mappen- en state-structuur, de harde regels.
-- **[docs/workflows.md](docs/workflows.md)** — alle commando's per workflow: refine/plan/publish, develop/review/push/pr, ship/iterate/converge, externe review.
-- **[docs/configuration.md](docs/configuration.md)** — setup, environment-variabelen, modellen per agent, Claude- en gh-auth.
-- **[docs/profiles.md](docs/profiles.md)** — `--profile`: parallel ontwikkelen onder verschillende AI-configuraties + converge.
-- **[docs/desktop-app.md](docs/desktop-app.md)** — de Electron-app + TUI, het invocatiemodel, bouwen en distribueren.
+- **[docs/architecture.md](docs/architecture.md)** - de onderdelen, de pipeline, iteratie-logica, mappen- en state-structuur, de harde regels.
+- **[docs/workflows.md](docs/workflows.md)** - alle commando's per workflow: refine/plan/publish, develop/review/push/pr, ship/iterate/converge, externe review.
+- **[docs/configuration.md](docs/configuration.md)** - setup, environment-variabelen, modellen per agent, Claude- en gh-auth.
+- **[docs/profiles.md](docs/profiles.md)** - `--profile`: parallel ontwikkelen onder verschillende AI-configuraties + converge.
+- **[docs/desktop-app.md](docs/desktop-app.md)** - de Electron-app + TUI, het invocatiemodel, bouwen en distribueren.
 
 [CLAUDE.md](CLAUDE.md) bevat de uitgebreide ontwerp-rationale per beslissing (context
 voor Claude Code sessies in deze repo).
@@ -60,7 +60,7 @@ Per domein geprefixt, zodat de map af te leiden is uit het commando:
 
 ## Wat de agents NOOIT doen
 
-- PR's mergen — alleen jij.
+- PR's mergen - alleen jij.
 - `git push --force` of remote history rewriten.
 - Pushen of een PR maken buiten de deterministische scripts (`git:push` / `git:pr`).
 - Comments posten op GitHub PR's of een Jira workflow-status wijzigen.

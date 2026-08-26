@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 /**
- * Push — duw de feature-branch van een goedgekeurd ticket naar origin.
+ * Push - duw de feature-branch van een goedgekeurd ticket naar origin.
  *
  * Deterministisch script (geen LLM), zoals pipeline/jira/publish.ts. De review-
  * agent squasht lokaal en zet status op `approved`, maar pusht zelf niet

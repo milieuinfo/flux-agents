@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 /**
- * Publish-review — post een externe-review-markdown als comment op een
+ * Publish-review - post een externe-review-markdown als comment op een
  * Jira-ticket.
  *
  * Pakt standaard de nieuwste `review-*.md` uit `state/external-reviews/<KEY>/`.
@@ -9,7 +9,7 @@
  * nieuwe of gewijzigde file → nieuwe comment (oude comments worden
  * NOOIT verwijderd of overschreven, conform de publish.ts-aanpak).
  *
- * Met `--force` post je dezelfde file opnieuw — handig na een fix in
+ * Met `--force` post je dezelfde file opnieuw - handig na een fix in
  * de markdown→Jira-converter, waarbij de bron-md ongewijzigd is maar
  * de gerenderde comment beter is.
  *
@@ -184,7 +184,7 @@ async function main() {
 
   if (published.comments[filename]?.hash === h && !args.force) {
     log.ok(
-      `${filename}: comment al gepost met identieke inhoud — niets te doen. ` +
+      `${filename}: comment al gepost met identieke inhoud - niets te doen. ` +
         `Gebruik --force om opnieuw te posten.`,
     );
     return;

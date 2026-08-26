@@ -1,5 +1,5 @@
 /**
- * Electron main-proces — entrypoint van de flux-agents desktop-app.
+ * Electron main-proces - entrypoint van de flux-agents desktop-app.
  *
  * Fase 3: één venster met links een pty die de @clack-TUI draait en rechts
  * console-tabs (shell). De pty's leven hier; data/exit gaan via IPC naar de
@@ -36,7 +36,7 @@ const SMOKE = process.env.FLUX_SMOKE === '1';
 
 // Naam in de macOS-menubalk (en het dock). Gepackaged komt dit uit de bundle
 // (productName in electron-builder.yml); in dev draait Electron kaal en zou de
-// menubalk "Electron" tonen — daarom expliciet zetten, vóór app.whenReady().
+// menubalk "Electron" tonen - daarom expliciet zetten, vóór app.whenReady().
 app.setName('Flux Agents');
 // app.setName() verschuift óók app.getPath('userData') (= appData/<naam>), waar
 // de config + secrets leven. Pin die map op de stabiele naam 'flux-agents' zodat
@@ -45,7 +45,7 @@ app.setPath('userData', join(app.getPath('appData'), 'flux-agents'));
 
 // In dev is de repo-root drie niveaus boven app/desktop/dist/main.cjs.
 // Gepackaged staat de agent-runtime (pipeline/app/tools/node_modules/
-// package.json) als uitgepakte asar-inhoud naast app.asar — daar draaien de
+// package.json) als uitgepakte asar-inhoud naast app.asar - daar draaien de
 // pty-commando's.
 const repoRoot = app.isPackaged
   ? `${app.getAppPath()}.unpacked`
@@ -56,7 +56,7 @@ let win: BrowserWindow | null = null;
 let splash: BrowserWindow | null = null;
 let ptys: PtyManager;
 
-// Splash minstens zo lang tonen, ook als de app sneller klaar is — anders
+// Splash minstens zo lang tonen, ook als de app sneller klaar is - anders
 // flitst hij maar heel even voorbij.
 const MIN_SPLASH_MS = 1500;
 let splashShownAt = 0;
@@ -74,7 +74,7 @@ let tuiPtyId: number | null = null;
 const tuiParser = new ControlParser();
 
 // Alleen-lezen pty's (actie-tabs met een agent-run): invoer uit de renderer
-// wordt hier genegeerd, ook al blokkeert xterm die al — een tweede slot zodat
+// wordt hier genegeerd, ook al blokkeert xterm die al - een tweede slot zodat
 // een renderer-bug nooit toetsen in een lopende agent-run kan laten belanden.
 const readOnlyPtys = new Set<number>();
 
@@ -87,7 +87,7 @@ function buildSpec(req: PtyCreateRequest): SpawnSpec {
   } as NodeJS.ProcessEnv;
   // De app gebruikt uitsluitend het Pro/Max-abonnement via CLAUDE_CODE_OAUTH_TOKEN.
   // Een rondslingerende ANTHROPIC_API_KEY/ANTHROPIC_AUTH_TOKEN heeft hogere
-  // precedentie bij de SDK en zou stilletjes pay-per-use afrekenen — strip ze.
+  // precedentie bij de SDK en zou stilletjes pay-per-use afrekenen - strip ze.
   delete env.ANTHROPIC_API_KEY;
   delete env.ANTHROPIC_AUTH_TOKEN;
   const base = { cwd: repoRoot, cols: req.cols, rows: req.rows, env };
@@ -95,7 +95,7 @@ function buildSpec(req: PtyCreateRequest): SpawnSpec {
   if (req.kind === 'tui') {
     // FLUX_DESKTOP zet de TUI in desktop-modus: acties sturen een control-
     // signaal i.p.v. inline/Terminal.app te draaien. Interactieve login-shell
-    // (`-ilc`) zodat `.zshrc` geladen wordt — daar zetten nvm/Volta/Homebrew
+    // (`-ilc`) zodat `.zshrc` geladen wordt - daar zetten nvm/Volta/Homebrew
     // vaak node op de PATH; een GUI-app erft anders een uitgeklede launchd-PATH.
     // `node --import tsx` (één proces) i.p.v. de tsx-binary, zodat SIGWINCH/
     // resize aankomt en clack herwrapt bij een paneel-resize.
@@ -152,7 +152,7 @@ function closeSplash(): void {
 }
 
 // Toon het hoofdvenster zodra de renderer zijn eerste frame klaar heeft. De
-// splash ligt er (alwaysOnTop) bovenop tot zijn minimale tijd om is — zo ziet de
+// splash ligt er (alwaysOnTop) bovenop tot zijn minimale tijd om is - zo ziet de
 // gebruiker de toepassing al opstarten mét het splash-scherm erboven.
 function showMainWindow(): void {
   if (win && !win.isDestroyed() && !win.isVisible()) {
@@ -198,12 +198,12 @@ function createWindow(): void {
   void win.loadFile(join(__dirname, 'index.html'));
 
   // De renderer laadt één lokaal bestand en mag nooit wegnavigeren of een
-  // nieuw venster openen — vangnet voor links in gerenderde markdown (het
+  // nieuw venster openen - vangnet voor links in gerenderde markdown (het
   // hulppaneel opent http(s)-links zelf via shell.openExternal).
   win.webContents.on('will-navigate', (e) => e.preventDefault());
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
 
-  // Toon het venster zodra het eerste frame klaar is — de splash ligt eroverheen.
+  // Toon het venster zodra het eerste frame klaar is - de splash ligt eroverheen.
   win.once('ready-to-show', showMainWindow);
 
   // Vangnet: als `app:ready` nooit aankomt (renderer-fout), sluit de splash toch
@@ -216,14 +216,14 @@ function createWindow(): void {
       app.quit();
     });
     setTimeout(() => {
-      console.error('[smoke] timeout — afsluiten zonder load-event');
+      console.error('[smoke] timeout - afsluiten zonder load-event');
       app.exit(1);
     }, 15_000);
   }
 }
 
 // Veilig naar de renderer sturen: tijdens afsluiten kan een pty-event nog
-// vuren nadat het venster vernietigd is — send() zou dan gooien.
+// vuren nadat het venster vernietigd is - send() zou dan gooien.
 function send(channel: string, payload: unknown): void {
   if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
 }
@@ -371,8 +371,8 @@ void app.whenReady().then(async () => {
   }
   registerIpc();
   buildAppMenu();
-  // Hoofdvenster eerst (verborgen) zodat de splash zich over zijn bounds — en
-  // dus op dezelfde monitor — kan centreren.
+  // Hoofdvenster eerst (verborgen) zodat de splash zich over zijn bounds - en
+  // dus op dezelfde monitor - kan centreren.
   createWindow();
   if (!SMOKE) createSplash();
   app.on('activate', () => {
@@ -382,12 +382,12 @@ void app.whenReady().then(async () => {
 
 // Gecontroleerd afsluiten i.p.v. de pty's tijdens de proces-teardown te killen.
 // node-pty's native lees-/reaper-thread gooit op macOS een `Napi::Error` als hij
-// een al-afgebroken libuv/V8 raakt terwijl het proces afsluit — een C++-exception
+// een al-afgebroken libuv/V8 raakt terwijl het proces afsluit - een C++-exception
 // op een thread zonder JS-context, dus niet te vangen met try/catch, en het
 // proces eindigt met SIGABRT (exit 1). We onderscheppen daarom de quit, killen de
 // pty's terwijl de event-loop nog leeft (hun onExit kan netjes vuren), wachten
 // één korte tick zodat node-pty zijn threads afbouwt, en exiten dan hard met
-// code 0 — vóór de natuurlijke teardown die zou aborten.
+// code 0 - vóór de natuurlijke teardown die zou aborten.
 let quitting = false;
 app.on('before-quit', (e) => {
   if (quitting) return;

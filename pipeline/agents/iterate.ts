@@ -4,7 +4,7 @@
  *
  * Draait dezelfde develop → review lus als `ship` (gedeeld in
  * pipeline/agents/shared/loop.ts), maximaal 3 rondes. Het verschil met `ship`: bij
- * APPROVED stopt iterate **lokaal** — de reviewer heeft de commits gesquasht
+ * APPROVED stopt iterate **lokaal** - de reviewer heeft de commits gesquasht
  * en `_pr-body.md` geschreven, maar er wordt NIET gepusht en GEEN PR gemaakt.
  * Push en PR blijven bewuste manuele stappen (`npm run git:push`, `npm run git:pr`).
  *
@@ -61,7 +61,7 @@ async function main({ key, sprint, profile }: IterateArgs): Promise<void> {
   const result = await runDevelopReviewLoop({ key, sprint, profile });
 
   if (result.outcome === 'approved') {
-    log.section(`Klaar · ${key} · APPROVED (ronde ${result.round}) — niets gepusht`);
+    log.section(`Klaar · ${key} · APPROVED (ronde ${result.round}) - niets gepusht`);
     log.hint('Nakijken', result.prBodyPath);
     log.hint(
       'Volgende',

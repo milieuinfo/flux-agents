@@ -5,7 +5,7 @@ import { log } from './logger.js';
 
 /**
  * Default path for the managed flux-web-components clone. The agents own
- * this clone — users should not edit it directly. Separated from the
+ * this clone - users should not edit it directly. Separated from the
  * user's own working clone so a refine/develop run never touches their
  * branches or staging state.
  */
@@ -218,7 +218,7 @@ function gitCapture(cwd: string, args: string[]): Promise<string> {
  * Push the current feature branch to origin (`git push -u origin <branch>`).
  * Idempotent: a push of an already-up-to-date branch is a no-op for git.
  *
- * Used by the deterministic `pipeline/git/push.ts` — de review-agent pusht zelf
+ * Used by the deterministic `pipeline/git/push.ts` - de review-agent pusht zelf
  * niet meer (zie CLAUDE.md harde regels). Draait in de per-ticket worktree
  * zodat de juiste branch wordt geduwd.
  */
@@ -238,7 +238,7 @@ export async function pushBranch(opts: {
  * **Waarom deterministisch en niet via env vars alleen:** de squash-/combineer-
  * commit wordt door een LLM-agent (review, converge) gemaakt. Die kan een
  * git-commando kiezen dat de author overneemt maar de committer uit de lokale
- * git-config haalt (`git cherry-pick`, `git commit -C/--author`) — dan staat er
+ * git-config haalt (`git cherry-pick`, `git commit -C/--author`) - dan staat er
  * een ongewenste `committed by …`-regel op de commit, zelfs al zijn
  * `GIT_COMMITTER_*` env vars gezet. Deze stap, gedraaid door de deterministische
  * push-orchestrator vóór de push, sluit dat lek af ongeacht welk git-commando
@@ -247,7 +247,7 @@ export async function pushBranch(opts: {
  * **Idempotent en force-push-vrij:** als alle commits in de range al de
  * canonieke identiteit dragen, wordt er niets herschreven (return false). Een
  * her-push van een al-gepushte, correcte branch veroorzaakt dus geen divergentie
- * — we herschrijven alleen ongepushte, nog-afwijkende commits.
+ * - we herschrijven alleen ongepushte, nog-afwijkende commits.
  *
  * Returnt true als er herschreven is.
  */
@@ -306,7 +306,7 @@ export async function enforceCommitIdentity(opts: {
 /**
  * Read the subject (first line) of HEAD's commit in `worktreePath`
  * (`git log -1 --format=%s`). Na de squash door de reviewer is dit exact
- * de PR-titel — `pipeline/git/pr.ts` leest hem hier zodat titel en
+ * de PR-titel - `pipeline/git/pr.ts` leest hem hier zodat titel en
  * squash-commit gegarandeerd identiek zijn.
  */
 export async function commitSubject(worktreePath: string): Promise<string> {
@@ -347,7 +347,7 @@ export function baseBranchWorktreePath(stateDir: string, baseBranch: string): st
  * each other's branches and working states.
  *
  * Worktrees zijn per sprint gegroepeerd (`worktrees/<sprint>/<KEY>`) zodat
- * "alle worktrees van een sprint" één map is — handig om op te kuisen als een
+ * "alle worktrees van een sprint" één map is - handig om op te kuisen als een
  * sprint afgesloten wordt (`npm run state:close-sprint`).
  *
  * Met een `profile` wordt het profile-segment als suffix in de mapnaam
@@ -371,7 +371,7 @@ export function ticketWorktreePath(
  * Resolve the worktree path used by review-external (review op een branch
  * van een andere developer). Een externe review hangt niet aan een sprint,
  * dus die worktrees zitten onder de gereserveerde `worktrees/_external/`
- * namespace — los van de per-sprint worktrees, zodat een externe review niet
+ * namespace - los van de per-sprint worktrees, zodat een externe review niet
  * botst met een eventuele develop/review-state voor hetzelfde ticket.
  *
  * Met een `profile`-segment komt dat als suffix in de mapnaam
@@ -434,7 +434,7 @@ export async function ensureTicketWorktree(opts: {
  * `origin/<baseBranch>`. Used by ship.ts to detect a round that produced
  * no work (author blocked on missing input → further rounds pointless).
  *
- * Uses the local `origin/<baseBranch>` ref — no fetch. The base doesn't
+ * Uses the local `origin/<baseBranch>` ref - no fetch. The base doesn't
  * move between rounds of the same ship-run, and we only care whether any
  * commit landed, not exactly how many vs the latest remote.
  */
@@ -463,7 +463,7 @@ export async function countCommitsAhead(opts: {
  * De develop→review-lus gebruikt dit om de twee "0 commits"-toestanden uit
  * elkaar te houden: een schone tree betekent dat develop bewust niets heeft
  * geïmplementeerd (bv. geblokkeerd op een ontbrekende '## Keuze'); een vuile
- * tree zonder commit betekent dat develop wél werkte maar het niet committe —
+ * tree zonder commit betekent dat develop wél werkte maar het niet committe -
  * typisch een afgebroken of gehangen run.
  */
 export async function worktreeHasTrackedChanges(worktreePath: string): Promise<boolean> {
@@ -476,7 +476,7 @@ export async function worktreeHasTrackedChanges(worktreePath: string): Promise<b
 }
 
 /**
- * Small stopword list (NL + EN) — only the very common fillers we don't
+ * Small stopword list (NL + EN) - only the very common fillers we don't
  * want in branch slugs. Intentionally minimal to avoid dropping domain
  * terms that happen to look like filler.
  */
@@ -508,7 +508,7 @@ const SLUG_STOPWORDS = new Set([
  *  - take the first `maxWords` remaining tokens
  *  - cap the final string at ~50 chars (cuts at a word boundary)
  *
- * Not perfect — can't pick semantic keywords that aren't in the title
+ * Not perfect - can't pick semantic keywords that aren't in the title
  * ("change-event" isn't derivable from "niet aangeroepen"). For richer
  * slugs we'd need agent-1 to suggest one during refinement.
  */
@@ -567,7 +567,7 @@ export function ticketBranchName(
  * optioneel AGENTS.md/SKILLS.md) wijst naar het gekozen profile vóór de SDK
  * met die cwd start.
  *
- * Idempotent — het script overschrijft de symlinks elke keer. Faalt hard
+ * Idempotent - het script overschrijft de symlinks elke keer. Faalt hard
  * als het script ontbreekt of een onbekend profile krijgt; we propageren
  * dan stderr zodat de oorzaak zichtbaar is in de agent-output.
  */

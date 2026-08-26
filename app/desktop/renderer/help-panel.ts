@@ -1,7 +1,7 @@
 /**
  * Hulppaneel achter de ⓘ-knop: uitleg over het gebruik van de app (de
  * TUI-acties en hun volgorde), over de instellingen, en per LLM-actie de
- * canonieke prompt die de pipeline gebruikt — alleen-lezen, live van schijf.
+ * canonieke prompt die de pipeline gebruikt - alleen-lezen, live van schijf.
  *
  * De twee docs (`help/*.md`) bundelt esbuild als tekst mee; de prompts komen
  * via IPC uit `pipeline/agents/prompts/` (dezelfde bestanden als de agents
@@ -275,7 +275,7 @@ export class HelpPanel {
 
   /**
    * Toon de prompts van een tab. Eén IPC-call per sessie (cache), tenzij
-   * `force` (herlaadknop) — dan een nieuwe generatie, zodat alle prompt-tabs
+   * `force` (herlaadknop) - dan een nieuwe generatie, zodat alle prompt-tabs
    * bij hun volgende activatie opnieuw renderen.
    */
   private async showPrompts(id: HelpTab, force = false): Promise<void> {

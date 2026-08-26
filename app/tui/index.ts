@@ -63,7 +63,7 @@ function notImplemented(label: string): void {
 async function developMenu(): Promise<void> {
   while (true) {
     const choice = await p.select<DevelopChoice>({
-      message: 'Ontwikkeling — wat wil je doen?',
+      message: 'Ontwikkeling - wat wil je doen?',
       options: DEVELOP_OPTIONS,
     });
 
@@ -103,7 +103,7 @@ async function developMenu(): Promise<void> {
 async function onderhoudMenu(): Promise<void> {
   while (true) {
     const choice = await p.select<OnderhoudChoice>({
-      message: 'Onderhoud — wat wil je doen?',
+      message: 'Onderhoud - wat wil je doen?',
       options: ONDERHOUD_OPTIONS,
     });
 
@@ -129,7 +129,7 @@ async function onderhoudMenu(): Promise<void> {
 async function main(): Promise<void> {
   // In de app stop je de TUI door het venster te sluiten, niet met Ctrl-C.
   // Vang SIGINT zodat een Ctrl-C tussen prompts in het node-proces niet doodt
-  // (clack vangt Ctrl-C binnen een prompt al als cancel — die negeren we
+  // (clack vangt Ctrl-C binnen een prompt al als cancel - die negeren we
   // hieronder). Zonder dit blijft het venster achter met een dode terminal.
   if (isDesktop()) {
     process.on('SIGINT', () => {});

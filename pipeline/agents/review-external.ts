@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 /**
  * Review-external: review een feature-branch die door een andere developer
- * is aangeleverd. Géén onderdeel van de develop/review pipeline — geen
+ * is aangeleverd. Géén onderdeel van de develop/review pipeline - geen
  * sprint-context, geen `_status.json`, geen squash/push/PR.
  *
  * De agent schrijft één review-markdown naar
@@ -91,7 +91,7 @@ async function runReviewExternal(args: ReviewExternalArgs): Promise<void> {
   await mkdir(reviewsDir, { recursive: true });
   const outputPath = resolve(reviewsDir, `review-${timestampSlug()}.md`);
 
-  // Refinement is optioneel — externe branches komen vaak van iemand
+  // Refinement is optioneel - externe branches komen vaak van iemand
   // anders en zijn niet door agent 1 gerefined. Als er wél een
   // refinement-rapport bestaat onder state/sprints/, geven we dat pad mee.
   let refinementPath: string | null = null;
@@ -99,8 +99,8 @@ async function runReviewExternal(args: ReviewExternalArgs): Promise<void> {
     refinementPath = (await locateRefinement(stateDir, key)).path;
     log.ok(`Refinement-rapport gevonden: ${refinementPath}`);
   } catch {
-    // geen refinement gevonden — niets aan de hand
-    log.info('Geen refinement-rapport voor dit ticket — de review slaat de succescriteria over');
+    // geen refinement gevonden - niets aan de hand
+    log.info('Geen refinement-rapport voor dit ticket - de review slaat de succescriteria over');
   }
 
   const systemPrompt = await loadPrompt('review-external');
@@ -131,7 +131,7 @@ async function runReviewExternal(args: ReviewExternalArgs): Promise<void> {
   });
 
   const summary = await runAgent(q, {
-    label: `Agent draait — ${modelShort(reviewExternalModel())}, externe review (max ${maxTurns} turns)`,
+    label: `Agent draait - ${modelShort(reviewExternalModel())}, externe review (max ${maxTurns} turns)`,
     cwd: worktree,
     stateDir,
   });
@@ -171,7 +171,7 @@ function buildPrompt(opts: {
     `(letterlijk overnemen, niet zelf samenstellen):\n` +
     `${outputPath}\n\n` +
     `Volg het format en de werkwijze uit je system-prompt. Geen git-, ` +
-    `GitHub- of Jira-acties — alleen lezen en de review-md schrijven.`
+    `GitHub- of Jira-acties - alleen lezen en de review-md schrijven.`
   );
 }
 

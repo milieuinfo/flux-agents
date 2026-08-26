@@ -38,7 +38,7 @@ export async function promptTicketKey(): Promise<string | undefined> {
  * (`ai/profiles/<naam>/`). Faalt zacht naar een lege lijst zodat de prompt kan
  * terugvallen op vrije tekstinvoer als de worktree er nog niet is.
  *
- * Leest puur van disk — de worktree verversen om nieuw toegevoegde profielen op
+ * Leest puur van disk - de worktree verversen om nieuw toegevoegde profielen op
  * te halen is een aparte, expliciete onderhoud-actie ('profielen verversen'),
  * want de fetch+reset is te traag om bij elke profiel-prompt te draaien.
  */
@@ -74,7 +74,7 @@ export async function promptBranch(): Promise<string | undefined> {
 }
 
 /**
- * Vraagt een profiel — een keuze uit de ontdekte profielen (incl. `no`). Wil je
+ * Vraagt een profiel - een keuze uit de ontdekte profielen (incl. `no`). Wil je
  * het no-op-gedrag ("geen AI-config"), kies dan expliciet `no`. Valt terug op
  * vrije tekst als er (nog) geen profielen ontdekt zijn (base-worktree niet
  * klaar). `undefined` bij annulering.
@@ -198,7 +198,7 @@ async function discoverWorktreeSprints(): Promise<string[]> {
 export async function promptWorktreeSprint(): Promise<string | undefined> {
   const sprints = await discoverWorktreeSprints();
   if (sprints.length === 0) {
-    p.log.info('Geen sprints met worktrees gevonden — niets om op te kuisen.');
+    p.log.info('Geen sprints met worktrees gevonden - niets om op te kuisen.');
     return undefined;
   }
   const sel = await p.select({
@@ -234,7 +234,7 @@ async function discoverExternalReviewWorktrees(): Promise<string[]> {
 export async function promptExternalReviewTargets(): Promise<string[] | undefined> {
   const leaves = await discoverExternalReviewWorktrees();
   if (leaves.length === 0) {
-    p.log.info('Geen externe-review-worktrees gevonden — niets om op te kuisen.');
+    p.log.info('Geen externe-review-worktrees gevonden - niets om op te kuisen.');
     return undefined;
   }
   const sel = await p.multiselect({
@@ -263,7 +263,7 @@ export function sprintFolderFromName(name: string): string {
 }
 
 export interface SprintChoice {
-  /** Letterlijke Jira-sprintnaam — gaat als JQL `sprint = "<naam>"` naar refine. */
+  /** Letterlijke Jira-sprintnaam - gaat als JQL `sprint = "<naam>"` naar refine. */
   sprintName: string;
   /** Afgeleide state-foldernaam onder STATE_DIR/sprints/. */
   folder: string;
@@ -277,7 +277,7 @@ function isAiSprint(name: string): boolean {
 /**
  * Vraagt een volledige sprint voor de refine-analyse, met de keuzelijst
  * rechtstreeks uit Jira i.p.v. de lokale folders. Toont enkel niet-gesloten
- * sprints van het Flux-project (`JIRA_PROJECT_KEY`) met 'AI' in de naam — ook
+ * sprints van het Flux-project (`JIRA_PROJECT_KEY`) met 'AI' in de naam - ook
  * een vers in Jira aangemaakte sprint die nog geen lokale folder heeft. De
  * gekozen sprint levert zowel de letterlijke Jira-naam (voor de JQL) als de
  * afgeleide foldernaam.
@@ -340,14 +340,14 @@ export async function promptSprintFromJira(
 }
 
 // Sentinel voor "geen analyse-keuze nodig" (legacy platte sprint of geen
-// analyses) — te onderscheiden van `undefined` (geannuleerd).
+// analyses) - te onderscheiden van `undefined` (geannuleerd).
 export const NO_ANALYSIS = Symbol('no-analysis');
 
 /**
  * Presenteert de analyse-keuze voor een sprint op het moment van
  * publicatie/planning/ontwikkeling. Legt de keuze vast in `_chosen.json` zodra
  * er meerdere analyses zijn (bv. `no-O48`, `no-F5`). Retourneert:
- *   - het label bij een keuze (en bij precies één analyse — dan geen vraag);
+ *   - het label bij een keuze (en bij precies één analyse - dan geen vraag);
  *   - `NO_ANALYSIS` als er (nog) geen analyse-folders zijn (legacy layout);
  *   - `undefined` bij annulering.
  */
@@ -365,7 +365,7 @@ export async function promptAnalysis(
 
   const current = await readChosenAnalysis(stateDir, sprint);
   const sel = await p.select({
-    message: `Meerdere analyses voor '${sprint}' — welke gebruiken?`,
+    message: `Meerdere analyses voor '${sprint}' - welke gebruiken?`,
     options: labels.map((name) => ({ value: name, label: name })),
     initialValue: current && labels.includes(current) ? current : undefined,
   });
@@ -399,7 +399,7 @@ export async function promptAnalysisForTicket(
   let sprint = sprints[0];
   if (sprints.length > 1) {
     const sel = await p.select({
-      message: `Ticket ${key} zit in meerdere sprints — welke?`,
+      message: `Ticket ${key} zit in meerdere sprints - welke?`,
       options: sprints.map((name) => ({ value: name, label: name })),
     });
     if (p.isCancel(sel)) return undefined;

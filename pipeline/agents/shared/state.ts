@@ -128,14 +128,14 @@ export class SprintState {
  * Hash de inhoudelijke velden van een Jira-ticket. Bewust ZONDER `updated`:
  * Jira's `updated`-timestamp wijzigt ook bij niet-inhoudelijke veranderingen
  * en die mogen geen heranalyse triggeren puur op timestamp. Op `updated`
- * wordt apart een snelle pre-check gedaan in agent 1 — deze hash is voor
+ * wordt apart een snelle pre-check gedaan in agent 1 - deze hash is voor
  * de echte content-vergelijking.
  *
  * Menselijke comments wegen WEL mee: een collega die een opmerking
  * toevoegt → automatisch een re-refine bij volgende run. AI-gegenereerde
  * comments (zoals die van `publish.ts` of `publish-review.ts`) moeten
  * door de caller uitgefilterd worden via `humanComments` voor ze hier
- * binnenkomen — anders zouden AI's eigen comments zelf een refine-cyclus
+ * binnenkomen - anders zouden AI's eigen comments zelf een refine-cyclus
  * triggeren.
  */
 export function hashTicketContent(ticket: {
@@ -145,7 +145,7 @@ export function hashTicketContent(ticket: {
   status: string;
   comments?: string[];
   /**
-   * Stabiele identiteit van image-attachments — typisch `${id}:${size}` per
+   * Stabiele identiteit van image-attachments - typisch `${id}:${size}` per
    * attachment. Een nieuwe of vervangen screenshot wijzigt de string en
    * triggert dus een re-refine. Verwijderen van een attachment ook.
    */
@@ -157,14 +157,14 @@ export function hashTicketContent(ticket: {
     acceptanceCriteria: (ticket.acceptanceCriteria ?? '').trim(),
     status: ticket.status,
   };
-  // Alleen toevoegen als er waarden zijn — zo blijft de hash van tickets
+  // Alleen toevoegen als er waarden zijn - zo blijft de hash van tickets
   // zonder comments/attachments identiek aan vóór deze feature, wat een
   // onnodige massale re-refine bij upgrade voorkomt.
   if (ticket.comments && ticket.comments.length > 0) {
     canonical.comments = ticket.comments.map((c) => c.trim());
   }
   if (ticket.attachments && ticket.attachments.length > 0) {
-    // Sorteer voor stabiliteit — Jira's volgorde is niet gegarandeerd.
+    // Sorteer voor stabiliteit - Jira's volgorde is niet gegarandeerd.
     canonical.attachments = [...ticket.attachments].sort();
   }
   return createHash('sha256').update(JSON.stringify(canonical)).digest('hex').slice(0, 16);

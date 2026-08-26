@@ -6,23 +6,23 @@ allowed-tools: Read, Write, Edit, Bash(git:*), Bash(mkdir:*), Bash(cp:*), Bash(l
 
 Start de ontwikkeling van ticket `$1` (sprint `$2` indien opgegeven).
 
-## Stap 1 — Lokaliseer het refinement-rapport
+## Stap 1 - Lokaliseer het refinement-rapport
 
 Zoek `state/sprints/*/$1.md`. Als sprintId gegeven: gebruik
 `state/sprints/$2/$1.md`. Als het niet bestaat: STOP en vertel me
 dat agent 1 eerst gedraaid moet zijn.
 
-## Stap 2 — Initialiseer ticket state
+## Stap 2 - Initialiseer ticket state
 
 Zorg dat `state/sprints/<sprint>/tickets/$1/` bestaat met:
-- `ticket.md` — kopie van het refinement-rapport
-- `_status.json` — `{"key": "$1", "round": 1, "status": "in_progress", "baseBranch": "<huidige branch>", "startedAt": "<ISO>"}`
+- `ticket.md` - kopie van het refinement-rapport
+- `_status.json` - `{"key": "$1", "round": 1, "status": "in_progress", "baseBranch": "<huidige branch>", "startedAt": "<ISO>"}`
 
 Als `_status.json` al bestaat: DIT IS VERKEERD GEBRUIK. Gebruik
 `/address` voor een vervolgiteratie op basis van review feedback.
 Stop met een duidelijke foutmelding.
 
-## Stap 3 — Git branch
+## Stap 3 - Git branch
 
 - Controleer dat de working tree clean is (`git status`). Als niet: STOP.
 - Fetch de latest `develop-v2`: `git fetch origin develop-v2`.
@@ -35,7 +35,7 @@ Stop met een duidelijke foutmelding.
   hoofdletters; de slug zijn 2-5 keywords uit de titel (stopwoorden
   verwijderd, `vl-` prefix gestript).
 
-## Stap 4 — Delegeer naar ticket-author
+## Stap 4 - Delegeer naar ticket-author
 
 Roep de `ticket-author` subagent aan met deze instructie:
 
@@ -43,7 +43,7 @@ Roep de `ticket-author` subagent aan met deze instructie:
 > Dit is ronde 1 (geen vorige review om te adresseren). Volg je werkwijze
 > en schrijf `state/sprints/<sprint>/tickets/$1/code-changes.md` als je klaar bent.
 
-## Stap 5 — Samenvatting
+## Stap 5 - Samenvatting
 
 Na de subagent terugkomt, toon Kris een korte samenvatting:
 - Branch naam

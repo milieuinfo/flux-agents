@@ -4,7 +4,7 @@ import { runOrLaunch } from './launch.js';
 
 /**
  * TUI-actie 'convergeer': vraagt één ticket en minstens twee profielen, en
- * draait dan converge — dat combineert de profielruns tot één profielloze
+ * draait dan converge - dat combineert de profielruns tot één profielloze
  * branch, pusht die en maakt een draft-PR aan. Keert terug naar het submenu.
  */
 export async function convergeAction(): Promise<void> {

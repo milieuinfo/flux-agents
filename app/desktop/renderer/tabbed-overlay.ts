@@ -1,6 +1,6 @@
 /**
  * Generiek tabbed modal: de overlay-chrome die het ⚙-paneel (InfoPanel) en het
- * ⓘ-hulppaneel (HelpPanel) delen — backdrop, paneel, tab-balk in de header,
+ * ⓘ-hulppaneel (HelpPanel) delen - backdrop, paneel, tab-balk in de header,
  * sluitknop en de secties in de body. Elke tab levert zijn eigen sectie
  * (`.info-section`); de overlay toggelt enkel `hidden` en roept `onActivate`
  * aan (lazy laden / verversen). Sluit via de achtergrond, × of Escape.

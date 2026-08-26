@@ -54,7 +54,7 @@ export class PtyManager {
     try {
       proc.resize(Math.max(cols, 1), Math.max(rows, 1));
     } catch {
-      // pty kan net gesloten zijn — resize op een dood proces is geen fout.
+      // pty kan net gesloten zijn - resize op een dood proces is geen fout.
     }
   }
 

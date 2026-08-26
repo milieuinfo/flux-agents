@@ -11,7 +11,7 @@
  * Wat converge doet:
  *  1. Valideert dat elke bron-profielrun status 'approved' heeft (iterate/
  *     review liep tot APPROVED, dus elke bronbranch draagt één squash-commit).
- *  2. Maakt een PROFIELLOZE worktree + branch `feature-v2/<KEY>-<slug>` —
+ *  2. Maakt een PROFIELLOZE worktree + branch `feature-v2/<KEY>-<slug>` -
  *     geen profiel-segment, geen model-code (zie CLAUDE.md §10/§12). Dit is
  *     de canonieke ticket-slot; push/pr vinden hem zonder --profile.
  *  3. Laat een Opus-agent de twee implementaties vergelijken en het beste
@@ -116,7 +116,7 @@ function parseArgs(): ConvergeArgs {
 }
 
 /**
- * Lokaliseer en valideer één bron-profielrun. Vereist status 'approved' —
+ * Lokaliseer en valideer één bron-profielrun. Vereist status 'approved' -
  * dat is het natuurlijke eindpunt van iterate (lokale squash gedaan, dus de
  * bronbranch draagt één nette commit om uit te combineren.
  *
@@ -176,7 +176,7 @@ async function main({ key, profiles, sprint }: ConvergeArgs) {
   }
 
   // Canonieke, profielloze slot: sprint + slug uit het refinement-rapport
-  // (niet uit een per-profiel ticket.md — die kunnen divergeren).
+  // (niet uit een per-profiel ticket.md - die kunnen divergeren).
   const refinement = await locateRefinement(stateDir, key, sprint);
   const refMd = await readFile(refinement.path, 'utf-8');
   const title = extractTitle(refMd);
@@ -184,7 +184,7 @@ async function main({ key, profiles, sprint }: ConvergeArgs) {
   const combinedBranch = ticketBranchName(key, slug); // géén profiel-segment
   log.ok(`Gecombineerde branch: ${combinedBranch} (base ${baseBranch})`);
 
-  // Profielloze worktree/state — push & pr vinden dit zonder --profile.
+  // Profielloze worktree/state - push & pr vinden dit zonder --profile.
   const worktree = ticketWorktreePath(stateDir, refinement.sprint, key);
   const created = await ensureTicketWorktree({
     mainRepoDir,
@@ -244,7 +244,7 @@ async function main({ key, profiles, sprint }: ConvergeArgs) {
   });
 
   const summary = await runAgent(q, {
-    label: `Agent draait — ${modelShort(convergeModel())}, combineren (max ${maxTurns} turns)`,
+    label: `Agent draait - ${modelShort(convergeModel())}, combineren (max ${maxTurns} turns)`,
     cwd: worktree,
     stateDir,
   });
@@ -295,11 +295,11 @@ async function main({ key, profiles, sprint }: ConvergeArgs) {
     }),
     status: 'approved',
   });
-  log.ok(`Gecombineerd op ${combinedBranch} — commit, _pr-body.md en _converge.md staan klaar`);
+  log.ok(`Gecombineerd op ${combinedBranch} - commit, _pr-body.md en _converge.md staan klaar`);
 
   // De combineer-stap (de dure LLM-run) is nu gecommit en op disk. Push en PR
-  // zijn deterministisch en goedkoop; faalt er een — typisch een gh/git auth-
-  // blip op de laatste stap — dan mag dat niet als een kale crash overkomen.
+  // zijn deterministisch en goedkoop; faalt er een - typisch een gh/git auth-
+  // blip op de laatste stap - dan mag dat niet als een kale crash overkomen.
   // De gecombineerde commit is veilig en de run staat op 'approved', dus we
   // geven een duidelijke hervat-instructie (push/pr zijn idempotent en
   // re-runnable) in plaats van de stacktrace.
@@ -323,7 +323,7 @@ async function main({ key, profiles, sprint }: ConvergeArgs) {
   }
 
   log.section(`Klaar · ${key}`);
-  log.hint('Nakijken', url ?? 'PR aangemaakt maar geen URL teruggekregen — check GitHub');
+  log.hint('Nakijken', url ?? 'PR aangemaakt maar geen URL teruggekregen - check GitHub');
   log.hint('Verslag', combined.convergeNotesPath);
   log.hint('Volgende', 'Zet de draft-PR ready en merge zelf op GitHub.');
 }
@@ -343,12 +343,12 @@ function buildPrompt(opts: {
     .map((s, i) => {
       const last = s.ticket.reviewPath(s.round);
       return (
-        `Bron ${i + 1} — profiel "${s.profile}":\n` +
+        `Bron ${i + 1} - profiel "${s.profile}":\n` +
         `  - branch (git-ref in je clone): ${s.branch}\n` +
-        `  - ${s.ticket.codeChangesPath} — author-beschrijving\n` +
-        `  - ${last} — laatste review\n` +
-        `  - ${s.ticket.prBodyPath} — PR-body van deze bron\n` +
-        `  - ${s.ticket.ticketMdPath} — refinement + evt. '## Keuze' van dit profiel`
+        `  - ${s.ticket.codeChangesPath} - author-beschrijving\n` +
+        `  - ${last} - laatste review\n` +
+        `  - ${s.ticket.prBodyPath} - PR-body van deze bron\n` +
+        `  - ${s.ticket.ticketMdPath} - refinement + evt. '## Keuze' van dit profiel`
       );
     })
     .join('\n\n');
@@ -361,7 +361,7 @@ function buildPrompt(opts: {
     `${sourceBlocks}\n\n` +
     `Je cwd is een verse worktree op branch ${combinedBranch}, ` +
     `afgesplitst van origin/${baseBranch}, nog zonder commits. De bronbranches ` +
-    `zitten in dezelfde clone — inspecteer ze met git (diff/show/checkout), je ` +
+    `zitten in dezelfde clone - inspecteer ze met git (diff/show/checkout), je ` +
     `hoeft ze niet uit te checken.\n\n` +
     `Bouw de gecombineerde implementatie volgens je system prompt: neem per ` +
     `onderdeel het beste van beide, hou de probleemstelling opgelost, ` +
@@ -370,7 +370,7 @@ function buildPrompt(opts: {
     `PR-titel) en schrijf de PR-body naar ${combined.prBodyPath} (absoluut pad, ` +
     `buiten je cwd). Schrijf daarnaast je converge-notes (wat je in elke bron ` +
     `vond + welke keuzes je maakte) naar ${combined.convergeNotesPath} ` +
-    `(absoluut pad, buiten je cwd). Push NIET en maak GEEN PR — dat doet de ` +
+    `(absoluut pad, buiten je cwd). Push NIET en maak GEEN PR - dat doet de ` +
     `orchestrator.\n\n` +
     `Jira ticket-URL voor de PR-body (gebruik exact deze): ${jiraTicketUrl}`
   );

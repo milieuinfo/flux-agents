@@ -1,6 +1,6 @@
 /**
  * Deterministisch hulpscript: vraag de door de SDK ondersteunde modellen op en
- * print ze als JSON. Geen agent-run, geen tools — enkel een control-request
+ * print ze als JSON. Geen agent-run, geen tools - enkel een control-request
  * (`supportedModels`) op een streaming-input-query.
  *
  * Gebruikt door de desktop-app (`config-store.listAvailableModels`) om de

@@ -8,7 +8,7 @@ import { git, managedRepoPath } from '../agents/shared/repo.js';
  * Retourneert het aantal effectief verwijderde worktrees. Bij `dryRun` wordt
  * enkel gelogd wat zou gebeuren.
  *
- * Gedeeld door close-sprint en close-external — beide kuisen een set
+ * Gedeeld door close-sprint en close-external - beide kuisen een set
  * gitignored worktrees op zonder de committed state te raken.
  */
 export async function removeWorktrees(
@@ -46,6 +46,6 @@ export async function removeIfEmpty(dir: string): Promise<void> {
     await rmdir(dir);
     log.ok(`Lege map verwijderd: ${dir}`);
   } catch {
-    // niet leeg — laten staan
+    // niet leeg - laten staan
   }
 }

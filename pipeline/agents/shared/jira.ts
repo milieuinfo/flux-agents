@@ -129,7 +129,7 @@ interface JiraSearchResponse {
 /**
  * Zoek tickets via JQL en geef per issue de lichte velden terug die agent 1
  * nodig heeft voor de idempotency-pass (key, summary, status, updated). Vervangt
- * de vroegere MCP-lookup — een directe REST-call is sneller, deterministisch en
+ * de vroegere MCP-lookup - een directe REST-call is sneller, deterministisch en
  * kost geen LLM-beurten. Pagineert zodat sprints met >50 tickets volledig
  * teruggegeven worden.
  */
@@ -240,7 +240,7 @@ async function listProjectScrumBoards(
 
 /**
  * Lijst de niet-gesloten sprints (active + future) van een project. Loopt over
- * alle scrum-boards van het project en dedupliceert op sprint-id — eenzelfde
+ * alle scrum-boards van het project en dedupliceert op sprint-id - eenzelfde
  * sprint kan op meerdere boards verschijnen. `closed` sprints worden door de
  * `state`-filter weggelaten zodat de caller enkel nog-relevante sprints ziet.
  *
@@ -311,7 +311,7 @@ export async function getIssueComments(
  * Headers die door de eigen publicatie-scripts (`publish.ts` en
  * `publish-review.ts`) op comments worden gezet. Worden gebruikt om
  * AI-comments uit te sluiten bij content-hashing en bij wat de refine-LLM
- * mag laten meewegen — anders zou een AI-comment via `publish.ts` zelf
+ * mag laten meewegen - anders zou een AI-comment via `publish.ts` zelf
  * een nieuwe refine-cyclus triggeren.
  */
 const AI_COMMENT_HEADER_RE =
@@ -353,7 +353,7 @@ export interface JiraFullIssue {
  * `jira_get_issue` aanriep; nu injecteren we de data rechtstreeks in de prompt.
  *
  * Comment-filtering (AI vs mens) blijft de verantwoordelijkheid van de caller
- * via `humanComments` — net als bij `getIssueComments`.
+ * via `humanComments` - net als bij `getIssueComments`.
  */
 export async function getFullIssueDetails(
   client: JiraClient,
@@ -385,7 +385,7 @@ export interface JiraAttachment {
   filename: string;
   mimeType: string;
   size: number;
-  /** Authenticated download URL — vaak `/secure/attachment/{id}/{filename}`. */
+  /** Authenticated download URL - vaak `/secure/attachment/{id}/{filename}`. */
   content: string;
   created?: string;
 }
@@ -413,7 +413,7 @@ export async function getIssueAttachments(
  * en is dezelfde host. Werkt zowel met absolute als relatieve `content`-
  * URLs.
  *
- * Returns base64 + mime-type — handig om direct als image-content-block
+ * Returns base64 + mime-type - handig om direct als image-content-block
  * aan de Claude SDK door te geven.
  */
 export async function downloadAttachmentAsBase64(
@@ -520,7 +520,7 @@ export async function listFields(client: JiraClient): Promise<JiraField[]> {
  * Pragmatische converter van CommonMark-achtige markdown naar Jira Data Center
  * wiki markup. Dekt wat agent 1 + 2 + 4 (review-external) produceren: headings,
  * lijsten, tables, bold, inline code, fenced code blocks, hr's, links. Italic
- * en images niet — die gebruiken de agents niet.
+ * en images niet - die gebruiken de agents niet.
  */
 export function markdownToJiraWiki(md: string): string {
   const lines = reflowSoftLineBreaks(md).split('\n');
@@ -589,7 +589,7 @@ export function markdownToJiraWiki(md: string): string {
   }
 
   // Post-process: in Jira wiki resetten blank lines tussen list-items de
-  // nummering. Markdown (en agents) zetten ze er wél tussen — zowel
+  // nummering. Markdown (en agents) zetten ze er wél tussen - zowel
   // direct (`# foo\n\n# bar`) als met geneste sub-items er tussen
   // (`# foo\n** sub\n\n# bar`). Daarom een loop die elke blank line
   // weghaalt zolang de regel ervoor én de eerstvolgende niet-blanke regel
@@ -624,12 +624,12 @@ function compactListBlankLines(s: string): string {
  *
  * Probleem: de agents schrijven hun markdown soft-wrapped (~80 kolommen).
  * In CommonMark is dat een single space, maar Jira's wiki markup behandelt
- * elke nieuwe regel als een hard break — daardoor:
+ * elke nieuwe regel als een hard break - daardoor:
  *   1. paragrafen renderen als smalle kolom met enters per ~80 tekens,
  *   2. **bold** waarvan de open- en sluit-`**` op verschillende regels staan
  *      matcht de regex niet meer, dus de literal sterren blijven staan,
  *   3. genummerde lijsten met indented vervolgregels worden door Jira gezien
- *      als losse lijsten van één item — elk item begint weer bij "1.".
+ *      als losse lijsten van één item - elk item begint weer bij "1.".
  *
  * De fix is een pre-pass die paragraaf- en list-item-regels samenvoegt tot
  * één fysieke regel. Code-fences, blank lines, headings, hr's en table-rijen
@@ -669,7 +669,7 @@ function reflowSoftLineBreaks(md: string): string {
       continue;
     }
     if (inFence) {
-      // Strip tot fenceIndent leading spaces — meer niet, zodat de eigen
+      // Strip tot fenceIndent leading spaces - meer niet, zodat de eigen
       // indentatie van de code (bv. een nested if) bewaard blijft.
       const stripped =
         fenceIndent > 0
@@ -688,8 +688,8 @@ function reflowSoftLineBreaks(md: string): string {
 
     // Standalone-regels die een paragraaf altijd onderbreken: heading, hr,
     // table-rij (incl. separator), of een metadata-regel (`**Field:**` aan
-    // het begin). Die laatste is hoe agents header-blokken schrijven —
-    // elk veld op eigen regel — en die mogen niet worden samengeplakt.
+    // het begin). Die laatste is hoe agents header-blokken schrijven -
+    // elk veld op eigen regel - en die mogen niet worden samengeplakt.
     if (
       /^#{1,6}\s/.test(line) ||
       /^\s*(-{3,}|_{3,}|\*{3,})\s*$/.test(line) ||
@@ -711,7 +711,7 @@ function reflowSoftLineBreaks(md: string): string {
 
     // Continuatie: hang aan de buffer. Eindigt de buffer op een
     // afgebroken-woord-koppelteken (bv. "horizontale-"), plak dan zonder
-    // spatie — anders krijg je "horizontale- navigatievariant" wat Jira
+    // spatie - anders krijg je "horizontale- navigatievariant" wat Jira
     // soms als strikethrough-delimiter `-X-` interpreteert. Verder gewoon
     // met spatie joinen.
     if (buffer !== '') {
@@ -762,7 +762,7 @@ function convertInline(s: string): string {
   //  2. Inhoud met `--` (typisch CSS custom properties zoals
   //     `--vl-color--primary`): Jira parseert die dubbele dashes binnen
   //     `{{…}}` alsnog als strikethrough-marker. Escape elk dash naar
-  //     `\-` zodat ze als literal renderen — monospace styling blijft.
+  //     `\-` zodat ze als literal renderen - monospace styling blijft.
   s = s.replace(/\x00CODE(\d+)\x00/g, (_, idx: string) => {
     const c = stash[Number(idx)];
     if (/[{}]/.test(c)) return c;

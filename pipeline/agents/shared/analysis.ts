@@ -6,7 +6,7 @@
  * sprint meerdere analyses naast elkaar hebben. Downstream (plan, publish,
  * develop, converge, review-external) moet er precies één gebruiken. Dat wordt
  * vastgelegd via een pointer `sprints/<sprint>/_chosen.json` (géén bestanden
- * verplaatsen) — de niet-gekozen analyses blijven zichtbaar in hun eigen
+ * verplaatsen) - de niet-gekozen analyses blijven zichtbaar in hun eigen
  * label-folder.
  *
  * `resolveAnalysisDir` is de centrale resolver die overal (CLI-scripts én TUI)
@@ -27,7 +27,7 @@ export function analysesDir(stateDir: string, sprint: string): string {
   return join(sprintRoot(stateDir, sprint), 'analyses');
 }
 
-/** `sprints/<sprint>/_chosen.json` — de pointer naar de gekozen analyse. */
+/** `sprints/<sprint>/_chosen.json` - de pointer naar de gekozen analyse. */
 export function chosenPath(stateDir: string, sprint: string): string {
   return join(sprintRoot(stateDir, sprint), '_chosen.json');
 }
@@ -165,7 +165,7 @@ export async function resolveAnalysisDir(
 
   throw new Error(
     `Meerdere analyses voor sprint ${sprint} (${labels.join(', ')}). ` +
-      `Kies er eerst één — geef '--analysis <label>' mee, of maak de keuze ` +
+      `Kies er eerst één - geef '--analysis <label>' mee, of maak de keuze ` +
       `in de TUI-wizard.`,
   );
 }
@@ -181,7 +181,7 @@ export async function hasTicketMarkdown(dir: string, key: string): Promise<boole
 }
 
 /**
- * Of een sprint dit ticket bevat — in een van zijn analyse-folders
+ * Of een sprint dit ticket bevat - in een van zijn analyse-folders
  * (`analyses/<label>/<KEY>.md`) of in de legacy platte layout
  * (`<KEY>.md` in de sprint-root). Puur een "zit dit ticket hier"-check;
  * welke analyse gebruikt wordt beslist `resolveAnalysisDir` erna.

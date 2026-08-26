@@ -51,24 +51,24 @@ onderlinge afhankelijkheden hebben. Bv:
 
 {Tickets met readiness NEEDS-INFO of BLOCKED, of waarvan de afhankelijkheid
 buiten deze sprint valt. Elk met één zin uitleg waarom.
-Als leeg: "Geen — alle tickets zijn uitvoerbaar"}
+Als leeg: "Geen - alle tickets zijn uitvoerbaar"}
 
 ## Aanbevelingen
 
 {3-6 bullets met concrete aanbevelingen, bv:
-- "Begin met FLUX-123 — het is een enabler voor 3 andere tickets"
+- "Begin met FLUX-123 - het is een enabler voor 3 andere tickets"
 - "FLUX-127 heeft hoge impact maar XL effort: overweeg splitsen"
-- "Geen van de tickets raakt de publieke API — laag breaking change risico"}
+- "Geen van de tickets raakt de publieke API - laag breaking change risico"}
 ```
 
 ## Regels voor prioritering
 
 Volgorde wordt bepaald door (in aflopende prioriteit):
 
-1. **Technische afhankelijkheden** — als A blokkeert B, dan komt A eerst
-2. **Readiness** — READY gaat voor NEEDS-INFO
-3. **Impact × 1/effort** — hoge impact en lage effort eerst (quick wins)
-4. **Risico-spreiding** — vermijd alle XL tickets aan het begin
+1. **Technische afhankelijkheden** - als A blokkeert B, dan komt A eerst
+2. **Readiness** - READY gaat voor NEEDS-INFO
+3. **Impact × 1/effort** - hoge impact en lage effort eerst (quick wins)
+4. **Risico-spreiding** - vermijd alle XL tickets aan het begin
 
 ## Regels voor het output
 
@@ -77,4 +77,6 @@ Volgorde wordt bepaald door (in aflopende prioriteit):
 - Als er geen dependency graph is (alle tickets onafhankelijk): schrijf
   dat expliciet, produceer geen lege graph.
 - Geen emojis behalve ⚠️.
+- Nooit een em-dash of en-dash (lang gedachtestreepje); schrijf altijd een
+  gewone dash (-).
 - Begin met `# ` en stop na laatste sectie. Geen preambule.

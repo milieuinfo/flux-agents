@@ -1,11 +1,11 @@
 #!/usr/bin/env tsx
 /**
- * close-sprint — ruim de worktrees van een afgesloten sprint op.
+ * close-sprint - ruim de worktrees van een afgesloten sprint op.
  *
  * Deterministisch script (geen LLM). Doet `git worktree remove --force` op elke
  * `worktrees/<SPRINT>/*` in de managed clone, gevolgd door `git worktree prune`.
  * De committed sprint-state (refinement + ticketwerk onder `sprints/<SPRINT>/`)
- * blijft bewaard — die zit in de git-historie van de state-repo.
+ * blijft bewaard - die zit in de git-historie van de state-repo.
  *
  * Idempotent: geen worktrees meer = no-op.
  *
@@ -31,7 +31,7 @@ export async function runCloseSprint(sprint: string, dryRun: boolean): Promise<v
 
   if (!(await pathExists(sprintWorktrees))) {
     log.info(
-      `Geen worktrees-map voor sprint '${sprint}' (${sprintWorktrees}) — niets te doen.`,
+      `Geen worktrees-map voor sprint '${sprint}' (${sprintWorktrees}) - niets te doen.`,
     );
     return;
   }
@@ -41,7 +41,7 @@ export async function runCloseSprint(sprint: string, dryRun: boolean): Promise<v
     .map((e) => join(sprintWorktrees, e.name));
 
   if (entries.length === 0) {
-    log.info(`Geen worktrees onder ${sprintWorktrees} — niets te doen.`);
+    log.info(`Geen worktrees onder ${sprintWorktrees} - niets te doen.`);
     return;
   }
 
@@ -54,7 +54,7 @@ export async function runCloseSprint(sprint: string, dryRun: boolean): Promise<v
 
   await removeIfEmpty(sprintWorktrees);
   log.ok(
-    `${removed} worktree(s) opgeruimd — de committed state onder ` +
+    `${removed} worktree(s) opgeruimd - de committed state onder ` +
       `sprints/${sprint}/ blijft bewaard.`,
   );
 }

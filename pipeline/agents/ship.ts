@@ -8,7 +8,7 @@
  * aan met `npm run git:pr`. Stopt verder bij ESCALATED (mens nodig) of na ronde 3.
  *
  * Wil je het resultaat puur lokaal houden (géén push), gebruik dan
- * `npm run pipeline:iterate` — zelfde lus, maar stopt bij APPROVED zonder te pushen.
+ * `npm run pipeline:iterate` - zelfde lus, maar stopt bij APPROVED zonder te pushen.
  *
  * Dit is de "one-shot" variant: `npm run pipeline:develop` en `npm run pipeline:review`
  * handmatig na elkaar draaien werkt nog steeds en is nuttig als je per
@@ -68,7 +68,7 @@ async function main({ key, sprint, profile }: ShipArgs): Promise<void> {
 
   if (result.outcome === 'approved') {
     log.section('Pushen');
-    log.ok(`APPROVED na ronde ${result.round} — lokale squash gedaan`);
+    log.ok(`APPROVED na ronde ${result.round} - lokale squash gedaan`);
     await runPush({ key, profile });
 
     log.section(`Klaar · ${key} · APPROVED (ronde ${result.round})`);

@@ -35,7 +35,7 @@ export class SettingsPanel {
   private readonly modelSelects = new Map<string, HTMLSelectElement>();
   // Per model-veld een (verborgen) foutregel + de set velden waarvan het
   // ingestelde model niet in de SDK-lijst voorkomt. Zolang die set niet leeg is
-  // weigert `save()` — een mismatch stil laten passeren zou het model ongemerkt
+  // weigert `save()` - een mismatch stil laten passeren zou het model ongemerkt
   // op de ingebouwde default zetten.
   private readonly modelErrors = new Map<string, HTMLElement>();
   private readonly invalidModels = new Set<string>();
@@ -143,7 +143,7 @@ export class SettingsPanel {
         warn.className = 'settings-warn';
         warn.hidden = true;
         warn.textContent =
-          '⚠ Relatief pad — in een geïnstalleerde app wijst dit naar de ' +
+          '⚠ Relatief pad - in een geïnstalleerde app wijst dit naar de ' +
           'app-bundle en verdwijnt het bij een update. Gebruik een absoluut ' +
           'pad (bv. /Users/jij/flux-agents-state) of laat het veld leeg.';
         this.stateDirWarning = warn;
@@ -270,7 +270,7 @@ export class SettingsPanel {
 
     // De lege keuze staat altijd vooraan, buiten de sortering.
     const options: ModelOption[] = [
-      { value: '', label: '— niet ingesteld —' },
+      { value: '', label: '- niet ingesteld -' },
       ...models,
     ];
     select.replaceChildren();
@@ -283,7 +283,7 @@ export class SettingsPanel {
     if (unresolved) {
       const el = document.createElement('option');
       el.value = stored;
-      el.textContent = `${prettyModelName(stored)} — modellijst niet geladen`;
+      el.textContent = `${prettyModelName(stored)} - modellijst niet geladen`;
       el.disabled = true;
       select.appendChild(el);
     }
@@ -294,7 +294,7 @@ export class SettingsPanel {
 
   /**
    * Toon of ruim de mismatch-fout bij één model-veld. Zolang een veld in fout
-   * staat blokkeert `save()` — zie `invalidModels`.
+   * staat blokkeert `save()` - zie `invalidModels`.
    */
   private setModelError(key: string, invalid: string | null): void {
     const el = this.modelErrors.get(key);
@@ -303,7 +303,7 @@ export class SettingsPanel {
       if (el) {
         el.hidden = false;
         el.textContent =
-          `⚠ Ingesteld model "${invalid}" staat niet in de modellijst — ` +
+          `⚠ Ingesteld model "${invalid}" staat niet in de modellijst - ` +
           'kies er één uit de lijst (of "niet ingesteld") en sla op.';
       }
     } else {
@@ -340,7 +340,7 @@ export class SettingsPanel {
         }
         this.setModelsStatus('Modellen geladen.', 'ok');
       } else if (res.state === 'missing') {
-        this.setModelsStatus('Geen OAuth-token — modellen niet op te halen.', 'err');
+        this.setModelsStatus('Geen OAuth-token - modellen niet op te halen.', 'err');
       } else {
         this.setModelsStatus(`Ophalen mislukt: ${res.detail ?? 'onbekende fout'}`, 'err');
       }
@@ -387,7 +387,7 @@ export class SettingsPanel {
       if (f.secret && input instanceof HTMLInputElement) {
         input.value = '';
         input.placeholder = secretsSet[f.key]
-          ? '•••••••• (ingesteld — leeg laten om te behouden)'
+          ? '•••••••• (ingesteld - leeg laten om te behouden)'
           : (f.placeholder ?? '');
       } else if (f.dynamicModels && input instanceof HTMLSelectElement) {
         // Toon meteen de bewaarde waarde; de volledige lijst komt async binnen.

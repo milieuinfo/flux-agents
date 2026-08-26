@@ -1,11 +1,11 @@
 /**
- * Terminal-output voor de pipeline — één plek voor álles wat een mens tijdens
+ * Terminal-output voor de pipeline - één plek voor álles wat een mens tijdens
  * een run te zien krijgt (gewone terminal via de TUI, of de pty-tab in de
  * desktop-app). Niets parseert deze output machinaal; het doel is dat een mens
  * kan volgen wat er gebeurt en wat de volgende stap is.
  *
  * Twee lagen:
- *  - `log.debug/info/warn/error` — klassieke levels, gefilterd op `LOG_LEVEL`.
+ *  - `log.debug/info/warn/error` - klassieke levels, gefilterd op `LOG_LEVEL`.
  *    warn/error gaan naar stderr, de rest naar stdout.
  *  - presentatie-primitieven voor de agent-scripts:
  *      section  ━━ titel ━━━…            kop van een run of ronde
@@ -19,7 +19,7 @@
  *      fatal    ━━ Mislukt ━━ + reden    afsluitende fout (stack enkel op debug)
  *
  * Regelformaat: `HH:MM:SS <marker> tekst`. De tijd is lokaal en gedimd; geen
- * ISO/ms en geen `INFO `-label — dat was ruis. Vervolgregels van een
+ * ISO/ms en geen `INFO `-label - dat was ruis. Vervolgregels van een
  * meerregelige boodschap worden ingesprongen tot onder de tekst zodat de
  * kolom uitgelijnd blijft.
  *
@@ -63,7 +63,7 @@ function stamp(): string {
   return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 }
 
-/** Breedte van `HH:MM:SS ` — vervolgregels springen tot hier in. */
+/** Breedte van `HH:MM:SS ` - vervolgregels springen tot hier in. */
 const STAMP_INDENT = ' '.repeat(9);
 
 /**
@@ -189,12 +189,12 @@ function sectionLine(title: string, color: string): string {
 
 export interface StepHandle {
   /**
-   * `✓ <msg ?? label> (<duur>)` — duur enkel als die ≥ 1s is. Zet
+   * `✓ <msg ?? label> (<duur>)` - duur enkel als die ≥ 1s is. Zet
    * `duration: false` als de boodschap zelf al een (gezaghebbender) duur bevat.
    */
   done(msg?: string, opts?: { duration?: boolean }): void;
   /**
-   * `✗ <msg ?? label>` — bewust zonder foutdetail: dat print `log.fatal`
+   * `✗ <msg ?? label>` - bewust zonder foutdetail: dat print `log.fatal`
    * (of de caller) één keer, volledig.
    */
   fail(msg?: string): void;
@@ -314,7 +314,7 @@ export const log = {
     write(process.stdout, out.join('\n'));
   },
 
-  /** `  Label:    waarde` — voor "Nakijken:" / "Volgende:" op het eind. */
+  /** `  Label:    waarde` - voor "Nakijken:" / "Volgende:" op het eind. */
   hint(label: string, value: string): void {
     if (!shouldLog('info')) return;
     const head = `${label}:`.padEnd(10);
@@ -329,7 +329,7 @@ export const log = {
   /**
    * Afsluitende fout: `━━ Mislukt · title ━━` + de volledige foutboodschap
    * (ingesprongen; de bestaande foutteksten bevatten al de hersteltips), de
-   * stack enkel op debug. Doet zelf geen `process.exit` — zie shared/cli.ts.
+   * stack enkel op debug. Doet zelf geen `process.exit` - zie shared/cli.ts.
    */
   fatal(err: unknown, title: string): void {
     if (!shouldLog('error')) return;

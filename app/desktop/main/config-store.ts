@@ -43,7 +43,7 @@ const SECRET_SET = new Set(SECRET_KEYS);
  * De secrets (`flux-agents.secrets.bin`) migreren we bewust NIET: die zijn met
  * Electron `safeStorage` versleuteld met een sleutel die aan de app-identiteit
  * hangt (de oude "Electron"-naam). Onder de nieuwe naam zijn ze niet te
- * ontsleutelen — het bestand kopiëren zou enkel onleesbare data opleveren. De
+ * ontsleutelen - het bestand kopiëren zou enkel onleesbare data opleveren. De
  * gebruiker vult zijn token(s) eenmalig opnieuw in (Jira zit doorgaans al in
  * `.env`).
  *
@@ -116,7 +116,7 @@ export function loadEffectiveConfig(repoRoot: string): Record<string, string> {
     ...readJsonConfig(),
     ...readSecrets(),
   };
-  // Lege waarden niet injecteren — laat de ingebouwde defaults/agents beslissen.
+  // Lege waarden niet injecteren - laat de ingebouwde defaults/agents beslissen.
   for (const k of Object.keys(merged)) {
     if (merged[k] === '' || merged[k] == null) delete merged[k];
   }
@@ -128,7 +128,7 @@ export function loadEffectiveConfig(repoRoot: string): Record<string, string> {
 }
 
 /**
- * Waarden voor het settings-scherm. Secrets gaan NIET mee — enkel of ze gezet
+ * Waarden voor het settings-scherm. Secrets gaan NIET mee - enkel of ze gezet
  * zijn (zodat het veld leeg getoond wordt met "behouden indien leeg").
  */
 export function getConfigForRenderer(repoRoot: string): {
@@ -200,7 +200,7 @@ export async function checkAnthropicAuth(
   }
   return {
     state: 'ok',
-    detail: 'OAuth-token ingesteld — agents draaien op je Pro/Max-abonnement.',
+    detail: 'OAuth-token ingesteld - agents draaien op je Pro/Max-abonnement.',
   };
 }
 
@@ -210,7 +210,7 @@ const MODELS_END = '__FLUX_MODELS_END__';
 
 /**
  * Vraag de door de SDK ondersteunde modellen op voor de model-dropdowns in het
- * settings-scherm — géén hardgecodeerde lijst. We draaien `list-models.ts` via
+ * settings-scherm - géén hardgecodeerde lijst. We draaien `list-models.ts` via
  * dezelfde login-shell + `node --import tsx` als de agents (zodat node/tsx op de
  * PATH staan en de SDK zijn eigen CLI uit node_modules vindt) en injecteren de
  * effectieve config als env. De JSON komt tussen sentinels terug, zodat we hem
@@ -273,21 +273,21 @@ const CLAUDE_CODE_USER_AGENT = 'claude-code/2.0.1';
 /**
  * Het identiteits-systeemblok dat een subscription-OAuth-call vereist. Een
  * `/v1/messages`-request met het Pro/Max-OAuth-token wordt geweigerd tenzij het
- * eerste system-blok exact deze tekst is — zo herkent Anthropic de call als
+ * eerste system-blok exact deze tekst is - zo herkent Anthropic de call als
  * afkomstig van de Claude Code-surface.
  */
 const CLAUDE_CODE_SYSTEM = "You are Claude Code, Anthropic's official CLI for Claude.";
 
 /**
  * Klein, goedkoop model voor de probe-call. We hebben enkel de
- * rate-limit-responseheaders nodig, niet de inhoud — `max_tokens: 1` houdt de
+ * rate-limit-responseheaders nodig, niet de inhoud - `max_tokens: 1` houdt de
  * kost verwaarloosbaar (~1 output-token).
  */
 const USAGE_PROBE_MODEL = 'claude-haiku-4-5';
 
 /**
  * Lees één unified rate-limit-venster (`5h` of `7d`) uit de responseheaders.
- * `utilization` is een decimaal 0–1 (we tonen het als percentage); `reset` is
+ * `utilization` is een decimaal 0-1 (we tonen het als percentage); `reset` is
  * een unix-seconden-timestamp of ISO-string.
  */
 function readUnifiedWindow(headers: Headers, bucket: '5h' | '7d'): UsageWindow | undefined {
@@ -295,7 +295,7 @@ function readUnifiedWindow(headers: Headers, bucket: '5h' | '7d'): UsageWindow |
   if (raw == null) return undefined;
   const value = Number(raw);
   if (Number.isNaN(value)) return undefined;
-  // Documenteerd als decimaal 0–1; tolereer ook een reeds-percentage (>1).
+  // Documenteerd als decimaal 0-1; tolereer ook een reeds-percentage (>1).
   const pct = value <= 1 ? value * 100 : value;
   return {
     utilization: Math.max(0, Math.min(100, pct)),

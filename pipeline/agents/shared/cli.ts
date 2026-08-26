@@ -1,7 +1,7 @@
 /**
  * Gedeelde afsluiting voor alle CLI-entrypoints (agents én deterministische
  * scripts): één `━━ Mislukt · <titel> ━━`-blok met de volledige foutboodschap
- * en exit-code 1. De stack staat enkel op `LOG_LEVEL=debug` — de
+ * en exit-code 1. De stack staat enkel op `LOG_LEVEL=debug` - de
  * foutboodschappen in deze repo bevatten zelf al de hersteltips.
  */
 

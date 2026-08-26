@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 /**
- * Publish-script — directe Jira REST-calls
+ * Publish-script - directe Jira REST-calls
  *
  * Publiceert refinement-output (agent 1) en sprint-overzicht (agent 2)
  * terug naar Jira:
@@ -20,7 +20,7 @@
  *
  * Idempotent: hashes elke gepubliceerde body in `_published.json` zodat een
  * tweede run zonder content-wijziging niets dubbel post. Het umbrella-ticket
- * wordt bijgewerkt (description overschreven) als het al bestaat — er wordt
+ * wordt bijgewerkt (description overschreven) als het al bestaat - er wordt
  * nooit een tweede umbrella aangemaakt voor dezelfde sprint.
  *
  * Comments worden NOOIT verwijderd of overschreven: een herhaalde run met
@@ -217,7 +217,7 @@ function detectSprintField(
  * oplevert (verkeerde key, missing field, fields=null), valt hij terug op
  * een fetch met `fields=*all` en auto-detect via shape. Het gevonden
  * field-key wordt op `client.sprintField` gezet zodat `createUmbrellaIssue`
- * verderop hetzelfde veld gebruikt — zo blijft sprintkoppeling consistent.
+ * verderop hetzelfde veld gebruikt - zo blijft sprintkoppeling consistent.
  */
 async function findSprintIdByName(
   client: JiraClient,
@@ -239,13 +239,13 @@ async function findSprintIdByName(
   // Fallback: auto-detect via *all
   if (!Array.isArray(raw)) {
     log.info(
-      `  sprint-veld ${client.sprintField} leverde geen bruikbare array op — ` +
+      `  sprint-veld ${client.sprintField} leverde geen bruikbare array op - ` +
         `fallback: alle fields op ${anyTicketKey} ophalen voor auto-detect`,
     );
     const issue = await getIssue(client, anyTicketKey, ['*all']);
     if (!issue?.fields || typeof issue.fields !== 'object') {
       throw new Error(
-        `Issue ${anyTicketKey} heeft geen fields object — onverwachte response: ${JSON.stringify(
+        `Issue ${anyTicketKey} heeft geen fields object - onverwachte response: ${JSON.stringify(
           issue,
         ).slice(0, 300)}`,
       );
@@ -344,8 +344,8 @@ async function findEpicNameField(client: JiraClient): Promise<string> {
 
 /**
  * Zet `JIRA_UMBRELLA_EPIC` om naar een issue-key. De input mag:
- *   - een directe issue-key zijn (bv. `FLUX-42`) — wordt geverifieerd
- *   - of een Epic Name (bv. `[2026] - samenwerking`) — wordt opgezocht
+ *   - een directe issue-key zijn (bv. `FLUX-42`) - wordt geverifieerd
+ *   - of een Epic Name (bv. `[2026] - samenwerking`) - wordt opgezocht
  *     via JQL op het Epic Name customfield.
  *
  * Geeft `null` terug als de env var leeg is.
@@ -360,7 +360,7 @@ async function resolveEpicConfig(
   const linkField = await findEpicLinkField(client);
 
   if (TICKET_KEY_RE.test(raw)) {
-    // Direct key — verifieer dat het bestaat en een Epic is.
+    // Direct key - verifieer dat het bestaat en een Epic is.
     const issue = await getIssue(client, raw, ['issuetype']);
     const issuetype = (issue.fields?.issuetype as { name?: string } | undefined)
       ?.name;
@@ -389,7 +389,7 @@ async function resolveEpicConfig(
   if (issues.length > 1) {
     throw new Error(
       `Meerdere Epics met Epic Name "${raw}": ` +
-        `${issues.map((i) => i.key).join(', ')} — gebruik issue-key in JIRA_UMBRELLA_EPIC.`,
+        `${issues.map((i) => i.key).join(', ')} - gebruik issue-key in JIRA_UMBRELLA_EPIC.`,
     );
   }
   return { linkField, key: issues[0].key };
@@ -485,7 +485,7 @@ async function linkUmbrellaToTickets(
     }
     if (args.dryRun) {
       log.info(
-        `  ${key}: dry-run — zou ${umbrellaKey} "${linkType.inward}" ${key} linken`,
+        `  ${key}: dry-run - zou ${umbrellaKey} "${linkType.inward}" ${key} linken`,
       );
       skipped++;
       continue;
@@ -514,7 +514,7 @@ async function findUmbrellaTicket(
   if (issues.length > 1) {
     throw new Error(
       `Meerdere umbrella-tickets gevonden voor sprint "${sprintName}": ` +
-        `${issues.map((i) => i.key).join(', ')} — ruim handmatig op.`,
+        `${issues.map((i) => i.key).join(', ')} - ruim handmatig op.`,
     );
   }
   return issues[0].key;
@@ -548,7 +548,7 @@ async function loadSprintMeta(sprintDir: string): Promise<{ sprintName: string }
   const raw = await readFile(metaPath, 'utf-8');
   const meta = JSON.parse(raw);
   if (!meta.sprintName || typeof meta.sprintName !== 'string') {
-    throw new Error('_meta.json bevat geen geldige sprintName — heb je agent 1 al gedraaid?');
+    throw new Error('_meta.json bevat geen geldige sprintName - heb je agent 1 al gedraaid?');
   }
   return { sprintName: meta.sprintName as string };
 }
@@ -664,7 +664,7 @@ async function publishOverview(
 ): Promise<'created' | 'updated' | 'unchanged' | 'skipped' | 'failed'> {
   const orderPath = join(sprintDir, '_order.md');
   if (!(await fileExists(orderPath))) {
-    log.info('No _order.md found — skipping sprint-overview ticket. Run agent 2 first.');
+    log.info('No _order.md found - skipping sprint-overview ticket. Run agent 2 first.');
     return 'skipped';
   }
 
@@ -685,7 +685,7 @@ async function publishOverview(
       );
     }
   } catch (err) {
-    log.error('Epic-link config FAILED — umbrella krijgt geen epic-link:', err);
+    log.error('Epic-link config FAILED - umbrella krijgt geen epic-link:', err);
   }
 
   const descriptionUnchanged =
@@ -818,7 +818,7 @@ async function main() {
   if (!args.skipOverview) {
     // Pak een willekeurige ticket-key uit de sprint voor sprint-ID lookup tijdens
     // umbrella-creatie. Als de sprint leeg is en er geen umbrella nog bestaat
-    // faalt overview-publish met een duidelijke error — niet dramatisch.
+    // faalt overview-publish met een duidelijke error - niet dramatisch.
     const tickets = await listTicketMarkdowns(sprintDir);
     const anyKey = tickets[0]?.key ?? null;
     overviewStatus = await publishOverview(
@@ -832,7 +832,7 @@ async function main() {
     );
 
     // Issue-links: umbrella "wordt gerealiseerd door" elk sprint-ticket.
-    // Loopt ook bij overviewStatus='unchanged' — links kunnen ontbreken
+    // Loopt ook bij overviewStatus='unchanged' - links kunnen ontbreken
     // ook al is de description al actueel (bv. eerste run met deze feature).
     // Slaat over bij 'failed' (geen key) of 'skipped' zonder bestaande key.
     if (overviewStatus !== 'failed' && published.overviewKey && tickets.length > 0) {

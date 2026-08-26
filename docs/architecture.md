@@ -20,21 +20,21 @@ push of merge. Elke stap start je zelf.
 | **develop** | Implementeert één ticket in een per-ticket git worktree op een feature-branch, lokale commits. | Sonnet/Opus |
 | **review** | Reviewt op dezelfde worktree. Bij APPROVED: lokale squash + `_pr-body.md`. Pusht niet, maakt geen PR. | Opus |
 
-De agents leven in `pipeline/agents/`. Modellen zijn per rol instelbaar — zie
+De agents leven in `pipeline/agents/`. Modellen zijn per rol instelbaar - zie
 [configuration.md](configuration.md).
 
 ### Deterministische scripts (geen LLM)
 
-- `pipeline/jira/publish.ts` — sprint-analyse naar Jira (comments + umbrella-ticket).
-- `pipeline/jira/publish-review.ts` — externe review naar Jira.
-- `pipeline/git/push.ts` — pusht de feature-branch van een goedgekeurd ticket.
-- `pipeline/git/pr.ts` — maakt de draft-PR aan (`gh pr create --draft`).
-- `pipeline/state/close-sprint.ts` / `close-external.ts` — ruimen de (gitignored) worktrees van een afgesloten sprint resp. externe reviews op; de gecommitte state blijft.
+- `pipeline/jira/publish.ts` - sprint-analyse naar Jira (comments + umbrella-ticket).
+- `pipeline/jira/publish-review.ts` - externe review naar Jira.
+- `pipeline/git/push.ts` - pusht de feature-branch van een goedgekeurd ticket.
+- `pipeline/git/pr.ts` - maakt de draft-PR aan (`gh pr create --draft`).
+- `pipeline/state/close-sprint.ts` / `close-external.ts` - ruimen de (gitignored) worktrees van een afgesloten sprint resp. externe reviews op; de gecommitte state blijft.
 
 ### Orchestrators
 
-- `ship` / `iterate` — draaien de `develop → review`-lus voor één ticket (ship pusht bij APPROVED, iterate blijft lokaal).
-- `converge` — combineert twee profielruns van hetzelfde ticket tot één profielloze branch + push + draft-PR.
+- `ship` / `iterate` - draaien de `develop → review`-lus voor één ticket (ship pusht bij APPROVED, iterate blijft lokaal).
+- `converge` - combineert twee profielruns van hetzelfde ticket tot één profielloze branch + push + draft-PR.
 
 Zie [workflows.md](workflows.md) voor de commando's.
 
@@ -87,7 +87,7 @@ commando: `pipeline:*` → `pipeline/agents/`, `jira:*` → `pipeline/jira/`,
 
 ## Markdown als communicatielaag
 
-Agents praten **niet** rechtstreeks met elkaar via processen of queues — ze
+Agents praten **niet** rechtstreeks met elkaar via processen of queues - ze
 schrijven en lezen markdown in `state/`. Voordelen: je kan elke tussenstap zelf
 lezen/aanpassen/annoteren, idempotentie is triviaal (bestanden vergelijken), en
 de volledige geschiedenis van een ticket staat lokaal op disk.
@@ -121,11 +121,11 @@ Een sprint zit zo volledig onder `sprints/<SPRINT>/` (refinement + ticketwerk)
 plus `worktrees/<SPRINT>/`. Een afgesloten sprint kuis je op met
 `npm run state:close-sprint -- <SPRINT>`, externe-review worktrees met
 `npm run state:close-external` (beide verwijderen enkel de worktrees, de
-gecommitte state blijft) — zie [workflows.md](workflows.md#state-onderhoud-worktrees-opruimen).
+gecommitte state blijft) - zie [workflows.md](workflows.md#state-onderhoud-worktrees-opruimen).
 
 ## Prompts & interactieve variant
 
-De canonieke system-prompts staan in `pipeline/agents/prompts/<rol>.md` — één bron
+De canonieke system-prompts staan in `pipeline/agents/prompts/<rol>.md` - één bron
 van waarheid die de SDK-agents direct laden. Onder
 `pipeline/agents/claude-code/.claude/` staan **mirrors** (zelfde body + YAML
 frontmatter) plus `/develop` `/review` `/address` slash-commands, voor wie develop/review
@@ -136,12 +136,12 @@ prompt-tuning). Na een prompt-wijziging: bewerk de canonieke prompt en draai
 ## Jira via directe REST
 
 refine, `jira:publish` en `jira:publish-review` praten met Jira Data Center via
-directe REST-calls met een Personal Access Token — **geen Docker, geen MCP**.
+directe REST-calls met een Personal Access Token - **geen Docker, geen MCP**.
 refine injecteert de opgehaalde velden (description, AC, status, links, menselijke
 comments, image-attachments) rechtstreeks in de prompt. AI-gegenereerde comments
 van de pipeline zelf worden gefilterd zodat de pipeline zichzelf niet triggert.
 
-## Harde regels — wat de agents NOOIT doen
+## Harde regels - wat de agents NOOIT doen
 
 - Geen `git push` behalve via `git:push`/`ship`/`converge` (allemaal dezelfde `runPush`), en nooit `--force`.
 - Geen PR aanmaken behalve via `git:pr`/`converge`; PR's **mergen** doe altijd jij.

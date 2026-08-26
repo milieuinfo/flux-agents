@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 /**
- * close-external — ruim de worktrees van externe code-reviews op
+ * close-external - ruim de worktrees van externe code-reviews op
  * (`worktrees/_external/*`).
  *
  * Deterministisch script (geen LLM). Een externe review (`review-external`)
@@ -39,7 +39,7 @@ export async function runCloseExternal(leaves: string[], dryRun: boolean): Promi
   );
 
   if (!(await pathExists(externalRoot))) {
-    log.info(`Geen externe-review-worktrees (${externalRoot}) — niets te doen.`);
+    log.info(`Geen externe-review-worktrees (${externalRoot}) - niets te doen.`);
     return;
   }
 
@@ -51,7 +51,7 @@ export async function runCloseExternal(leaves: string[], dryRun: boolean): Promi
       if (await pathExists(dir)) {
         targets.push(dir);
       } else {
-        log.warn(`Geen externe-review-worktree '${leaf}' onder ${externalRoot} — overslaan.`);
+        log.warn(`Geen externe-review-worktree '${leaf}' onder ${externalRoot} - overslaan.`);
       }
     }
   } else {
@@ -75,7 +75,7 @@ export async function runCloseExternal(leaves: string[], dryRun: boolean): Promi
   // De _external-map opruimen als ze nu leeg is (no-op als er nog inhoud is).
   await removeIfEmpty(externalRoot);
   log.ok(
-    `${removed} worktree(s) opgeruimd — de committed reviews onder ` +
+    `${removed} worktree(s) opgeruimd - de committed reviews onder ` +
       `external-reviews/ blijven bewaard.`,
   );
 }

@@ -1,5 +1,5 @@
 /**
- * Preload-script — exposeert een veilige, getypeerde API naar de renderer via
+ * Preload-script - exposeert een veilige, getypeerde API naar de renderer via
  * contextBridge. De renderer heeft géén directe Node- of ipcRenderer-toegang;
  * alles loopt door `window.fluxDesktop`.
  */

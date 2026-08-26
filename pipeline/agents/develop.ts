@@ -15,7 +15,7 @@
  * discovered automatically (errors if zero or multiple matches).
  *
  * The agent runs with permissionMode=bypassPermissions for autonomous
- * operation — its guardrails are in the subagent prompt (no push, no PR,
+ * operation - its guardrails are in the subagent prompt (no push, no PR,
  * no external GitHub interaction).
  */
 
@@ -65,7 +65,7 @@ export interface DevelopArgs {
 
 export interface DevelopResult {
   round: number;
-  /** `code-changes.md` van deze ronde — wat de mens nakijkt. */
+  /** `code-changes.md` van deze ronde - wat de mens nakijkt. */
   codeChangesPath: string;
   /** Het commando voor de volgende stap (review). */
   nextCmd: string;
@@ -75,7 +75,7 @@ export interface DevelopResult {
  * Run the develop agent for a single ticket. Exported so the ship
  * orchestrator can invoke it directly without spawning a subprocess.
  *
- * Print zelf de stappen, maar niet de sectiekop of het eindblok — die komen
+ * Print zelf de stappen, maar niet de sectiekop of het eindblok - die komen
  * van de CLI-tak (standalone) of van loop.ts (ship/iterate), zodat er onder
  * de lus geen dubbele koppen verschijnen.
  */
@@ -119,7 +119,7 @@ export async function runDevelop({ key, sprint, profile, analysis }: DevelopArgs
     mode = 'address';
   } else if (prev.status === 'in_progress') {
     log.warn(
-      `Ticket ${key} stond nog op in_progress (ronde ${prev.round}) — herstart op dezelfde branch.`,
+      `Ticket ${key} stond nog op in_progress (ronde ${prev.round}) - herstart op dezelfde branch.`,
     );
     round = prev.round;
     mode = prev.round === 1 ? 'initial' : 'address';
@@ -137,8 +137,8 @@ export async function runDevelop({ key, sprint, profile, analysis }: DevelopArgs
   }
   log.ok(
     mode === 'initial'
-      ? `Ronde ${round} — initiële implementatie`
-      : `Ronde ${round} — feedback uit review-r${round - 1}.md verwerken`,
+      ? `Ronde ${round} - initiële implementatie`
+      : `Ronde ${round} - feedback uit review-r${round - 1}.md verwerken`,
   );
 
   const worktree = ticketWorktreePath(stateDir, refinement.sprint, key, label);
@@ -193,7 +193,7 @@ export async function runDevelop({ key, sprint, profile, analysis }: DevelopArgs
   });
 
   const summary = await runAgent(q, {
-    label: `Agent draait — ${modelShort(developModel())}, ronde ${round} (max ${maxTurns} turns)`,
+    label: `Agent draait - ${modelShort(developModel())}, ronde ${round} (max ${maxTurns} turns)`,
     cwd: worktree,
     stateDir,
   });
@@ -213,13 +213,13 @@ function buildPrompt(
 ): string {
   const base =
     `Implementeer ticket ${key} (ronde ${round}). Alle context vind je in:\n` +
-    `- ${ticket.ticketMdPath} — refinement-rapport (lees vooral "Doel & ` +
+    `- ${ticket.ticketMdPath} - refinement-rapport (lees vooral "Doel & ` +
     `succescriteria", de voorstellen, de "## Aanbeveling" en evt. een ` +
     `"## Keuze"-sectie toegevoegd door de gebruiker).\n` +
-    `- ${ticket.statusPath} — status (branch en baseBranch staan hierin).\n\n` +
+    `- ${ticket.statusPath} - status (branch en baseBranch staan hierin).\n\n` +
     `Je cwd is de feature-branch worktree van flux-web-components. Volg ` +
     `de werkwijze in je system prompt. Schrijf/update ` +
-    `${ticket.codeChangesPath} volgens het voorgeschreven format — dat ` +
+    `${ticket.codeChangesPath} volgens het voorgeschreven format - dat ` +
     `bestand staat buiten je cwd; gebruik een absoluut pad.`;
 
   if (mode === 'address') {
@@ -231,7 +231,7 @@ function buildPrompt(
       `nieuwe commit voor deze ronde (niet amenden).`
     );
   }
-  return `${base}\n\nDit is ronde 1 — initiële implementatie.`;
+  return `${base}\n\nDit is ronde 1 - initiële implementatie.`;
 }
 
 function parseArgs(): DevelopArgs {

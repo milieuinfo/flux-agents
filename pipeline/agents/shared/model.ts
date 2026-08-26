@@ -27,19 +27,19 @@ const DATE_SUFFIX_MIN_DIGITS = 5;
 /**
  * Kale Claude Code-model-aliassen zoals `supportedModels()` ze teruggeeft
  * (`opus`, `sonnet`, `haiku`, `fable`), eventueel met een context-marker als
- * `opus[1m]`. Ze hebben geen versienummer — de tier is dan de hele naam en
+ * `opus[1m]`. Ze hebben geen versienummer - de tier is dan de hele naam en
  * `parts` blijft leeg (code = tier-initiaal, label = "Claude <Tier>").
  *
  * De app slaat sinds de resolvedModel-normalisatie altijd de concrete id op
  * (`claude-opus-5`), maar een handmatig gezette `.env` mag een alias blijven
- * bevatten — vandaar dat we ze nog steeds kunnen parsen.
+ * bevatten - vandaar dat we ze nog steeds kunnen parsen.
  */
 const ALIAS_TIERS = ['opus', 'sonnet', 'haiku', 'fable'];
 
 /**
  * Splits de context-marker (`[1m]`) van een model-id. De SDK gebruikt die
  * zowel in een alias (`opus[1m]`) als in de concrete id
- * (`claude-opus-5[1m]`) — het is een variant van hetzelfde model met een
+ * (`claude-opus-5[1m]`) - het is een variant van hetzelfde model met een
  * groter contextvenster, geen apart tier.
  */
 function splitContextMarker(model: string): { base: string; context1m: boolean } {
@@ -60,7 +60,7 @@ function parseModel(
       .filter((p) => /^\d+$/.test(p) && p.length < DATE_SUFFIX_MIN_DIGITS);
     if (parts.length > 0) return { tier, parts, context1m };
   }
-  // Kale alias (bv. 'opus' of 'opus[1m]') — match op de bekende tiers.
+  // Kale alias (bv. 'opus' of 'opus[1m]') - match op de bekende tiers.
   // Geen versie → lege parts.
   const alias = base.toLowerCase();
   if (ALIAS_TIERS.includes(alias)) return { tier: alias, parts: [], context1m };
@@ -68,7 +68,7 @@ function parseModel(
 }
 
 /**
- * Korte, pad-veilige code voor een Claude-model — tier-initiaal +
+ * Korte, pad-veilige code voor een Claude-model - tier-initiaal +
  * versiecijfers aaneen, met een `M` erachter voor de 1M-contextvariant:
  *   claude-opus-5              → O5
  *   claude-opus-5[1m]          → O5M   (aparte run: ander contextvenster)
@@ -98,7 +98,7 @@ export function modelCode(model: string): string {
  *   claude-haiku-4-5-20251001  → "Claude Haiku 4.5"  (datum-suffix genegeerd)
  *   claude-fable-5-1           → "Claude Fable 5.1"
  *
- * Het model kan zichzelf niet betrouwbaar identificeren — zijn zelfkennis
+ * Het model kan zichzelf niet betrouwbaar identificeren - zijn zelfkennis
  * loopt achter op de actieve model-id (een opus-4-8-run noemt zichzelf
  * "Opus 4.7"). Daarom leiden we de naam af uit de model-id en geven we die
  * expliciet mee in de prompt. Onbekende string → "Claude" (geen versie).
@@ -123,7 +123,7 @@ export function modelShort(model: string): string {
 
 /*
  * Model per agent-rol. De env vars dragen de rolnaam
- * (`AGENT_REFINE_MODEL`, `AGENT_DEVELOP_MODEL`, …) — één bron per rol.
+ * (`AGENT_REFINE_MODEL`, `AGENT_DEVELOP_MODEL`, …) - één bron per rol.
  */
 
 /** Model voor agent 1 (refine). */
@@ -183,7 +183,7 @@ export function runPathLabel(
 
 /*
  * Reasoning-effort per agent-rol. Stuurt hoe diep het model nadenkt
- * (adaptive thinking) — naast de model-keuze een tweede knop om een run
+ * (adaptive thinking) - naast de model-keuze een tweede knop om een run
  * zwaarder of lichter te maken. De env vars dragen de rolnaam analoog aan
  * `AGENT_*_MODEL` (`AGENT_REFINE_EFFORT`, `AGENT_DEVELOP_EFFORT`, …).
  */
@@ -199,7 +199,7 @@ export const EFFORT_LEVELS: EffortLevel[] = [
   'max',
 ];
 
-/** Default-effort als de env-var leeg of ongeldig is — gelijk aan de SDK-default. */
+/** Default-effort als de env-var leeg of ongeldig is - gelijk aan de SDK-default. */
 export const DEFAULT_EFFORT: EffortLevel = 'high';
 
 /**

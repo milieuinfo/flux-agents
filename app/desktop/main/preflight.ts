@@ -6,8 +6,8 @@
  * Binaries worden via een interactieve login-shell (`-ilc`) gecheckt, net zoals
  * de agent-tabs draaien, zodat de PATH-resolutie overeenkomt. Een packaged
  * GUI-app erft een uitgeklede launchd-PATH; pas `.zshrc` voegt de echte node/
- * git/gh toe. `-lc` (login, niet-interactief) leest `.zshrc` níét — en juist
- * daar zetten nvm/Volta/Homebrew vaak hun PATH — dus we draaien interactief.
+ * git/gh toe. `-lc` (login, niet-interactief) leest `.zshrc` níét - en juist
+ * daar zetten nvm/Volta/Homebrew vaak hun PATH - dus we draaien interactief.
  */
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -50,7 +50,7 @@ export async function runPreflight(repoRoot: string): Promise<PreflightCheck[]> 
           id: 'node',
           label: 'Node.js',
           status: 'error',
-          detail: 'Niet gevonden — vereist (npm draait de agents). Installeer Node 20+.',
+          detail: 'Niet gevonden - vereist (npm draait de agents). Installeer Node 20+.',
           fixUrl: 'https://nodejs.org/en/download',
         },
   );
@@ -63,7 +63,7 @@ export async function runPreflight(repoRoot: string): Promise<PreflightCheck[]> 
           id: 'git',
           label: 'git',
           status: 'error',
-          detail: 'Niet gevonden — vereist voor alle worktree-operaties.',
+          detail: 'Niet gevonden - vereist voor alle worktree-operaties.',
           fixUrl: 'https://git-scm.com/downloads',
         },
   );
@@ -76,7 +76,7 @@ export async function runPreflight(repoRoot: string): Promise<PreflightCheck[]> 
           id: 'gh',
           label: 'GitHub CLI (gh)',
           status: 'warn',
-          detail: 'Niet gevonden — enkel nodig voor push / pr / converge.',
+          detail: 'Niet gevonden - enkel nodig voor push / pr / converge.',
           fixUrl: 'https://cli.github.com',
         },
   );
@@ -90,7 +90,7 @@ export async function runPreflight(repoRoot: string): Promise<PreflightCheck[]> 
           label: 'claude CLI',
           status: 'warn',
           detail:
-            'Niet gevonden — nodig om eenmalig een OAuth-token te genereren (claude setup-token).',
+            'Niet gevonden - nodig om eenmalig een OAuth-token te genereren (claude setup-token).',
           fixUrl: 'https://docs.claude.com/en/docs/claude-code/overview',
         },
   );
@@ -108,7 +108,7 @@ export async function runPreflight(repoRoot: string): Promise<PreflightCheck[]> 
           id: 'config',
           label: 'Verplichte config',
           status: 'error',
-          detail: `Ontbreekt: ${missing.map(labelFor).join(', ')} — vul in via ⚙ Instellingen.`,
+          detail: `Ontbreekt: ${missing.map(labelFor).join(', ')} - vul in via ⚙ Instellingen.`,
         },
   );
 
@@ -125,7 +125,7 @@ export async function runPreflight(repoRoot: string): Promise<PreflightCheck[]> 
           label: 'Claude-auth',
           status: 'error',
           detail:
-            'Geen OAuth-token — genereer met `claude setup-token` en vul in via ⚙ Instellingen.',
+            'Geen OAuth-token - genereer met `claude setup-token` en vul in via ⚙ Instellingen.',
         },
   );
 

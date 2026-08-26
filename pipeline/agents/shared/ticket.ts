@@ -29,7 +29,7 @@ export interface TicketStateJson {
   prUrl?: string;
   /**
    * AI-profile dat actief is voor deze ticket-run (komt uit `--profile`
-   * op de develop/review/ship-CLI). Ontbreekt voor runs zonder profile —
+   * op de develop/review/ship-CLI). Ontbreekt voor runs zonder profile -
    * gedrag dan exact als vóór de profile-feature.
    */
   profile?: string;
@@ -67,7 +67,7 @@ export class TicketState {
   /**
    * Artifact met de PR-body die de reviewer bij APPROVED schrijft. De
    * deterministische `pipeline/git/pr.ts` leest dit als `--body-file`. De
-   * PR-titel wordt niet hier opgeslagen — die is de squash-commit-subject.
+   * PR-titel wordt niet hier opgeslagen - die is de squash-commit-subject.
    */
   get prBodyPath(): string {
     return join(this.ticketDir, '_pr-body.md');
@@ -76,7 +76,7 @@ export class TicketState {
   /**
    * Artifact met de converge-notes: wat de converge-agent in beide bronnen
    * vond en welke keuzes hij maakte om de gecombineerde versie te bouwen.
-   * Vrije-vorm samenvatting (géén strikt format zoals `_pr-body.md`) — een
+   * Vrije-vorm samenvatting (géén strikt format zoals `_pr-body.md`) - een
    * leesbaar verslag voor Kris, niet voor GitHub.
    */
   get convergeNotesPath(): string {
@@ -156,7 +156,7 @@ export async function locateRefinement(
 
   const foundSprint = sprintsWithTicket[0];
   // Kies de analyse binnen deze sprint (mag throwen bij meerdere analyses
-  // zonder keuze — dat is de "kies eerst één"-fout).
+  // zonder keuze - dat is de "kies eerst één"-fout).
   const { dir } = await resolveAnalysisDir(stateDir, foundSprint, { label: analysisLabel });
   const path = join(dir, `${key}.md`);
   await assertExists(path, `No refinement at ${path}`);
@@ -200,7 +200,7 @@ export function extractTitle(ticketMd: string): string {
  * content isn't a valid kebab-case slug.
  *
  * Valid slug format: lowercase alphanumerics + dashes, no leading/trailing
- * dashes, reasonable length. We deliberately don't re-slugify — if the
+ * dashes, reasonable length. We deliberately don't re-slugify - if the
  * model wrote something invalid, fall back to the mechanical slugifier.
  */
 export function extractBranchSlug(ticketMd: string): string | null {
@@ -261,7 +261,7 @@ async function findSiblingProfileRuns(
  *
  * `label` is het pad-segment van de run (`<profiel>-<modelcode>`, bv.
  * `no-O48`); zonder label wordt het profielloze pad gezocht. `profile` is het
- * kale profiel (bv. `no`) en dient enkel voor betere foutmeldingen — met name
+ * kale profiel (bv. `no`) en dient enkel voor betere foutmeldingen - met name
  * de **model-mismatch-guard**: bestaat de verwachte label-folder niet maar wél
  * een zusterrun van hetzelfde profiel met een ander model-code, dan is
  * `AGENT_DEVELOP_MODEL` gewijzigd tussen develop en review/push/pr. We gooien
@@ -343,13 +343,13 @@ export async function locateTicketSprint(
 /**
  * Vind de run-subfolder van een profielrun op disk, op basis van enkel
  * ticket + kaal profiel. Het label (`<profiel>-<modelcode>`) wordt NIET
- * herberekend uit het huidige `AGENT_DEVELOP_MODEL` — de model-code in de
+ * herberekend uit het huidige `AGENT_DEVELOP_MODEL` - de model-code in de
  * foldernaam zegt alleen met welk model er destijds ontwikkeld is, en mag
  * een latere model-wissel in `.env` niet breken (converge op een `no-F5`-run
  * moet ook werken als develop intussen op Sonnet staat).
  *
  * Een kandidaat telt alleen mee als zijn `_status.json` het kale profiel
- * draagt (`status.profile === profile`) — dat onderscheidt profiel `no`
+ * draagt (`status.profile === profile`) - dat onderscheidt profiel `no`
  * van een hypothetisch profiel `no-x`, wiens labels ook met `no-` beginnen.
  *
  * Disambiguatie wanneer hetzelfde profiel meerdere runs heeft (zelfde

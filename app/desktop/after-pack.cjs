@@ -3,7 +3,7 @@
  *
  * node-pty's `spawn-helper` (de losse Mach-O die de pty's daadwerkelijk forkt)
  * moet uitvoerbaar zijn, anders faalt `posix_spawnp` zodra de app een pty wil
- * starten — de TUI blijft leeg en `pty:create` rejdt, waardoor de renderer-
+ * starten - de TUI blijft leeg en `pty:create` rejdt, waardoor de renderer-
  * bootstrap stopt en óók de knoppen rechts dood blijven.
  *
  * De prebuild die npm uitpakt heeft `spawn-helper` op `-rw-r--r--` (geen +x), en
@@ -34,7 +34,7 @@ exports.default = async function afterPack(context) {
     try {
       entries = await fs.readdir(dir, { withFileTypes: true });
     } catch {
-      return; // map bestaat niet op dit platform — overslaan
+      return; // map bestaat niet op dit platform - overslaan
     }
     for (const entry of entries) {
       const full = path.join(dir, entry.name);
@@ -50,7 +50,7 @@ exports.default = async function afterPack(context) {
   }
   if (helpers.length === 0) {
     console.warn(
-      '[afterPack] geen spawn-helper gevonden onder node-pty — layout gewijzigd?',
+      '[afterPack] geen spawn-helper gevonden onder node-pty - layout gewijzigd?',
     );
   }
 };

@@ -3,7 +3,7 @@
  *
  * Clack's `p.log.*` splitst zijn boodschap enkel op `\n` en zet vóór elke
  * regel een gutter (`│  `, 3 kolommen). Eén lange regel zónder `\n` geeft het
- * dus ongebroken aan de terminal door, die hem dan hard afkapt — midden in een
+ * dus ongebroken aan de terminal door, die hem dan hard afkapt - midden in een
  * woord én zónder gutter op de vervolgregel. In het smalle linkerpaneel oogt
  * dat rommelig.
  *

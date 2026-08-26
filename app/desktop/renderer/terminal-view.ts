@@ -123,7 +123,7 @@ export class TerminalView {
     try {
       this.fit.fit();
     } catch {
-      // Verborgen of niet-gemeten element — fit overslaan tot het zichtbaar is.
+      // Verborgen of niet-gemeten element - fit overslaan tot het zichtbaar is.
     }
   }
 }

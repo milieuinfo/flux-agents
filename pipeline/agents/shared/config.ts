@@ -2,7 +2,7 @@
  * Centraal config-schema: één bron van waarheid voor alle env-variabelen die
  * de pipeline gebruikt, afgeleid van `.env.example`. De desktop-app rendert
  * hieruit het settings-scherm en injecteert de waarden als env in de
- * gespawnde agent-processen — de agents blijven gewoon `process.env.*` lezen.
+ * gespawnde agent-processen - de agents blijven gewoon `process.env.*` lezen.
  *
  * Dit bestand is BEWUST puur (geen Node- of DOM-API's) zodat zowel het
  * Electron main-proces als de renderer het kunnen importeren.
@@ -48,7 +48,7 @@ export interface EnvField {
 
 /**
  * Toegestane reasoning-effort-niveaus voor de model-dropdowns. Spiegelt
- * `EFFORT_LEVELS` uit `shared/model.ts` — hier bewust apart geïnlined zodat dit
+ * `EFFORT_LEVELS` uit `shared/model.ts` - hier bewust apart geïnlined zodat dit
  * schema puur blijft (de renderer importeert het en `model.ts` leest env vars).
  */
 export const EFFORT_OPTIONS = ['low', 'medium', 'high', 'xhigh', 'max'];
@@ -58,7 +58,7 @@ export const EFFORT_OPTIONS = ['low', 'medium', 'high', 'xhigh', 'max'];
  * opslaan (uit `ModelInfo.resolvedModel`, bv. `claude-opus-5`); `aliases` zijn
  * de andere spellingen waarmee de SDK naar hetzelfde model verwijst (`opus`,
  * `default`, `opus[1m]`). Die aliassen dienen enkel om een reeds bewaarde
- * waarde te herkennen — opgeslagen wordt altijd `value`.
+ * waarde te herkennen - opgeslagen wordt altijd `value`.
  */
 export interface ModelChoice {
   value: string;
@@ -87,7 +87,7 @@ export function findModelChoice<T extends ModelChoice>(
  * Splits een context-marker (`[1m]`) van een model-id: `claude-opus-5[1m]` →
  * base `claude-opus-5` + `context1m`. De SDK gebruikt die marker zowel in de
  * alias (`opus[1m]`) als in de concrete id (`claude-opus-5[1m]`). Spiegelt de
- * gelijknamige helper in `shared/model.ts` — hier bewust apart geïnlined zodat
+ * gelijknamige helper in `shared/model.ts` - hier bewust apart geïnlined zodat
  * dit schema puur blijft (de renderer importeert het en `model.ts` leest env
  * vars).
  */

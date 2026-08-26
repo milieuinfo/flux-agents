@@ -23,10 +23,21 @@ tool voor Kris om sprints efficiënter op te nemen.
 haakjes (`type(scope): …`). Heeft de commit geen zinvolle scope, laat dan het
 `<scope> - `-deel weg (bv. `docs: echte implementatie-documentatie`).
 
-Niet hard-wrappen op 72 tekens — laat regels gewoon doorlopen en de
+Niet hard-wrappen op 72 tekens - laat regels gewoon doorlopen en de
 terminal soft-wrappen. Hou de boodschap beknopt. Meerdere regels typen mag,
 en lege regels als witruimte voor duidelijkheid mag ook. Eindig nog steeds
 met de `Co-Authored-By`-trailer.
+
+## Schrijfstijl: geen em-dash
+
+Nergens een em-dash (U+2014) of en-dash (U+2013); overal een gewone dash (-).
+Dat geldt voor code, commentaar, docs (incl. dit bestand), prompts, UI-teksten,
+commit-boodschappen én wat de agents produceren (de prompts en het
+`commitConventions`-addendum dragen de regel aan de agents over). Begint een
+markdown-regel daardoor met `- `, hang de dash dan aan het einde van de vorige
+regel, anders wordt het een lijstitem. `npm run dev:check-dashes`
+(`tools/check-dashes.sh`) faalt zodra er ergens één staat; `tools/patches/` is
+uitgezonderd omdat patch-context exact moet blijven.
 
 ## De vier agents en hun rollen
 
@@ -38,28 +49,28 @@ met de `Co-Authored-By`-trailer.
 | 4 | review | Claude Agent SDK (Node) | Opus | Reviewt op dezelfde worktree, bij approval: lokale squash + schrijft PR-body-artifact (`_pr-body.md`). Pusht niet en maakt geen PR. |
 
 Daarnaast zijn er **deterministische scripts** (geen LLM-oordeel nodig):
-- `pipeline/jira/publish.ts` — sprint-output van agents 1 + 2 naar Jira (zie §9)
-- `pipeline/jira/publish-review.ts` — losse externe-review-md naar Jira (zie zijtak hierboven)
-- `pipeline/git/push.ts` (`npm run git:push`) — pusht de feature-branch van een
+- `pipeline/jira/publish.ts` - sprint-output van agents 1 + 2 naar Jira (zie §9)
+- `pipeline/jira/publish-review.ts` - losse externe-review-md naar Jira (zie zijtak hierboven)
+- `pipeline/git/push.ts` (`npm run git:push`) - pusht de feature-branch van een
   goedgekeurd ticket naar origin (zie §11)
-- `pipeline/git/pr.ts` (`npm run git:pr`) — maakt de draft-PR aan op basis van de
+- `pipeline/git/pr.ts` (`npm run git:pr`) - maakt de draft-PR aan op basis van de
   squash-commit-subject (titel) + `_pr-body.md` (body) (zie §11)
-- `pipeline/state/close-sprint.ts` (`npm run state:close-sprint`) — ruimt de worktrees
+- `pipeline/state/close-sprint.ts` (`npm run state:close-sprint`) - ruimt de worktrees
   van een afgesloten sprint op (zie §13)
-- `pipeline/state/close-external.ts` (`npm run state:close-external`) — ruimt de
+- `pipeline/state/close-external.ts` (`npm run state:close-external`) - ruimt de
   worktrees van externe code-reviews op (zie §13)
 
 En er zijn **orchestrators** die de agents en scripts na elkaar draaien:
-- `pipeline/agents/ship.ts` / `pipeline/agents/iterate.ts` — develop→review-lus voor één ticket
+- `pipeline/agents/ship.ts` / `pipeline/agents/iterate.ts` - develop→review-lus voor één ticket
   (ship pusht bij APPROVED, iterate blijft lokaal)
-- `pipeline/agents/converge.ts` (`npm run pipeline:converge`) — combineert twee `approved`
+- `pipeline/agents/converge.ts` (`npm run pipeline:converge`) - combineert twee `approved`
   profielruns van hetzelfde ticket tot één profielloze branch + push + draft-PR
   (eigen Opus LLM-stap voor het combineren, zie §12)
 
 Agents 3 en 4 hebben ook een **Claude Code subagent variant** in
 `pipeline/agents/claude-code/.claude/agents/` (ticket-author.md, ticket-reviewer.md)
 voor interactieve debugging. De SDK-scripts laden diezelfde markdowns
-(frontmatter gestript) als system prompt — één bron van waarheid.
+(frontmatter gestript) als system prompt - één bron van waarheid.
 
 **Waarom deze modelverdeling:** Opus waar de analyse en oordeel zit
 (refine, plan, review), Sonnet waar executie of inkorten belangrijker is
@@ -150,7 +161,7 @@ Agents praten NIET rechtstreeks met elkaar via processen of queues.
 Ze schrijven markdown naar `state/` en lezen markdown uit `state/`.
 
 **Waarom:** (a) Kris kan elke tussenstap zelf lezen, aanpassen, of
-annoteren. (b) Idempotentie is triviaal — bestanden vergelijken is
+annoteren. (b) Idempotentie is triviaal - bestanden vergelijken is
 simpeler dan state syncen. (c) Als een agent fout gaat, staat er
 nog steeds iets bruikbaars op disk. (d) De volledige geschiedenis
 van een ticket is lokaal traceerbaar.
@@ -171,7 +182,7 @@ Tijdens iteraties committeert agent 3 elke ronde als aparte commit
 (`fix: FLUX-123 - address review ronde 2`). Pas wanneer agent 4
 APPROVED geeft, doet die een `git reset --soft <base>` + één nette
 commit (subject `<type>: <scope> - <omschrijving>`). Die squash blijft
-**lokaal** — agent 4 pusht niet
+**lokaal** - agent 4 pusht niet
 en maakt geen PR. Het pushen en de PR-creatie zijn losgetrokken naar de
 deterministische scripts `npm run git:push` en `npm run git:pr` (zie §11).
 
@@ -189,12 +200,12 @@ NIET op review comments van mensen. De enige GitHub-schrijfacties in
 de hele pipeline zijn (a) `git push` van één feature-branch via
 `pipeline/git/push.ts` en (b) één `gh pr create --draft` via `pipeline/git/pr.ts`.
 Beide zijn losse, deterministische scripts die Kris zelf draait op een
-ticket met status `approved` — geen LLM, geen agent 4.
+ticket met status `approved` - geen LLM, geen agent 4.
 
 **Waarom:** (a) Tijdens de leerfase wil Kris geen noise op de
 VO-repo. (b) Formele review/approve in een VO-context hoort van een
 mens te komen. (c) Simpeler mentaal model: agents werken lokaal,
-GitHub is voor mensen — en de netwerk-schrijfacties zitten in expliciete
+GitHub is voor mensen - en de netwerk-schrijfacties zitten in expliciete
 scripts, niet verstopt in een LLM-run.
 
 ### 5. Agent 1 leest Jira via REST, herstart idempotent
@@ -204,51 +215,51 @@ Agent 1 hasht de inhoudelijke velden van elk Jira-ticket (`summary`,
 en image-attachments). Een snelle pre-check op `updated` skipt het
 meeste werk; pas als de timestamp verschilt wordt de hash herberekend
 en eventueel het ticket opnieuw geanalyseerd. Bij een update wordt de
-vorige markdown niet overschreven — er wordt een `## Update YYYY-MM-DD`
+vorige markdown niet overschreven - er wordt een `## Update YYYY-MM-DD`
 sectie onderaan toegevoegd.
 
 **Comments wegen mee:** een collega die een opmerking toevoegt → bij
 volgende run automatisch een re-refine. AI-gegenereerde comments
 (`## Sprint-analyse - AI` van `publish.ts`, `## Code review - AI` van
-`publish-review.ts`) worden gefilterd vóór ze in de hash belanden —
+`publish-review.ts`) worden gefilterd vóór ze in de hash belanden -
 anders zou de pipeline zichzelf eindeloos triggeren. Het filter staat in
 `pipeline/agents/shared/jira.ts` (`isAiGeneratedComment`/`humanComments`).
 
 Agent 1 haalt de ticket-velden (description, AC, status, labels, links,
 comments) via Jira REST op (`getFullIssueDetails` in
-`pipeline/agents/shared/jira.ts`) en injecteert ze rechtstreeks in de user-prompt —
+`pipeline/agents/shared/jira.ts`) en injecteert ze rechtstreeks in de user-prompt -
 géén interactieve MCP tool-call meer. Comments worden vóór injectie op
 menselijke gefilterd (`humanComments`), zodat AI-comments van de pipeline
 zelf nooit als input dienen. Het system prompt (`pipeline/agents/prompts/refine.md`)
-instrueert het model hoe ze te wegen — recente comments hebben voorrang op
+instrueert het model hoe ze te wegen - recente comments hebben voorrang op
 stale description-tekst als die tegenstrijdig zijn.
 
 **Images wegen ook mee:** image-attachments van het ticket
 (jpeg/png/gif/webp) worden via Jira REST gedownload en als vision
 content blocks aan de SDK doorgegeven (vóór de tekst-instructie in de
 user-prompt). Een nieuwe of vervangen screenshot wijzigt de hash en
-triggert dus een re-refine — handig voor visuele bugs waar de
+triggert dus een re-refine - handig voor visuele bugs waar de
 description amper context geeft. Limieten via env vars
 `JIRA_REFINE_IMAGE_MAX_COUNT` (default 5) en
 `JIRA_REFINE_IMAGE_MAX_BYTES` (default 5MB totaal) beschermen tegen
 token-budget-explosie. SVG en andere niet-rasterformaten worden
-overgeslagen — Anthropic vision ondersteunt ze niet. Selectie en
+overgeslagen - Anthropic vision ondersteunt ze niet. Selectie en
 download in `pipeline/agents/refine.ts` (`selectImageAttachments`,
 `loadImagePayloads`).
 
 **Waarom:** (a) Kris heeft vaak al feedback/annotaties op een markdown
-geschreven voor hij het ticket echt oppakt — die moeten bewaard
+geschreven voor hij het ticket echt oppakt - die moeten bewaard
 blijven. (b) Hele sprints re-analyseren is duur als er maar één ticket
 veranderd is. (c) Wat in Jira gebeurt na de eerste refine (PO die een
-keuze toelicht in een comment) hoort de volgende analyse te beïnvloeden
-— vandaar comments-in-hash, niet alleen description.
+keuze toelicht in een comment) hoort de volgende analyse te beïnvloeden -
+vandaar comments-in-hash, niet alleen description.
 
 ### 5b. Twee outputs per ticket: uitgebreid + beknopt
 
 Direct na de Opus-refinement doet agent 1 een tweede LLM-call (Sonnet,
 override via `AGENT_REFINE_SUMMARY_MODEL`) die het uitgebreide rapport inkort
 tot een Jira-comment-vriendelijke versie. De Sonnet-call krijgt enkel
-de tekst van de `.md` mee — geen tools, geen MCP. Output:
+de tekst van de `.md` mee - geen tools, geen MCP. Output:
 `FLUX-XXX.jira.md` naast de bestaande `FLUX-XXX.md`. Canonical prompt
 in `pipeline/agents/prompts/refine-summary.md`.
 
@@ -259,15 +270,15 @@ samenvatting post.
 
 **Backfill voor bestaande sprints:** als een ticket op disk al een
 `.md` heeft maar nog geen `.jira.md` (sprint gerefined vóór deze
-feature bestond), genereert agent 1 hem alsnog tijdens de skip-paden
-— een `npm run pipeline:refine -- <sprint>` op een onveranderde sprint vult de
+feature bestond), genereert agent 1 hem alsnog tijdens de skip-paden -
+een `npm run pipeline:refine -- <sprint>` op een onveranderde sprint vult de
 ontbrekende samenvattingen aan zonder dat `_meta.json` weggegooid
 hoeft te worden.
 
 **Waarom een tweede call ipv één gecombineerde:** een gefocuste prompt
 op één taak (samenvatten) geeft betrouwbaarder en stabieler korte
 outputs, en je kan de samenvatting opnieuw genereren zonder de zware
-Opus-refine te hoeven herhalen. Sonnet is hier ruim voldoende — Opus
+Opus-refine te hoeven herhalen. Sonnet is hier ruim voldoende - Opus
 voor inkorten is overkill.
 
 ### 6. Agent 2 heeft geen tools nodig
@@ -290,11 +301,11 @@ hier worktrees uit (alle worktrees zitten onder `state/worktrees/`):
 - Agents 3/4: per-ticket worktree op een feature-branch, per sprint
   gegroepeerd (`state/worktrees/<sprint>/<KEY>/`), afgesplitst van
   `origin/<FLUX_BASE_BRANCH>`. Bij een `--profile` (zie §10) zit het
-  label `<profiel>-<modelcode>` in de mapnaam —
-  `state/worktrees/<sprint>/<KEY>-<profiel>-<code>/` (bv. `…/FLUX-463-kris-O48/`)
-  — zodat profile- én model-runs niet botsen.
+  label `<profiel>-<modelcode>` in de mapnaam -
+  `state/worktrees/<sprint>/<KEY>-<profiel>-<code>/` (bv. `…/FLUX-463-kris-O48/`) -
+  zodat profile- én model-runs niet botsen.
 
-**Waarom deze managed-clone-aanpak:** (a) Server-ready — fresh install
+**Waarom deze managed-clone-aanpak:** (a) Server-ready - fresh install
 heeft alleen `.env` nodig, de clone komt automatisch. (b) Volledige
 scheiding van Kris' eigen werkclone in IntelliJ. (c) Per-ticket
 worktree maakt parallel werk op meerdere tickets gratis (elk zijn eigen
@@ -316,7 +327,7 @@ geïnjecteerd; het LLM-werk blijft de analyse, niet het ophalen. Er is dus
 **geen Docker en geen MCP-server** meer nodig.
 
 **Waarom:** Jira instance is on-premise Data Center
-(`jira.omgeving.vlaanderen.be`), geen OAuth zoals Cloud — een PAT volstaat
+(`jira.omgeving.vlaanderen.be`), geen OAuth zoals Cloud - een PAT volstaat
 voor REST. De vroegere route liep via `ghcr.io/sooperset/mcp-atlassian` in
 Docker, maar dat (a) maakte Docker een harde prerequisite (blokkerend voor
 het uitdelen van een desktop-app aan teamleden, zie `docs/desktop-app.md`),
@@ -339,11 +350,11 @@ die naar Jira via directe REST-calls:
 - Issue-links: umbrella "Wordt gerealiseerd door" elk sprint-ticket
   (link-type wordt opgezocht via `/rest/api/2/issueLinkType` op basis
   van de inward-description; override via `JIRA_REALIZATION_LINK_TYPE`).
-  Idempotent — bestaande links worden overgeslagen.
+  Idempotent - bestaande links worden overgeslagen.
 - Epic-link: als `JIRA_UMBRELLA_EPIC` is gezet (issue-key of Epic Name),
   hangt de umbrella onder die epic. Epic Link en Epic Name customfields
   worden auto-gedetecteerd via `/rest/api/2/field`; override via
-  `JIRA_EPIC_LINK_FIELD` / `JIRA_EPIC_NAME_FIELD`. Idempotent — alleen
+  `JIRA_EPIC_LINK_FIELD` / `JIRA_EPIC_NAME_FIELD`. Idempotent - alleen
   PUT als de huidige waarde mist of afwijkt.
 
 `_published.json` houdt per ticket een hash van de gepubliceerde body
@@ -352,7 +363,7 @@ wordt een NIEUWE comment toegevoegd (geen oude verwijderen). Het
 umbrella-ticket wordt geupdated, niet gedupliceerd.
 
 **Waarom een aparte stap en niet in agent 1:** (a) Refinement en
-publicatie hebben verschillende cadansen — Kris wil meestal eerst
+publicatie hebben verschillende cadansen - Kris wil meestal eerst
 lokaal lezen/aanpassen voor er iets in Jira terechtkomt. (b) Failures
 in de Jira-write-pad mogen de refinement-output (die op disk staat)
 niet beïnvloeden. (c) `--dry-run` schrijft `_preview_*.md` lokaal zodat
@@ -360,23 +371,23 @@ hij vóór commit kan reviewen wat er naar Jira zou gaan.
 
 **Markdown-conversie:** Jira Data Center API verwacht wiki markup
 (`h1.`, `*bold*`, `||header||`, `{code}`). Het script bevat een kleine
-converter (`markdownToJiraWiki`) voor wat agents 1 + 2 produceren —
+converter (`markdownToJiraWiki`) voor wat agents 1 + 2 produceren -
 headings, lijsten, tables, fenced code, bold, inline code, links, hr.
 Italic en images worden niet gebruikt en niet ondersteund.
 
 **Vereiste env vars** voor publish (boven op de bestaande):
-- `JIRA_SPRINT_FIELD` (default `customfield_10020`) — custom field key
+- `JIRA_SPRINT_FIELD` (default `customfield_10020`) - custom field key
   voor de sprint-array op een issue. Wijkt af tussen Jira instances.
-- `JIRA_STORYPOINTS_FIELD` (optioneel) — custom field key voor story
+- `JIRA_STORYPOINTS_FIELD` (optioneel) - custom field key voor story
   points. Niet gezet → veld blijft leeg op de umbrella (functioneel
   equivalent aan 0 voor velocity).
-- `JIRA_REALIZATION_LINK_TYPE` (optioneel) — exacte naam van het issue
+- `JIRA_REALIZATION_LINK_TYPE` (optioneel) - exacte naam van het issue
   link-type voor "Wordt gerealiseerd door" (bv. `Realization`). Niet
   gezet → het script zoekt zelf via inward-description.
-- `JIRA_UMBRELLA_EPIC` (optioneel) — epic waaraan het umbrella-ticket
+- `JIRA_UMBRELLA_EPIC` (optioneel) - epic waaraan het umbrella-ticket
   wordt gehangen. Mag een issue-key zijn (`FLUX-42`) of een Epic Name
   (`[2026] - samenwerking`). Leeg → geen epic-link.
-- `JIRA_EPIC_LINK_FIELD` / `JIRA_EPIC_NAME_FIELD` (optioneel) — overrides
+- `JIRA_EPIC_LINK_FIELD` / `JIRA_EPIC_NAME_FIELD` (optioneel) - overrides
   voor de Epic Link en Epic Name customfields. Leeg → auto-detect via
   `/rest/api/2/field`.
 
@@ -409,7 +420,7 @@ oude pad.
 **Model-mismatch-guard.** Omdat `develop`/`review`/`ship`/`iterate`/`git:push`/
 `git:pr` het model-code allemaal uit `AGENT_DEVELOP_MODEL` afleiden, moet dat
 model **stabiel blijven** van develop t/m push/pr voor één ticket-run (een
-ander *review*-model is wél prima — dat beïnvloedt het pad niet). Wijzig je
+ander *review*-model is wél prima - dat beïnvloedt het pad niet). Wijzig je
 `AGENT_DEVELOP_MODEL` tussendoor, dan wijst het label naar een niet-bestaande
 folder. `locateTicketSprint` (`shared/ticket.ts`) vangt dit: bestaat de
 verwachte `<profiel>-<code>`-folder niet maar wél een zusterrun van hetzelfde
@@ -430,19 +441,19 @@ Bij een profile-run gebeurt het volgende (`<label>` = `<profiel>-<code>`):
 - **Ticket-state** gaat in een subfolder per label:
   `state/sprints/<sprint>/tickets/<KEY>/<label>/{ticket.md, code-changes.md,
   review-r*.md, _status.json}` (bv. `.../tickets/FLUX-463/kris-O48/`). `ticket.md`
-  wordt per label gedupliceerd — bewust, zodat runs mogen divergeren (eigen
+  wordt per label gedupliceerd - bewust, zodat runs mogen divergeren (eigen
   `## Keuze` per profiel/model).
 - **`_status.json`** krijgt een veld `profile: "<naam>"` met het **kale**
   profiel (bv. `kris`, niet het label) zodat ship.ts weet welk profile bij
   welke ronde hoort. `review.ts` weigert met een duidelijke melding als
-  `--profile` ontbreekt terwijl `_status.json` er één bevat — voorkomt
+  `--profile` ontbreekt terwijl `_status.json` er één bevat - voorkomt
   stille profile-mismatch. De model-code zit niet in `_status.json`: review
   en ship herberekenen het label uit `--profile` + `AGENT_DEVELOP_MODEL` (`.env`),
   net zoals het profiel consistent meegegeven wordt.
 - **Profile-activatie** in de worktree gebeurt door
   `applyAiProfile(worktreePath, profile)` (in `pipeline/agents/shared/repo.ts`),
   dat `./set-ai-profile.sh <profile>` in de worktree-cwd draait vóór de
-  SDK-call. Idempotent — opnieuw draaien is safe en switcht netjes als
+  SDK-call. Idempotent - opnieuw draaien is safe en switcht netjes als
   je per ongeluk een ander profile actief had.
 
 **Faalmodes (allebei harde fout, geen halve toestand):**
@@ -473,13 +484,13 @@ per-profiel dev-runs (§10). Voor analyse varieert niet het profiel maar het
 kan dezelfde sprint (of hetzelfde ticket, in `--tickets`-modus) met twee
 modellen naast elkaar geanalyseerd worden zonder dat de tweede run de eerste
 overschrijft. Per label een eigen `_meta.json` (idempotency-hashes),
-`FLUX-*.md`, `FLUX-*.jira.md`, en — na plan/publish — `_order.md` /
+`FLUX-*.md`, `FLUX-*.jira.md`, en - na plan/publish - `_order.md` /
 `_published.json`.
 
 **Eén expliciete keuze vóór downstream.** Omdat een sprint nu meerdere analyses
 kan hebben, moet er precies één gekozen worden vóór `plan`, `publish`,
 `develop` (en `converge`/`review-external`). Die keuze wordt vastgelegd via een
-**pointer** `sprints/<SPRINT>/_chosen.json` (`{ analysis, chosenAt }`) — geen
+**pointer** `sprints/<SPRINT>/_chosen.json` (`{ analysis, chosenAt }`) - geen
 bestanden verplaatsen; de niet-gekozen analyses blijven zichtbaar in hun eigen
 label-folder. De centrale resolver `resolveAnalysisDir` (in
 `pipeline/agents/shared/analysis.ts`) bepaalt overal de actieve analyse-dir met
@@ -495,7 +506,7 @@ precies één automatisch die, bij een legacy platte sprint niets. De CLI zonder
 `--analysis` faalt bij ambiguïteit met dezelfde hint.
 
 **Backwards-compat:** bestaande platte sprints (`sprints/<SPRINT>/FLUX-*.md`
-zonder `analyses/`-map) blijven werken — de resolver behandelt de sprint-root
+zonder `analyses/`-map) blijven werken - de resolver behandelt de sprint-root
 dan als analyse-dir (label `null`). Geen migratiescript nodig.
 
 **Los van de dev-dimensie:** het analyse-label (`no-<code>`) staat naast het
@@ -515,7 +526,7 @@ zoals `publish.ts`):
   = no-op).
 - `npm run git:pr -- <KEY> [--profile <naam>]` (`pipeline/git/pr.ts`): `gh pr create
   --draft --base <baseBranch>`. **PR-titel** = de squash-commit-subject
-  (`git log -1 --format=%s`) — niet apart opgeslagen, gegarandeerd identiek
+  (`git log -1 --format=%s`) - niet apart opgeslagen, gegarandeerd identiek
   aan de clean commit. **PR-body** = `_pr-body.md`. Schrijft de PR-URL naar
   `_status.json.prUrl`. Idempotent: bestaat er al een PR voor de branch
   (`gh pr view`), dan wordt enkel de URL bewaard, geen tweede PR.
@@ -528,10 +539,10 @@ de branch nog niet gepusht is.
 
 `status === 'approved'` betekent voortaan "gereviewd OK + lokaal gesquasht,
 klaar om te pushen". Of de PR al bestaat blijkt uit `_status.json.prUrl`.
-Geen `_status.json` schema-wijziging — `prUrl` was al optioneel.
+Geen `_status.json` schema-wijziging - `prUrl` was al optioneel.
 
-**Committer-identiteit afgedwongen vóór de push.** `runPush` draait —
-ná `applyGitIdentityFromEnv()`, vóór `git push` — `enforceCommitIdentity`
+**Committer-identiteit afgedwongen vóór de push.** `runPush` draait -
+ná `applyGitIdentityFromEnv()`, vóór `git push` - `enforceCommitIdentity`
 (in `shared/repo.ts`): elke nog-ongepushte commit tussen `origin/<base>` en
 HEAD krijgt zowel als author áls committer de canonieke identiteit. Die wordt
 afgeleid uit `FLUX_GIT_AUTHOR_NAME`/`FLUX_GIT_AUTHOR_EMAIL` (.env of
@@ -541,7 +552,7 @@ push met een duidelijke fout (bewust géén ingebakken persoon als fallback, zod
 een andere installateur nooit onder een vreemde naam commit). Dit sluit het lek
 waarbij de squash-/combineer-commit
 door een LLM-agent (review, converge) met een afwijkende committer wordt
-gemaakt — bv. via `git cherry-pick`/`git commit -C`, die de author overnemen
+gemaakt - bv. via `git cherry-pick`/`git commit -C`, die de author overnemen
 maar de committer uit de lokale git-config halen, zodat er een ongewenste
 `committed by …`-regel op de commit komt. De stap is **idempotent en
 force-push-vrij**: dragen alle commits al de canonieke identiteit, dan wordt
@@ -550,8 +561,8 @@ push-paden (`npm run git:push`, `ship`, `converge`) door `runPush` lopen, geldt
 dit overal.
 
 `ship.ts` draait bij APPROVED automatisch `runPush` (dezelfde logica als
-`npm run git:push`) zodat de branch op origin komt. De PR maakt ship **niet** aan
-— `gh pr create` blijft een bewuste manuele stap (`npm run git:pr`).
+`npm run git:push`) zodat de branch op origin komt. De PR maakt ship **niet** aan -
+`gh pr create` blijft een bewuste manuele stap (`npm run git:pr`).
 
 `iterate.ts` draait exact dezelfde develop→review-lus als ship (gedeeld in
 `pipeline/agents/shared/loop.ts`), maar pusht **niet**: bij APPROVED stopt het lokaal
@@ -564,7 +575,7 @@ kunnen gaan staan (squash + `_pr-body.md` lokaal nakijken), en de enige
 netwerk-schrijfacties van de pipeline horen expliciet en deterministisch te
 zijn in plaats van verstopt in een LLM-run.
 
-### 12. Converge — twee profielruns combineren tot één branch (`npm run pipeline:converge`)
+### 12. Converge - twee profielruns combineren tot één branch (`npm run pipeline:converge`)
 
 Use case: Kris draait hetzelfde ticket parallel onder twee profielen om de
 implementaties te vergelijken:
@@ -584,30 +595,30 @@ Flow:
 
 1. **Validatie.** Voor elk meegegeven profiel wordt de run-subfolder
    (`<profiel>-<modelcode>`) **op disk ontdekt** via ticket + kaal profiel
-   (`locateProfileRun` in `shared/ticket.ts`) — converge herberekent het label
+   (`locateProfileRun` in `shared/ticket.ts`) - converge herberekent het label
    bewust níét uit `AGENT_DEVELOP_MODEL`: de model-code in de foldernaam zegt
    alleen met welk model er destijds ontwikkeld is, en een latere model-wissel
    in `.env` mag een afgewerkte run niet onvindbaar maken. Heeft hetzelfde
    profiel meerdere runs (verschillende modellen), dan wint de enige
    `approved`; daarna het label volgens de huidige `.env`; anders een fout die
    de kandidaten opsomt. Elke bron moet
-   status `approved` hebben — het natuurlijke eindpunt van `iterate` (lokale
+   status `approved` hebben - het natuurlijke eindpunt van `iterate` (lokale
    squash gedaan, dus elke bronbranch draagt één nette commit). Minstens 2
    profielen vereist; bij een niet-`approved` bron weigert converge.
 2. **Canonieke, profielloze slot.** De gecombineerde branch is
-   `feature-v2/<KEY>-<slug>` — **géén** profiel-segment en **géén** model-code
+   `feature-v2/<KEY>-<slug>` - **géén** profiel-segment en **géén** model-code
    (er is geen profiel gebruikt voor het resultaat). De slug komt uit het
    profielloze refinement-rapport (`sprints/<sprint>/<KEY>.md`), niet uit een
    per-profiel `ticket.md`. Worktree (`worktrees/<sprint>/<KEY>`) en
    ticket-state (`sprints/<sprint>/tickets/<KEY>/`, zonder label-subfolder) zijn
-   dus de profielloze paden — exact wat `npm run git:push`/`npm run git:pr` zonder
+   dus de profielloze paden - exact wat `npm run git:push`/`npm run git:pr` zonder
    `--profile` verwachten. De gecombineerde run ís de canonieke ontwikkeling
    van het ticket.
 3. **Combineren (LLM).** Een Opus-agent draait in de verse worktree (op de
    gecombineerde branch, afgesplitst van `origin/<base>`, nog zonder commits).
    De twee bronbranches zitten in dezelfde clone, dus de agent inspecteert ze
    via git-refs (`git diff origin/<base>..<branch>`, `git show <branch>:pad`,
-   `git checkout <branch> -- pad`) — geen aparte worktrees nodig. Hij neemt
+   `git checkout <branch> -- pad`) - geen aparte worktrees nodig. Hij neemt
    per onderdeel het beste van beide, houdt de probleemstelling opgelost,
    **minimaliseert nieuwe commentaren en respecteert hoe elk bestand al met
    commentaar omging**, maakt één nette commit (subject `<type>: <scope> -
@@ -619,85 +630,85 @@ Flow:
    `pipeline/agents/prompts/converge.md`.
 4. **Guardrails + afronden (deterministisch).** Na de LLM-run checkt converge
    dat er ≥1 commit op de branch staat en dat zowel `_pr-body.md` als
-   `_converge.md` bestaan — anders harde fout, niets gepusht. Daarna zet het `_status.json` op `approved`
+   `_converge.md` bestaan - anders harde fout, niets gepusht. Daarna zet het `_status.json` op `approved`
    (profielloos) en draait het `runPush` + `runPr` (dezelfde logica als
    `npm run git:push`/`npm run git:pr`). Resultaat: gepushte branch + draft-PR waarvan
    de titel = de squash-commit-subject en de body = `_pr-body.md`.
 
-**Converge maakt de PR wél automatisch aan** — bewuste afwijking van de
+**Converge maakt de PR wél automatisch aan** - bewuste afwijking van de
 "PR blijft manueel"-conventie, op expliciete vraag. De netwerk-schrijfacties
 blijven deterministisch (`runPush`/`runPr`, geen LLM); de LLM-stap zelf pusht
 nooit en maakt nooit een PR. Mergen blijft menselijk.
 
 **Waarom profielloos als output:** Kris vroeg expliciet dat de gecombineerde
-branch rechtstreeks onder `feature-v2/` valt zonder profiel in de naam — er is
+branch rechtstreeks onder `feature-v2/` valt zonder profiel in de naam - er is
 immers geen profiel gebruikt om het te maken. Door de profielloze slot te
 hergebruiken is het resultaat niet te onderscheiden van een gewoon goedgekeurd
 ticket, en werken `push`/`pr` (en de rest van de downstream) ongewijzigd.
 
 **Niet in scope voor converge:** meer dan parallelle profielruns mengen (bv.
 verschillende sprints), of de PR mergen. `converge` weigert als een bron niet
-`approved` is — het is geen vervanger voor `iterate`, maar de stap erná.
+`approved` is - het is geen vervanger voor `iterate`, maar de stap erná.
 
 ### 13. State-onderhoud: worktrees opkuisen (`npm run state:close-*`)
 
 Twee deterministische scripts (geen LLM) houden de state-repo netjes. Ze raken
-nooit Jira, GitHub of de feature-branches — enkel de lokale (gitignored)
+nooit Jira, GitHub of de feature-branches - enkel de lokale (gitignored)
 worktrees; de committed state blijft altijd bewaard. Gedeelde verwijder-logica
 in `pipeline/state/worktree-cleanup.ts`.
 
-**`npm run state:close-sprint -- <SPRINT>`** — ruimt de worktrees van een
+**`npm run state:close-sprint -- <SPRINT>`** - ruimt de worktrees van een
 afgesloten sprint op: `git worktree remove --force` op elke `worktrees/<SPRINT>/*`
 gevolgd door `git worktree prune`. De committed sprint-state (refinement +
 ticketwerk onder `sprints/<SPRINT>/`) blijft bewaard. In de TUI: submenu
 'onderhoud' → 'sprint afsluiten' (toont enkel sprints die nog worktrees hebben).
 
-**`npm run state:close-external [-- <LEAF>]`** — ruimt de wegwerp-worktrees van
+**`npm run state:close-external [-- <LEAF>]`** - ruimt de wegwerp-worktrees van
 externe code-reviews op (`worktrees/_external/*`). Zonder argument alle, met een
 argument enkel `worktrees/_external/<LEAF>` (bv. `FLUX-743-kris-O48`). De committed
 review-output onder `external-reviews/<KEY>/` blijft bewaard. In de TUI: submenu
 'onderhoud' → 'opkuis externe reviews' (multiselect, standaard niets geselecteerd).
 
 Beide nemen `--dry-run` (toont enkel wat ze zouden verwijderen) en zijn
-idempotent — geen worktrees meer = no-op.
+idempotent - geen worktrees meer = no-op.
 
 Naast de opkuis-acties heeft het 'onderhoud'-submenu ook **'profielen
 verversen'**: dat doet een fetch+reset van de base-branch worktree
 (`worktrees/_base/<baseBranch>`, zelfde logica als refine via `prepareWorktree`)
 zodat in `develop-v2` nieuw toegevoegde AI-profielen (`ai/profiles/<naam>/`) in
 de profiel-prompts verschijnen. Het is bewust een aparte, expliciete actie omdat
-de fetch+reset te traag is om bij elke profiel-prompt te draaien — de prompts
+de fetch+reset te traag is om bij elke profiel-prompt te draaien - de prompts
 zelf lezen `ai/profiles/` puur van disk.
 
 **Waarom deterministisch en los:** opkuisen is een puur mechanische
 bestandsoperatie zonder oordeel; het hoort niet in een LLM-run, en het apart
 houden betekent dat een fout in dit pad de agent-output nooit raakt.
 
-## Harde regels — agents mogen deze NOOIT overtreden
+## Harde regels - agents mogen deze NOOIT overtreden
 
 - **Geen `git push` behalve** via `pipeline/git/push.ts` (`npm run git:push`) op een
   ticket met status `approved`, en alleen naar de eigen feature-branch. Ook
-  `ship` en `converge` pushen — maar enkel door diezelfde `runPush`-logica te
+  `ship` en `converge` pushen - maar enkel door diezelfde `runPush`-logica te
   hergebruiken, nooit eigen git-push. De review-agent en de converge-agent
   (de LLM-stap) pushen zelf NOOIT.
 - **Geen `git push --force`** ooit
 - **Geen PR aanmaken behalve** via `pipeline/git/pr.ts` (`npm run git:pr`) of via
-  `npm run pipeline:converge` — beide doen één `gh pr create --draft` via dezelfde
+  `npm run pipeline:converge` - beide doen één `gh pr create --draft` via dezelfde
   `runPr`-logica. De review-agent en de converge-agent (de LLM-stap) maken
   zelf NOOIT een PR aan. `converge` is de enige orchestrator die de PR
   automatisch aanmaakt; voor de gewone pipeline blijft de PR een bewuste
   manuele stap.
-- **Geen PR mergen** — dat doet Kris altijd zelf op GitHub
-- **Geen Jira workflow-transities** — niets in deze pipeline wijzigt
+- **Geen PR mergen** - dat doet Kris altijd zelf op GitHub
+- **Geen Jira workflow-transities** - niets in deze pipeline wijzigt
   ooit de status van een ticket (bv. To Do → In Progress → Done). Het
   enige wat naar Jira geschreven wordt zijn (a) refinement-comments en
   (b) het umbrella-ticket per sprint, beide door `publish.ts`. Verder
   blijft alles lokale markdown.
-- **Geen comments posten op GitHub PR's** — review-feedback blijft in
+- **Geen comments posten op GitHub PR's** - review-feedback blijft in
   `state/sprints/<sprint>/tickets/<KEY>/review-r*.md`
 - **Geen dependencies installeren** zonder Kris expliciet te vragen
   en te motiveren waarom
-- **Geen secrets loggen** — tokens in `.env` blijven daar
+- **Geen secrets loggen** - tokens in `.env` blijven daar
 - **Geen bestaande publieke API's van components breken** zonder dit
   expliciet te flaggen in `code-changes.md`
 
@@ -720,7 +731,7 @@ en `ticket-reviewer.md`. Samengevat:
   via `@simonsmith/cypress-image-snapshot`
 - **Accessibility:** WCAG 2.1 AA minimum
 - **Commit-subjects** als `<type>: <scope> - <omschrijving>` met de ticket-key
-  in de scope (bv. `fix: FLUX-123 - vl-input-field - focus trap leak`) — niet
+  in de scope (bv. `fix: FLUX-123 - vl-input-field - focus trap leak`) - niet
   het conventional-commits-formaat met haakjes
 
 Conventies zijn gebaseerd op Kris' werkgeschiedenis en moeten na
@@ -800,7 +811,7 @@ flux-agents-state/                ← aparte repo (STATE_DIR)
     └── _published.json           ← publish-review state (hash per bestand)
 ```
 
-**Sprint-centrisch:** alles wat aan een sprint hangt zit op één plek —
+**Sprint-centrisch:** alles wat aan een sprint hangt zit op één plek -
 refinement én ticketwerk onder `sprints/<SPRINT>/`, en de (gitignored)
 worktrees onder `worktrees/<SPRINT>/`. Een afgesloten sprint kuis je op met
 `npm run state:close-sprint -- <SPRINT>` (zie §13): dat doet `git worktree
@@ -824,10 +835,10 @@ visibility (tool mag publiek, state bevat interne ticket-details).
 
 ### SDK side (agents 1 en 2)
 - **Node 20+**, ESM modules, TypeScript strict
-- **`@anthropic-ai/claude-agent-sdk`** — de officiële Claude Agent SDK
+- **`@anthropic-ai/claude-agent-sdk`** - de officiële Claude Agent SDK
 - **`tsx`** voor directe uitvoering zonder build step
 - **`dotenv`** voor env configuratie
-- Geen framework of DI — bewust minimaal
+- Geen framework of DI - bewust minimaal
 
 ### Publish-script (`pipeline/jira/publish.ts`)
 - Zelfde Node + tsx + dotenv basis als de agents
@@ -843,10 +854,10 @@ visibility (tool mag publiek, state bevat interne ticket-details).
   via proactive triggers)
 
 ### External tools
-- **Jira Data Center REST API v2** — direct vanuit agent 1 (`pipeline/agents/shared/jira.ts`)
+- **Jira Data Center REST API v2** - direct vanuit agent 1 (`pipeline/agents/shared/jira.ts`)
   én `pipeline/jira/publish.ts`/`publish-review.ts` met `fetch`. Geen Docker/MCP meer.
 - **`gh` CLI** voor de ene GitHub-actie (PR aanmaken)
-- **`git`** — vereist minstens 2.23+ voor `switch`
+- **`git`** - vereist minstens 2.23+ voor `switch`
 
 ### Terminal-output (wat een mens tijdens een run ziet)
 
@@ -878,17 +889,17 @@ OSC-controle-sequentie op de stdout van de TUI zelf). Regelformaat
 
 Als je (Claude in een toekomstige sessie) iets aanpast, valideer:
 
-1. **Harde regels hierboven** — nog steeds afdwingbaar?
-2. **State-compatibiliteit** — kunnen bestaande
+1. **Harde regels hierboven** - nog steeds afdwingbaar?
+2. **State-compatibiliteit** - kunnen bestaande
    `state/sprints/<SPRINT>/tickets/*` folders nog door de nieuwe code gelezen
    worden? Layout- of `_status.json`-schemawijzigingen vereisen een
    migratie-strategie (eenmalig migratiescript dat Kris zelf draait).
-3. **Idempotentie agent 1** — herstart blijft non-destructief?
-4. **Max rondes** — blijft escalatie-logica intact?
-5. **Geen nieuwe netwerk-endpoints** — we praten alleen met Jira REST
+3. **Idempotentie agent 1** - herstart blijft non-destructief?
+4. **Max rondes** - blijft escalatie-logica intact?
+5. **Geen nieuwe netwerk-endpoints** - we praten alleen met Jira REST
    direct (agent 1, publish.ts en publish-review.ts), Anthropic API
    (via SDK), GitHub (via gh CLI)
-6. **Profile-paden** — als je helpers in `shared/repo.ts` of
+6. **Profile-paden** - als je helpers in `shared/repo.ts` of
    `shared/ticket.ts` wijzigt die het worktree-pad, branch-naam of
    ticket-state-pad bouwen, behoud dan de optionele `profile`-parameter
    en de regel "zonder profile = exact het oude pad". Anders breekt §10
@@ -902,9 +913,9 @@ Kris er zelf om vraagt:
 
 - Autonoom de hele pipeline doorlopen zonder menselijke triggers
 - Review comments posten op GitHub
-- Een finishing/merging-agent — bewust weggelaten, merge blijft
+- Een finishing/merging-agent - bewust weggelaten, merge blijft
   menselijk
-- Jira workflow-transities (To Do → In Progress → Done) terugschrijven —
+- Jira workflow-transities (To Do → In Progress → Done) terugschrijven -
   comments en het umbrella-ticket via `publish.ts` zijn wél in scope
 - Slack-notificaties
 - Dashboard / UI
@@ -915,7 +926,7 @@ Kris er zelf om vraagt:
 - Werkt bij de Vlaamse Overheid (Vlaamse Overheid / VO) aan het
   flux-web-components design system
 - Heeft ook een persoonlijk project Handelswolk (trading dashboard,
-  Kotlin backend + Angular/NgRx frontend) — **NIET relevant voor deze
+  Kotlin backend + Angular/NgRx frontend) - **NIET relevant voor deze
   repo**, maar als je toekomstige discussies ziet over agents voor dat
   project: dat is een apart initiatief
 - Gebruikt IntelliJ als primaire IDE, draait Claude Code vanuit de

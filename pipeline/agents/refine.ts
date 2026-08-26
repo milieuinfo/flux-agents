@@ -258,19 +258,19 @@ async function refineTicket(
   const imagePayloads = await loadImagePayloads(jira, selectedImages);
   const imagesContext =
     imagePayloads.length > 0
-      ? `\n\nAan dit ticket hangen ${imagePayloads.length} afbeelding(en) — ` +
+      ? `\n\nAan dit ticket hangen ${imagePayloads.length} afbeelding(en) - ` +
         `screenshots of designs die hierboven aan jou zijn doorgegeven als ` +
         `image content blocks (vóór deze tekst-instructie). Bestandsnamen ` +
         `(in volgorde): ${selectedImages
           .slice(0, imagePayloads.length)
           .map((a) => a.filename)
           .join(', ')}. ` +
-        `Bekijk ze actief en weeg de visuele info mee in je analyse — bij ` +
+        `Bekijk ze actief en weeg de visuele info mee in je analyse - bij ` +
         `visuele bugs is de screenshot vaak de primaire bron van waarheid.`
       : '';
 
   // Ticket-data via REST ophalen en in de prompt injecteren (was vroeger een
-  // MCP tool-call). Comments filteren we op menselijke — AI-comments van de
+  // MCP tool-call). Comments filteren we op menselijke - AI-comments van de
   // pipeline zelf worden weggelaten zodat ze geen feedback-loop voeden.
   const details = await getFullIssueDetails(jira, key, acFieldId);
   const comments = humanComments(details.comments);
@@ -278,11 +278,11 @@ async function refineTicket(
 
   const prompt =
     `Hieronder staan de volledige gegevens van ticket ${key}, opgehaald via ` +
-    `Jira REST. Comments tellen mee bij je analyse — een collega heeft daar ` +
+    `Jira REST. Comments tellen mee bij je analyse - een collega heeft daar ` +
     `mogelijk context, beslissingen of follow-up-vragen geplaatst die niet in ` +
     `de description staan; recente comments hebben voorrang op tegenstrijdige ` +
     `description-tekst. Je werkdirectory is de develop-v2 worktree van ` +
-    `flux-web-components — gebruik Read/Glob/Grep om de relevante component-code ` +
+    `flux-web-components - gebruik Read/Glob/Grep om de relevante component-code ` +
     `te consulteren volgens de instructies in je system prompt. Produceer dan ` +
     `de refinement markdown volgens het format in je system prompt.\n\n` +
     ticketBlock +
@@ -309,7 +309,7 @@ async function refineTicket(
     agent: {
       label:
         `${key} (${progress.index}/${progress.total}): analyseren ` +
-        `(${progress.isUpdate ? 'update' : 'nieuw'}) — ${modelShort(refineModel())}, max ${maxTurns} turns`,
+        `(${progress.isUpdate ? 'update' : 'nieuw'}) - ${modelShort(refineModel())}, max ${maxTurns} turns`,
       doneLabel: `${key} geanalyseerd`,
       cwd: worktreeDir,
     },
@@ -327,11 +327,11 @@ async function refineTicket(
 /**
  * Genereer de beknopte Jira-comment-versie van een refinement-rapport.
  * Aparte LLM-call (Sonnet by default) zodat de samenvatting gefocust is op
- * één taak: inkorten. Geen tools nodig — pure tekst-in/tekst-uit.
+ * één taak: inkorten. Geen tools nodig - pure tekst-in/tekst-uit.
  *
  * `assertRefinementShape` wordt hier hergebruikt: de samenvatting moet ook
  * met `# {KEY}` beginnen. Een lengte-minimum van 400 chars is voor een
- * korte versie te streng — daarom een eigen, mildere check.
+ * korte versie te streng - daarom een eigen, mildere check.
  */
 async function summarizeRefinement(
   key: string,
@@ -352,7 +352,7 @@ async function summarizeRefinement(
       effort: refineSummaryEffort(),
       maxTurns: 2,
       systemPrompt: { type: 'preset', preset: 'claude_code', append: systemPrompt },
-      // Geen MCP, geen Read/Glob/Grep — de samenvatting heeft alleen het
+      // Geen MCP, geen Read/Glob/Grep - de samenvatting heeft alleen het
       // rapport in de prompt nodig.
       allowedTools: [],
     },
@@ -399,7 +399,7 @@ function assertSummaryShape(key: string, md: string): void {
   const hasH1WithKey = /^#\s/.test(firstLine) && firstLine.includes(key);
   if (!hasH1WithKey) {
     throw new Error(
-      `Summary voor ${key} begint niet met "# ${key}…" — eerste regel: ` +
+      `Summary voor ${key} begint niet met "# ${key}…" - eerste regel: ` +
         truncate(firstLine, 120),
     );
   }
@@ -416,20 +416,20 @@ function assertSummaryShape(key: string, md: string): void {
  * "refinement" op disk. Liever hier falen dan troep committen.
  *
  * Must-haves: een h1 op regel 1 die de ticket-key bevat, en een minimum
- * aan inhoud. Geen strikte format-controle — system prompt bepaalt de rest.
+ * aan inhoud. Geen strikte format-controle - system prompt bepaalt de rest.
  */
 function assertRefinementShape(key: string, md: string): void {
   const firstLine = md.split('\n', 1)[0] ?? '';
   const hasH1WithKey = /^#\s/.test(firstLine) && firstLine.includes(key);
   if (!hasH1WithKey) {
     throw new Error(
-      `Refinement voor ${key} begint niet met "# ${key}…" — vermoedelijk ` +
+      `Refinement voor ${key} begint niet met "# ${key}…" - vermoedelijk ` +
         `een afgekapte of foutieve LLM-output. Eerste regel: ${truncate(firstLine, 120)}`,
     );
   }
   if (md.length < 400) {
     throw new Error(
-      `Refinement voor ${key} is verdacht kort (${md.length} chars) — vermoedelijk incompleet.`,
+      `Refinement voor ${key} is verdacht kort (${md.length} chars) - vermoedelijk incompleet.`,
     );
   }
 }
@@ -446,7 +446,7 @@ interface ImagePayload {
 /**
  * Wrap een tekst-prompt + optionele image-payloads in een single-shot
  * AsyncIterable<SDKUserMessage>. Wordt gebruikt wanneer de refine-call
- * Jira-attachments als image-content-blocks moet meesturen — de SDK
+ * Jira-attachments als image-content-blocks moet meesturen - de SDK
  * accepteert images alleen via deze structurele content-vorm, niet via
  * de string-prompt.
  */
@@ -460,7 +460,7 @@ async function* singleUserMessageWithImages(
 }> {
   const content: unknown[] = [];
   // Images eerst: vision-modellen krijgen zo de visuele context binnen vóór
-  // ze de tekst-instructie verwerken — best practice voor "analyseer deze
+  // ze de tekst-instructie verwerken - best practice voor "analyseer deze
   // afbeelding"-prompts.
   for (const img of images) {
     content.push({
@@ -543,7 +543,7 @@ async function readOverviewKey(state: SprintState): Promise<string | undefined> 
 
 /**
  * Filter het door publish.ts beheerde [Sprint-analyse]-umbrella-ticket uit
- * de sprint-lijst. Twee criteria — `overviewKey` uit `_published.json` (als
+ * de sprint-lijst. Twee criteria - `overviewKey` uit `_published.json` (als
  * dat er is) én summary-prefix `[Sprint-analyse]` als veiligheidsnet.
  */
 function filterUmbrella(
@@ -552,11 +552,11 @@ function filterUmbrella(
 ): Array<{ key: string; summary: string; status: string; updated: string }> {
   return tickets.filter((t) => {
     if (overviewKey && t.key === overviewKey) {
-      log.info(`${t.key}: sprint-analyse-umbrella — overslaan`);
+      log.info(`${t.key}: sprint-analyse-umbrella - overslaan`);
       return false;
     }
     if (t.summary.startsWith('[Sprint-analyse]')) {
-      log.info(`${t.key}: sprint-analyse-umbrella — overslaan`);
+      log.info(`${t.key}: sprint-analyse-umbrella - overslaan`);
       return false;
     }
     return true;
@@ -572,7 +572,7 @@ function filterUmbrella(
  * Menselijke comments wegen mee: een collega die een opmerking toevoegt op
  * een ticket triggert automatisch een re-refine. AI-comments (zoals die van
  * `publish.ts` of `publish-review.ts`) worden gefilterd zodat de pipeline
- * geen self-loop creëert. Image-attachments wegen ook mee — een nieuw
+ * geen self-loop creëert. Image-attachments wegen ook mee - een nieuw
  * screenshot bij een visuele bug triggert een re-refine.
  */
 async function fetchContentHash(
@@ -611,7 +611,7 @@ async function fetchContentHash(
  * `JIRA_REFINE_IMAGE_MAX_BYTES` (default 5_000_000 = 5MB totaal).
  *
  * Sorteert op `created` (oudste eerst) zodat de selectie deterministisch
- * is over runs heen — handig voor de hash-stabiliteit.
+ * is over runs heen - handig voor de hash-stabiliteit.
  */
 async function selectImageAttachments(
   jira: JiraClient,
@@ -657,7 +657,7 @@ async function loadImagePayloads(
         `afbeelding ${att.filename} (${att.mimeType}, ${(bytes / 1024).toFixed(0)}kB)`,
       );
     } catch (err) {
-      log.warn(`Afbeelding ${att.filename} kon niet gedownload worden — overslaan:`, err);
+      log.warn(`Afbeelding ${att.filename} kon niet gedownload worden - overslaan:`, err);
     }
   }
   return payloads;
@@ -692,7 +692,7 @@ async function main(args: CliArgs) {
     await ensureRepoClone({ repoUrl, cloneDir: mainRepoDir });
     await prepareWorktree({ mainRepoDir, worktreePath: worktreeDir, ref: baseBranch });
   } else {
-    log.ok('Dry-run: geen clone/worktree, geen LLM-calls — enkel wat er zou gebeuren');
+    log.ok('Dry-run: geen clone/worktree, geen LLM-calls - enkel wat er zou gebeuren');
   }
 
   const systemPrompt = await loadPrompt('refine');
@@ -738,9 +738,9 @@ async function main(args: CliArgs) {
     const prevMeta = existingMeta?.tickets[t.key];
     const markdownExists = await state.ticketExists(t.key);
 
-    // Geval A — snelle hit: timestamp matcht, niets veranderd Jira-zijde.
+    // Geval A - snelle hit: timestamp matcht, niets veranderd Jira-zijde.
     if (prevMeta && markdownExists && prevMeta.jiraUpdated === t.updated) {
-      log.info(`${pos}: ongewijzigd — overslaan`);
+      log.info(`${pos}: ongewijzigd - overslaan`);
       newMeta.tickets[t.key] = prevMeta;
       skipped++;
       if (!args.dryRun) {
@@ -749,14 +749,14 @@ async function main(args: CliArgs) {
       continue;
     }
 
-    // Geval B/C — fetch echte content om vast te stellen of een refine nodig is.
+    // Geval B/C - fetch echte content om vast te stellen of een refine nodig is.
     // Dit dekt ook de comment-only-update flow: publish.ts plaatst comments waardoor
-    // `updated` wijzigt, maar de inhoud niet — dan is `contentHash` ongewijzigd.
+    // `updated` wijzigt, maar de inhoud niet - dan is `contentHash` ongewijzigd.
     let contentHash: string;
     try {
       contentHash = await fetchContentHash(jira, t.key, acFieldId);
     } catch (err) {
-      log.warn(`${pos}: kon de inhoud niet ophalen via REST — val terug op analyseren:`, err);
+      log.warn(`${pos}: kon de inhoud niet ophalen via REST - val terug op analyseren:`, err);
       contentHash = '';
     }
 
@@ -766,7 +766,7 @@ async function main(args: CliArgs) {
       contentHash !== '' &&
       prevMeta.contentHash === contentHash
     ) {
-      log.info(`${pos}: alleen de timestamp is gewijzigd — overslaan`);
+      log.info(`${pos}: alleen de timestamp is gewijzigd - overslaan`);
       newMeta.tickets[t.key] = {
         ...prevMeta,
         jiraUpdated: t.updated,
@@ -780,7 +780,7 @@ async function main(args: CliArgs) {
 
     const isUpdate = Boolean(prevMeta);
     if (args.dryRun) {
-      log.info(`${pos}: zou analyseren (${isUpdate ? 'update' : 'nieuw'}) — dry-run`);
+      log.info(`${pos}: zou analyseren (${isUpdate ? 'update' : 'nieuw'}) - dry-run`);
       skipped++;
       wouldRefine++;
       continue;
@@ -812,7 +812,7 @@ async function main(args: CliArgs) {
           await state.writeTicketSummary(t.key, summary);
         });
       } catch (err) {
-        log.warn(`${t.key}: samenvatting mislukt — de uitgebreide analyse blijft staan:`, err);
+        log.warn(`${t.key}: samenvatting mislukt - de uitgebreide analyse blijft staan:`, err);
         await state.deleteTicketSummary(t.key);
       }
     } catch (err) {

@@ -4,7 +4,7 @@ import { observeStream, type ObserveOptions } from './observability.js';
 
 export interface RunAgentOptions extends ObserveOptions {
   /**
-   * Stap-label voor de terminal, bv. `Agent draait — opus-5, ronde 1 (max 100
+   * Stap-label voor de terminal, bv. `Agent draait - opus-5, ronde 1 (max 100
    * turns)`. Zonder label geen ▸/✓-regels (de caller wikkelt de call dan zelf
    * in een `log.task`, zoals bij de refine-samenvatting).
    */
@@ -12,7 +12,7 @@ export interface RunAgentOptions extends ObserveOptions {
   /** Tekst van de ✓-eindregel; default `Agent klaar`. */
   doneLabel?: string;
   /**
-   * `last` (default): de tekst van het LAATSTE assistant-bericht — de
+   * `last` (default): de tekst van het LAATSTE assistant-bericht - de
    * eindsynthese na alle tool-gebruik. `all`: alle assistant-beurten,
    * gescheiden door turn-markers, voor wanneer het beoogde document in een
    * eerdere beurt geproduceerd kan zijn.
@@ -24,7 +24,7 @@ export interface RunAgentOptions extends ObserveOptions {
  * Consumeer een SDK-query-stream met leesbare terminal-output en geef de
  * assistant-tekst terug. Eén eigenaar van de ▸/✓/✗-regels rond een agent-run:
  *
- *   10:02:16 ▸ Agent draait — opus-5, ronde 1 (max 100 turns)
+ *   10:02:16 ▸ Agent draait - opus-5, ronde 1 (max 100 turns)
  *   10:02:20   │ …agent-stroom via observeStream…
  *   10:09:05 ✓ Agent klaar (6m49s · 41 turns)
  *
@@ -64,12 +64,12 @@ export async function runAgent(
   if (!result) {
     step?.fail('Agent gestopt zonder resultaatbericht');
     throw new Error(
-      'De agent-run eindigde zonder resultaatbericht — de SDK-stream is afgebroken.',
+      'De agent-run eindigde zonder resultaatbericht - de SDK-stream is afgebroken.',
     );
   }
   if (result.subtype !== 'success') {
     step?.fail(
-      `Agent gestopt — ${RESULT_ERROR_SHORT[result.subtype] ?? result.subtype} ` +
+      `Agent gestopt - ${RESULT_ERROR_SHORT[result.subtype] ?? result.subtype} ` +
         `(${turnsLabel(result.num_turns)}, ${formatDuration(result.duration_ms)})`,
     );
     throw new Error(describeResultError(result));
@@ -127,7 +127,7 @@ function describeResultError(
 /**
  * Consume an SDK query stream and return the text of the LAST assistant
  * message (the final synthesis after any tool use). Dunne wrapper rond
- * `runAgent` zonder stap-label — bestaande callers blijven werken.
+ * `runAgent` zonder stap-label - bestaande callers blijven werken.
  */
 export async function streamLastAssistantText(
   q: AsyncGenerator<SDKMessage> | AsyncIterable<SDKMessage>,
@@ -209,10 +209,10 @@ export function extractTicketRefinement(text: string, key: string): string | nul
  * preamble and/or be wrapped in a code fence.
  *
  * Handles:
- *  - `# FLUX-…`                               (clean — pass through)
- *  - ```markdown\n# FLUX-…\n```                (fence-wrapped — unwrap)
- *  - "Hier is de refinement.\n\n```markdown…"  (preamble + fence — unwrap)
- *  - "Hier is de refinement.\n\n# FLUX-…"      (preamble + plain — trim to #)
+ *  - `# FLUX-…`                               (clean - pass through)
+ *  - ```markdown\n# FLUX-…\n```                (fence-wrapped - unwrap)
+ *  - "Hier is de refinement.\n\n```markdown…"  (preamble + fence - unwrap)
+ *  - "Hier is de refinement.\n\n# FLUX-…"      (preamble + plain - trim to #)
  */
 export function extractMarkdown(text: string): string {
   const fenced = text.match(/```(?:markdown|md)?\s*\n([\s\S]*?)\n```/);

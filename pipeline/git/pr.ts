@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 /**
- * PR — maak een draft-PR aan voor een goedgekeurd, gepusht ticket.
+ * PR - maak een draft-PR aan voor een goedgekeurd, gepusht ticket.
  *
  * Deterministisch script (geen LLM), zoals pipeline/git/push.ts. Leest de
  * PR-body uit `_pr-body.md` (door de review-agent geschreven) en gebruikt
@@ -8,7 +8,7 @@
  * is (`npm run git:push`).
  *
  * Idempotent: bestaat er al een PR voor de branch, dan wordt enkel de URL
- * in `_status.json` bewaard — er wordt geen tweede PR aangemaakt.
+ * in `_status.json` bewaard - er wordt geen tweede PR aangemaakt.
  *
  * De orchestratie zit in pipeline/agents/shared/pr.ts zodat converge.ts ze kan
  * hergebruiken; dit bestand is enkel de CLI-wrapper.
@@ -54,6 +54,6 @@ runMain(`pr ${args.key}`, async () => {
   log.section(`pr · ${args.key}` + (args.profile ? ` · profiel ${args.profile}` : ''));
   const url = await runPr(args);
   log.section(`Klaar · pr ${args.key}`);
-  log.hint('Nakijken', url ?? 'PR aangemaakt maar geen URL teruggekregen — check GitHub');
+  log.hint('Nakijken', url ?? 'PR aangemaakt maar geen URL teruggekregen - check GitHub');
   log.hint('Volgende', 'Zet de draft-PR ready en merge zelf op GitHub.');
 });

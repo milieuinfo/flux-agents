@@ -5,7 +5,7 @@
  * (xterm ziet ze dus nooit) en omzet in "open een tab rechts".
  *
  * Formaat: een OSC-achtige sequence  ESC ] 7001 ; <base64(JSON)> BEL
- * base64 bevat enkel [A-Za-z0-9+/=] — geen ESC/BEL/newline — dus de payload
+ * base64 bevat enkel [A-Za-z0-9+/=] - geen ESC/BEL/newline - dus de payload
  * kan de sequence zelf nooit voortijdig afbreken.
  *
  * Dit bestand gebruikt enkel Node-API's (process.stdout, Buffer) zodat zowel
@@ -39,7 +39,7 @@ function decode(payload: string): OpenTabMsg | null {
       return { title, command };
     }
   } catch {
-    // kapotte payload — negeren
+    // kapotte payload - negeren
   }
   return null;
 }
@@ -56,7 +56,7 @@ function partialStartSuffixLen(buf: string): number {
 /**
  * Demuxt een pty-datastroom: haalt complete control-sequences eruit en geeft
  * de rest (`clean`) terug om naar de renderer/xterm te sturen. Stateful, want
- * een sequence kan over meerdere chunks gesplitst aankomen — onvolledige
+ * een sequence kan over meerdere chunks gesplitst aankomen - onvolledige
  * staarten blijven in de buffer tot de volgende `push`.
  */
 export class ControlParser {

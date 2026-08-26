@@ -3,7 +3,7 @@
 `flux-web-components` heeft `./set-ai-profile.sh <profile>` dat een AI-configuratie
 activeert via symlinks (`CLAUDE.local.md`, `.claude/settings.local.json`,
 `.claude/skills`, optioneel `AGENTS.md`/`SKILLS.md`). Profiles zitten onder
-`ai/profiles/<naam>/` in die repo — bijvoorbeeld `kris`, `karim` of `no` (opt-out).
+`ai/profiles/<naam>/` in die repo - bijvoorbeeld `kris`, `karim` of `no` (opt-out).
 
 Met `--profile` kan je hetzelfde ticket parallel of na elkaar onder verschillende
 configuraties ontwikkelen zonder dat de runs elkaars commits, branch of state

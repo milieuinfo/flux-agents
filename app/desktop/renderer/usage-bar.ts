@@ -55,7 +55,7 @@ export class UsageBar {
 
   private render(status: UsageStatus): void {
     if (status.state === 'missing') {
-      this.renderMessage('Geen OAuth-token — usage onbekend');
+      this.renderMessage('Geen OAuth-token - usage onbekend');
       return;
     }
     if (status.state === 'error') {

@@ -4,7 +4,7 @@
  * InfoPanel (tab "Over"); het InfoPanel levert overlay, tabs en sluitknop.
  *
  * Versie/naam/datum komen uit build-time constanten die esbuild via `define`
- * substitueert (zie desktop/build.mjs) — dezelfde bron als splash.html.
+ * substitueert (zie desktop/build.mjs) - dezelfde bron als splash.html.
  */
 export class AboutPanel {
   readonly element = document.createElement('div');

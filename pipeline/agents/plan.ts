@@ -13,7 +13,7 @@
  * de sprint er meerdere heeft; anders de enige/gekozen (zie shared/analysis.ts).
  *
  * Idempotent: overschrijft _order.md altijd. Deze agent heeft geen Jira
- * of file tools nodig — puur analyse over al lokaal aanwezige markdowns.
+ * of file tools nodig - puur analyse over al lokaal aanwezige markdowns.
  */
 
 import { config } from 'dotenv';
@@ -80,17 +80,17 @@ async function runQuery(prompt: string, systemPrompt: string): Promise<string> {
       // the preset makes the model think it's a tool-using agent and triggers
       // "permission to write" style responses even with allowedTools: [].
       systemPrompt,
-      // Agent 2 needs no tools — all input is inlined in the prompt
+      // Agent 2 needs no tools - all input is inlined in the prompt
       allowedTools: [],
     },
   });
 
   // Keep all turns: the model may dump a scratchpad fence first and the
   // actual plan second, or put the plan in an early turn and narrate after.
-  // Quiet: de tekst van dit model ís het document — narratie zou het in
+  // Quiet: de tekst van dit model ís het document - narratie zou het in
   // brokken tonen. De heartbeat dekt de stilte tijdens het genereren.
   return runAgent(q, {
-    label: `Agent draait — ${modelShort(model)} (max ${maxTurns} turns, geen tools)`,
+    label: `Agent draait - ${modelShort(model)} (max ${maxTurns} turns, geen tools)`,
     quiet: true,
     collect: 'all',
   });
@@ -113,7 +113,7 @@ async function main({ sprintId, analysis }: { sprintId: string; analysis?: strin
   const prompt =
     `Hier zijn alle refinement-markdowns voor sprint ${sprintId}. Produceer ` +
     `de _order.md inhoud volgens je system prompt. Antwoord uitsluitend met ` +
-    `de markdown-inhoud zelf — geen preambule, geen vraag om toestemming, ` +
+    `de markdown-inhoud zelf - geen preambule, geen vraag om toestemming, ` +
     `geen toolgebruik. Het opslaan naar disk gebeurt buiten jouw scope.\n${bundle}`;
 
   const output = await runQuery(prompt, systemPrompt);
@@ -140,13 +140,13 @@ async function main({ sprintId, analysis }: { sprintId: string; analysis?: strin
 /**
  * Minimal sanity-check voor de plan-output. Als het document niet begint
  * met "# Sprint planning" of de kernsecties mist, schrijven we het niet
- * weg — liever falen dan een onvolledig _order.md.
+ * weg - liever falen dan een onvolledig _order.md.
  */
 function assertPlanShape(md: string): void {
   const firstLine = md.split('\n', 1)[0] ?? '';
   if (!/^#\s+Sprint planning/i.test(firstLine)) {
     throw new Error(
-      `Plan begint niet met "# Sprint planning…" — vermoedelijk een afgekapte ` +
+      `Plan begint niet met "# Sprint planning…" - vermoedelijk een afgekapte ` +
         `of foutieve LLM-output. Eerste regel: ${truncate(firstLine, 120)}`,
     );
   }

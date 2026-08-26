@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 /**
- * Voorbeeld van de terminal-output van een agent-run — zonder LLM, zonder
+ * Voorbeeld van de terminal-output van een agent-run - zonder LLM, zonder
  * netwerk. Jaagt een synthetische SDK-berichtenstroom door `runAgent` en print
  * daaromheen alle logger-primitieven, zodat je de opmaak kan beoordelen (en
  * bijsturen) zonder een dure echte run.
@@ -162,18 +162,18 @@ async function main(): Promise<void> {
   await sleep(1050);
   clone.done(`Repo gekloond naar ${STATE}/clone/flux-web-components`);
   log.ok('Refinement gevonden: sprints/sprint-42/analyses/no-O5/FLUX-463.md');
-  log.ok('Ronde 1 — initiële implementatie');
+  log.ok('Ronde 1 - initiële implementatie');
   await log.task(
     'Worktree aanmaken op feature-v2/kris-O5/FLUX-463-popover (van origin/develop-v2)',
     () => sleep(30),
     { done: `Worktree aangemaakt: ${WT}` },
   );
   log.ok("Profiel 'kris' geactiveerd");
-  log.warn('Ticket stond nog op in_progress (ronde 1) — herstart op dezelfde branch.');
+  log.warn('Ticket stond nog op in_progress (ronde 1) - herstart op dezelfde branch.');
   log.ok('Commits als Kris Speltincx <kris@example.be>');
 
   const summary = await runAgent(fakeStream(), {
-    label: 'Agent draait — opus-5, ronde 1 (max 100 turns)',
+    label: 'Agent draait - opus-5, ronde 1 (max 100 turns)',
     cwd: WT,
     stateDir: STATE,
   });
@@ -200,7 +200,7 @@ async function main(): Promise<void> {
   );
   try {
     await runAgent(fakeStream({ fail: true }), {
-      label: 'Agent draait — opus-5, review ronde 2 (max 100 turns)',
+      label: 'Agent draait - opus-5, review ronde 2 (max 100 turns)',
       cwd: WT,
       stateDir: STATE,
     });

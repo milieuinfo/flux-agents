@@ -81,6 +81,6 @@ export async function runPush({ key, profile }: PushArgs): Promise<void> {
     () => pushBranch({ worktreePath: worktree, branch: status.branch }),
     { done: `Gepusht naar origin/${status.branch}` },
   );
-  // De "maak nu de PR"-hint komt van de caller (CLI of ship) — die weet of
+  // De "maak nu de PR"-hint komt van de caller (CLI of ship) - die weet of
   // de PR manueel volgt of niet.
 }

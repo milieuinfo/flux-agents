@@ -6,7 +6,7 @@ import { TicketState, locateTicketSprint } from '../../pipeline/agents/shared/ti
 /**
  * Leest de uitkomst-status uit `_status.json` (na review of iterate) en
  * rapporteert die in de TUI. Best-effort: matcht de label-berekening van
- * review/iterate (develop-model-code). Stil als er geen status te lezen is —
+ * review/iterate (develop-model-code). Stil als er geen status te lezen is -
  * de agent zelf logde al uitgebreid naar stdout.
  */
 export async function reportTicketStatus(key: string, profile: string): Promise<void> {
@@ -28,7 +28,7 @@ export async function reportTicketStatus(key: string, profile: string): Promise<
       );
     } else if (status.status === 'escalated') {
       p.log.warn(
-        `ESCALATED (ronde ${status.round}) — menselijke interventie nodig.`,
+        `ESCALATED (ronde ${status.round}) - menselijke interventie nodig.`,
       );
     } else {
       p.log.info(`Status: ${status.status} (ronde ${status.round}).`);

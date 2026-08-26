@@ -3,7 +3,7 @@ import { NO_ANALYSIS, promptAnalysis, promptSprint, promptTicketKey } from './pr
 import { runOrLaunch } from './launch.js';
 
 /**
- * TUI-actie 'publicatie': publiceert naar Jira — ofwel een volledige sprint
+ * TUI-actie 'publicatie': publiceert naar Jira - ofwel een volledige sprint
  * (comments + umbrella-ticket), ofwel één individueel ticket (enkel de comment,
  * via `--tickets <KEY> --skip-overview`), ofwel een externe code review (de
  * nieuwste `review-*.md` via `jira:publish-review`). Omdat dit outward-facing
@@ -59,7 +59,7 @@ export async function publishAction(): Promise<void> {
   }
 
   const mode = await p.select({
-    message: `${what} — wat wil je doen?`,
+    message: `${what} - wat wil je doen?`,
     options: [
       { value: 'dry', label: 'dry-run (lokale preview, geen Jira)' },
       { value: 'publish', label: 'publiceren naar Jira' },
@@ -84,7 +84,7 @@ export async function publishAction(): Promise<void> {
     scriptKey,
     args,
     title: `${verb.toLowerCase()} ${what}`,
-    step: `${verb} — ${what}…`,
-    onSuccess: () => p.log.success(`${verb} klaar — ${what}.`),
+    step: `${verb} - ${what}…`,
+    onSuccess: () => p.log.success(`${verb} klaar - ${what}.`),
   });
 }

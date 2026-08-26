@@ -47,7 +47,7 @@ app.whenReady().then(async () => {
   await new Promise((r) => setTimeout(r, 800));
 
   if (!last) {
-    console.error('Geen frame gerenderd — capture mislukt.');
+    console.error('Geen frame gerenderd - capture mislukt.');
     app.exit(1);
     return;
   }

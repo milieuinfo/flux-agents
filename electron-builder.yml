@@ -22,7 +22,7 @@ files:
   - '!**/*.map'
 
 # electron-builder zijn eigen native rebuild overslaan. Het bundelt een oude
-# node-gyp (9.x) waarvan `gyp` `distutils` importeert — verwijderd uit Python
+# node-gyp (9.x) waarvan `gyp` `distutils` importeert - verwijderd uit Python
 # 3.12+, dus die rebuild faalt (en wist bovendien de werkende node-pty-build).
 # `npm run app:rebuild` (electron-rebuild met node-gyp 12.x, distutils-vrij)
 # bouwt node-pty al tegen Electron's ABI; electron-builder hoeft dat niet over te

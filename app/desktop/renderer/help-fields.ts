@@ -2,7 +2,7 @@
  * Veldtabellen voor de Instellingen-tab van het hulppaneel. De help-doc
  * (`help/instellingen.md`) bevat per groep proza plus een token
  * `{{velden:<Groep>}}`; dat token wordt hier vervangen door een markdown-tabel
- * die uit `ENV_SCHEMA` gegenereerd wordt — dezelfde bron als het
+ * die uit `ENV_SCHEMA` gegenereerd wordt - dezelfde bron als het
  * instellingen-formulier, zodat de lijst nooit uit de pas loopt met wat je
  * effectief kan instellen.
  *
@@ -35,8 +35,8 @@ const EFFORT_HELP =
 export const FIELD_HELP: Record<string, string> = {
   JIRA_URL:
     'Base-URL van de Jira Data Center-instance, inclusief context-pad (bv. ' +
-    '`https://jira.omgeving.vlaanderen.be/jira`). Alle REST-calls — lezen én ' +
-    'publiceren — gaan hierheen.',
+    '`https://jira.omgeving.vlaanderen.be/jira`). Alle REST-calls - lezen én ' +
+    'publiceren - gaan hierheen.',
   JIRA_PERSONAL_TOKEN:
     'Personal Access Token uit je Jira-profiel (Profiel → Personal Access ' +
     'Tokens). Gebruikt om tickets te lezen en comments te posten.',
@@ -47,7 +47,7 @@ export const FIELD_HELP: Record<string, string> = {
     'anders op `true` laten.',
   FLUX_REPO_URL:
     'Git-URL van flux-web-components. Bij de eerste run kloont de app deze repo ' +
-    'zelf onder de state-map (`clone/flux-web-components/`) — volledig los van ' +
+    'zelf onder de state-map (`clone/flux-web-components/`) - volledig los van ' +
     'je eigen werkclone, zodat een run nooit jouw branches of staging raakt.',
   FLUX_BASE_BRANCH:
     'Branch waarvan elke ticket-worktree wordt afgesplitst en waartegen ' +
@@ -72,7 +72,7 @@ export const FIELD_HELP: Record<string, string> = {
     'Model dat uit alle analyses van een sprint de uitvoeringsvolgorde en de ' +
     'afhankelijkheden (`_order.md`) afleidt.',
   AGENT_DEVELOP_MODEL:
-    'Model dat tickets implementeert — de grootste tokenverbruiker. De code ' +
+    'Model dat tickets implementeert - de grootste tokenverbruiker. De code ' +
     'van dit model zit ook in de paden van profielruns (bv. `kris-O5`): hou het ' +
     'stabiel tussen ontwikkel, review en push van één ticket.',
   AGENT_REVIEW_MODEL:
@@ -131,7 +131,7 @@ export const FIELD_HELP: Record<string, string> = {
     'Max aantal image-attachments (jpeg/png/gif/webp) dat de analyse per ticket ' +
     'als vision-input meeneemt.',
   JIRA_REFINE_IMAGE_MAX_BYTES:
-    'Totaal byte-budget voor die images per ticket — beschermt tegen ' +
+    'Totaal byte-budget voor die images per ticket - beschermt tegen ' +
     'token-explosie bij zware screenshots.',
   LOG_LEVEL:
     'Detail van de output in de actie-tabs. `info` = compacte voortgang ' +
@@ -157,7 +157,7 @@ function defaultOf(f: EnvField): string {
   if (f.group === 'Geavanceerd' && f.placeholder && !/\|/.test(f.placeholder)) {
     return `\`${f.placeholder}\``;
   }
-  return '—';
+  return '-';
 }
 
 function helpOf(f: EnvField): string {

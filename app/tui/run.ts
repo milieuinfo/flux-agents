@@ -12,7 +12,7 @@ export const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '
  *
  * Bewust subprocess i.p.v. in-process import: deze entrypoints (refine, plan,
  * publish, converge) draaien hun `main()` onvoorwaardelijk bij import en doen
- * intern `process.exit()` — dat zou de TUI killen. Een kind isoleert dat.
+ * intern `process.exit()` - dat zou de TUI killen. Een kind isoleert dat.
  *
  * We starten via `node --import tsx <script>` (hetzelfde mechanisme als waarmee
  * het main-proces de TUI lanceert), niet via `node_modules/.bin/tsx`: in de

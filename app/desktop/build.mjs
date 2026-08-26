@@ -2,9 +2,9 @@
  * Build-pipeline voor de desktop-app (esbuild).
  *
  * Bundelt drie targets naar `app/desktop/dist/`:
- *  - main.cjs     — Electron main-proces (Node, CommonJS)
- *  - preload.cjs  — preload-script (Node, CommonJS)
- *  - renderer.js  — renderer (browser, IIFE) + renderer.css uit de CSS-import
+ *  - main.cjs     - Electron main-proces (Node, CommonJS)
+ *  - preload.cjs  - preload-script (Node, CommonJS)
+ *  - renderer.js  - renderer (browser, IIFE) + renderer.css uit de CSS-import
  * en kopieert index.html mee.
  *
  * Gebruik:

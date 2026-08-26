@@ -36,7 +36,7 @@ export interface PreflightCheck {
 
 /**
  * Prompts die het hulppaneel (ⓘ) mag opvragen. Allowlist: main leest
- * uitsluitend deze namen uit `pipeline/agents/prompts/` — nooit een vrij pad
+ * uitsluitend deze namen uit `pipeline/agents/prompts/` - nooit een vrij pad
  * uit de renderer. Zelfde namen als `loadPrompt(name)` in
  * `pipeline/agents/shared/prompts.ts`.
  */
@@ -82,7 +82,7 @@ export interface AuthStatus {
 /**
  * Eén keuze voor een model-dropdown: de concrete model-id + een weergavenaam
  * (+ de SDK-aliassen die naar hetzelfde model wijzen). Zelfde vorm als in het
- * config-schema, dat de bron is — hier enkel hernoemd voor het IPC-contract.
+ * config-schema, dat de bron is - hier enkel hernoemd voor het IPC-contract.
  */
 export type ModelOption = ModelChoice;
 
@@ -99,7 +99,7 @@ export interface ModelsStatus {
 
 /** Eén usage-venster van het Claude-abonnement (5-uurs of 7-daags). */
 export interface UsageWindow {
-  /** Percentage verbruikt, 0–100. */
+  /** Percentage verbruikt, 0-100. */
   utilization: number;
   /** ISO 8601-timestamp waarop het venster reset (UTC). */
   resetsAt: string;
@@ -127,7 +127,7 @@ export interface UsageStatus {
  *
  * `command`-pty's zijn alleen-lezen: ze tonen de output van een agent-run en
  * per ongeluk typen zou die run verstoren. Zowel de renderer (stdin uit in
- * xterm) als main (invoer genegeerd) dwingen dat af — zie `isReadOnlyPty`.
+ * xterm) als main (invoer genegeerd) dwingen dat af - zie `isReadOnlyPty`.
  * Er is bewust geen kale shell-tab.
  */
 export type PtyKind = 'tui' | 'command';

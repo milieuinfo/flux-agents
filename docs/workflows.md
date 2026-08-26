@@ -64,9 +64,9 @@ npm run pipeline:review -- FLUX-123
 
 Drie uitkomsten:
 
-- **APPROVED** — lokale squash tegen `origin/<baseBranch>` tot één conventional commit + `_pr-body.md`. Niet gepusht, geen PR.
-- **CHANGES_REQUESTED** — lees `review-r<N>.md`, draai opnieuw `pipeline:develop -- FLUX-123` (schakelt automatisch naar address-modus, ronde N+1).
-- **ESCALATED** — max 3 rondes bereikt; geen squash, jij beslist.
+- **APPROVED** - lokale squash tegen `origin/<baseBranch>` tot één conventional commit + `_pr-body.md`. Niet gepusht, geen PR.
+- **CHANGES_REQUESTED** - lees `review-r<N>.md`, draai opnieuw `pipeline:develop -- FLUX-123` (schakelt automatisch naar address-modus, ronde N+1).
+- **ESCALATED** - max 3 rondes bereikt; geen squash, jij beslist.
 
 ### 6. Push + PR (deterministisch, geen LLM)
 
@@ -84,7 +84,7 @@ Jij zet de draft-PR ready, reviewt op GitHub en merget zelf. Geen automatisering
 
 ## Orchestrators
 
-### ship — hele lus + push
+### ship - hele lus + push
 
 ```bash
 npm run pipeline:ship -- FLUX-123 backlog-20260422
@@ -93,7 +93,7 @@ npm run pipeline:ship -- FLUX-123 backlog-20260422
 Draait `develop → review` (max 3 rondes). Bij APPROVED: squash + automatisch
 `git push`. De PR maak je zelf met `npm run git:pr`.
 
-### iterate — zelfde lus, puur lokaal
+### iterate - zelfde lus, puur lokaal
 
 ```bash
 npm run pipeline:iterate -- FLUX-123 backlog-20260422
@@ -102,7 +102,7 @@ npm run pipeline:iterate -- FLUX-123 backlog-20260422
 Als `ship`, maar **zonder push of PR**. Bij APPROVED stopt het met de lokale squash
 + `_pr-body.md`. Handig om eerst lokaal na te kijken.
 
-### converge — twee profielruns combineren
+### converge - twee profielruns combineren
 
 ```bash
 npm run pipeline:iterate  -- FLUX-620 --profile no
@@ -156,7 +156,7 @@ npm run jira:publish-review:dry -- FLUX-595             # droogtest
 
 ## Eerste keer testen
 
-1. `npm run pipeline:refine:dry -- <oude-sprint>` — verifieer Jira REST-auth.
+1. `npm run pipeline:refine:dry -- <oude-sprint>` - verifieer Jira REST-auth.
 2. `npm run pipeline:refine -- <kleine-sprint>` (2-3 tickets); lees de markdowns, tune zo nodig `pipeline/agents/prompts/refine.md`.
 3. Run refine opnieuw → moet alle tickets overslaan (idempotent).
 4. `npm run pipeline:plan -- <sprint>` → check de volgorde.

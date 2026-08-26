@@ -8,7 +8,7 @@
  * Outcomes:
  *  - APPROVED: agent squashes commits against origin/<baseBranch> into one
  *    clean local commit and writes the PR body to _pr-body.md. It does NOT
- *    push and does NOT open a PR — that's done by the deterministic scripts
+ *    push and does NOT open a PR - that's done by the deterministic scripts
  *    `npm run git:push` and `npm run git:pr`.
  *  - CHANGES_REQUESTED: agent writes review-r<N>.md + updates _status.
  *    Next call to `npm run pipeline:develop` runs in address-mode (round+1).
@@ -16,7 +16,7 @@
  *
  * De uitkomst schrijft de agent zelf in _status.json. Blijft die na de run op
  * 'in_progress' staan, dan herstellen we hem uit het verdict in review-r<N>.md
- * (met guardrails bij APPROVED) of falen we hard — zie repairStatusFromReview.
+ * (met guardrails bij APPROVED) of falen we hard - zie repairStatusFromReview.
  *
  * Usage:
  *   npm run pipeline:review -- <TICKET-KEY>
@@ -64,7 +64,7 @@ export interface ReviewResult {
   status: TicketStateJson;
   /** `review-r<N>.md` van deze ronde. */
   reviewPath: string;
-  /** `_pr-body.md` — bestaat enkel bij APPROVED. */
+  /** `_pr-body.md` - bestaat enkel bij APPROVED. */
   prBodyPath: string;
 }
 
@@ -73,7 +73,7 @@ export interface ReviewResult {
  * orchestrator can call it directly.
  *
  * Print zelf de stappen en het verdict, maar niet de sectiekop of het
- * eindblok — die komen van de CLI-tak (standalone) of van loop.ts.
+ * eindblok - die komen van de CLI-tak (standalone) of van loop.ts.
  */
 export async function runReview({ key, profile }: ReviewArgs): Promise<ReviewResult> {
   const stateDir = resolve(process.env.STATE_DIR ?? './state');
@@ -107,7 +107,7 @@ export async function runReview({ key, profile }: ReviewArgs): Promise<ReviewRes
   // Fallback: als geen --profile is meegegeven maar _status.json wél een
   // profile bevat (bv. review na develop in dezelfde shell-sessie zonder
   // dat je het profile herhaalt), hergebruiken we dat. We doen GEEN
-  // herlocatie van de TicketState — die staat al in de juiste folder omdat
+  // herlocatie van de TicketState - die staat al in de juiste folder omdat
   // locateTicketSprint zonder profile-arg de profile-loze paden zocht.
   // Daarom: als status.profile bestaat maar profile-arg ontbreekt, vragen
   // we een expliciete --profile zodat paden consistent zijn.
@@ -133,7 +133,7 @@ export async function runReview({ key, profile }: ReviewArgs): Promise<ReviewRes
   );
 
   if (profile) {
-    // Idempotente refresh — voorkomt dat een eerder profile in dezelfde
+    // Idempotente refresh - voorkomt dat een eerder profile in dezelfde
     // worktree blijft plakken na een handmatige switch.
     await applyAiProfile(worktree, profile);
   }
@@ -171,7 +171,7 @@ export async function runReview({ key, profile }: ReviewArgs): Promise<ReviewRes
   });
 
   const summary = await runAgent(q, {
-    label: `Agent draait — ${modelShort(reviewModel())}, review ronde ${status.round} (max ${maxTurns} turns)`,
+    label: `Agent draait - ${modelShort(reviewModel())}, review ronde ${status.round} (max ${maxTurns} turns)`,
     cwd: worktree,
     stateDir,
   });
@@ -182,11 +182,11 @@ export async function runReview({ key, profile }: ReviewArgs): Promise<ReviewRes
   // Re-read status to report the outcome. De uitkomst komt van de reviewer
   // zelf (stap 5 in prompts/review.md); slaat hij die stap over, dan blijft
   // de status op 'in_progress' staan en zou de run stil "geslaagd" eindigen
-  // terwijl push/pr later weigeren. Repareren of hard falen — nooit stil.
+  // terwijl push/pr later weigeren. Repareren of hard falen - nooit stil.
   let after = await ticket.readStatus();
   if (!after) {
     throw new Error(
-      `Reviewer heeft ${ticket.statusPath} niet geschreven — de review is ` +
+      `Reviewer heeft ${ticket.statusPath} niet geschreven - de review is ` +
         `niet afgerond. Lees ${ticket.reviewPath(status.round)} (als die ` +
         `bestaat) en draai de review opnieuw.`,
     );
@@ -194,16 +194,16 @@ export async function runReview({ key, profile }: ReviewArgs): Promise<ReviewRes
   if (after.status === 'in_progress') {
     after = await repairStatusFromReview(ticket, after, worktree);
   }
-  // Het verdict als feit-regel — ook zichtbaar wanneer we onder loop.ts draaien.
+  // Het verdict als feit-regel - ook zichtbaar wanneer we onder loop.ts draaien.
   switch (after.status) {
     case 'approved':
-      log.ok('Verdict: APPROVED — lokale squash + _pr-body.md staan klaar');
+      log.ok('Verdict: APPROVED - lokale squash + _pr-body.md staan klaar');
       break;
     case 'changes_requested':
-      log.ok(`Verdict: CHANGES_REQUESTED — zie review-r${after.round}.md`);
+      log.ok(`Verdict: CHANGES_REQUESTED - zie review-r${after.round}.md`);
       break;
     case 'escalated':
-      log.warn(`Verdict: ESCALATED na ronde ${after.round} — menselijke review nodig`);
+      log.warn(`Verdict: ESCALATED na ronde ${after.round} - menselijke review nodig`);
       break;
     default:
       log.warn(`Onverwachte status na review: ${after.status}`);
@@ -228,7 +228,7 @@ const VERDICT_STATUS: Record<string, TicketStatus> = {
  * reviewer de review-md wél schreef maar de status vergat bij te werken.
  *
  * Waarom repareren en niet gewoon falen: de review-md is de inhoudelijke
- * output — staat daar `**Status:** APPROVED` en zijn de bijhorende artefacten
+ * output - staat daar `**Status:** APPROVED` en zijn de bijhorende artefacten
  * er ook, dan is de ronde echt af en zou opnieuw reviewen alleen `review-r<N>.md`
  * overschrijven (en een tweede dure run kosten). Bij APPROVED eerst dezelfde
  * guardrails als converge (§12): minstens één commit op de branch én een
@@ -247,7 +247,7 @@ async function repairStatusFromReview(
       `Reviewer heeft ${ticket.statusPath} niet bijgewerkt (status staat nog ` +
         `op 'in_progress') en ${reviewPath} bevat geen bruikbare ` +
         `'**Status:** APPROVED|CHANGES_REQUESTED|ESCALATED'-regel. De review ` +
-        `is niet afgerond — draai hem opnieuw.`,
+        `is niet afgerond - draai hem opnieuw.`,
     );
   }
 
@@ -269,13 +269,13 @@ async function repairStatusFromReview(
       throw new Error(
         `${reviewPath} zegt APPROVED, maar ${ticket.statusPath} is niet ` +
           `bijgewerkt én de approval-artefacten kloppen niet: ` +
-          `${problems.join('; ')}. Menselijke controle nodig — er wordt niets ` +
+          `${problems.join('; ')}. Menselijke controle nodig - er wordt niets ` +
           `op 'approved' gezet.`,
       );
     }
     if (commitsAhead > 1) {
       log.warn(
-        `${commitsAhead} commits op ${status.branch} — de lokale squash is ` +
+        `${commitsAhead} commits op ${status.branch} - de lokale squash is ` +
           `mogelijk niet gebeurd. Kijk na vóór je pusht.`,
       );
     }
@@ -292,7 +292,7 @@ async function repairStatusFromReview(
 
 /**
  * Lees het verdict uit de `**Status:** <VERDICT>`-regel van een review-md.
- * De regel moet exact één woord bevatten — staat de template-opsomming er nog
+ * De regel moet exact één woord bevatten - staat de template-opsomming er nog
  * (`APPROVED | CHANGES_REQUESTED | ESCALATED`), dan telt dat niet als verdict.
  */
 async function readReviewVerdict(path: string): Promise<TicketStatus | null> {
@@ -324,11 +324,11 @@ function buildPrompt(
 ): string {
   return (
     `Review ronde ${round} van ticket ${key}. Context:\n` +
-    `- ${ticket.ticketMdPath} — refinement-rapport\n` +
-    `- ${ticket.codeChangesPath} — author-beschrijving van deze ronde\n` +
-    `- ${ticket.statusPath} — status (bevat branch + baseBranch)\n` +
+    `- ${ticket.ticketMdPath} - refinement-rapport\n` +
+    `- ${ticket.codeChangesPath} - author-beschrijving van deze ronde\n` +
+    `- ${ticket.statusPath} - status (bevat branch + baseBranch)\n` +
     (round > 1
-      ? `- ${ticket.reviewPath(round - 1)} — vorige review\n`
+      ? `- ${ticket.reviewPath(round - 1)} - vorige review\n`
       : '') +
     `\nJe cwd is de feature-branch worktree. Base branch is ${baseBranch} ` +
     `(zie _status.json). Schrijf ${ticket.reviewPath(round)} en werk ` +
@@ -395,7 +395,7 @@ if (isMain) {
       case 'escalated':
         log.section(`Klaar · ${key} · ESCALATED (ronde ${round})`);
         log.hint('Nakijken', result.reviewPath);
-        log.hint('Volgende', 'Menselijke review nodig — kijk de blockers na en stap zelf in.');
+        log.hint('Volgende', 'Menselijke review nodig - kijk de blockers na en stap zelf in.');
         break;
       default:
         log.section(`Klaar · ${key} · ${result.status.status}`);

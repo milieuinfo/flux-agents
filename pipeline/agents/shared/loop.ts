@@ -4,7 +4,7 @@
  * Zowel `agents/ship.ts` (pusht bij APPROVED) als `agents/iterate.ts`
  * (stopt puur lokaal) draaien exact dezelfde lus: maximaal 3 rondes
  * develop→review, met deadlock-detectie en escalatie. Het enige verschil
- * tussen de twee zit in wat er ná APPROVED gebeurt — die beslissing laat
+ * tussen de twee zit in wat er ná APPROVED gebeurt - die beslissing laat
  * deze helper aan de caller via de teruggegeven `LoopResult`.
  */
 
@@ -69,7 +69,7 @@ export async function runDevelopReviewLoop({
     // Guard: develop moet zijn werk als commit op de feature-branch hebben
     // gezet vóór review begint. Een afgebroken of gehangen develop-run (bv.
     // een achtergrond-testtaak die de agent-turn overleefde) laat ongecommitte
-    // wijzigingen achter zónder commit — dan heeft review niets zinnigs om te
+    // wijzigingen achter zónder commit - dan heeft review niets zinnigs om te
     // beoordelen en zou de lus op een lege branch verder draaien. Hard falen,
     // mét behoud van het werk in de worktree.
     //
@@ -91,7 +91,7 @@ export async function runDevelopReviewLoop({
             `${postDev.branch}, maar liet wél ongecommitte wijzigingen achter. ` +
             `Waarschijnlijk een afgebroken of gehangen develop-run (bv. een ` +
             `achtergrond-testtaak die de agent-turn overleefde). Review wordt ` +
-            `niet gestart — je werk staat nog in de worktree:\n  ${worktreePath}\n` +
+            `niet gestart - je werk staat nog in de worktree:\n  ${worktreePath}\n` +
             `Commit het handmatig of start de run opnieuw.`,
         );
       }
@@ -103,7 +103,7 @@ export async function runDevelopReviewLoop({
     const status = await ticket.readStatus();
     if (!status) {
       throw new Error(
-        `_status.json ontbreekt na review van ${key} — onverwachte state.`,
+        `_status.json ontbreekt na review van ${key} - onverwachte state.`,
       );
     }
 
@@ -111,7 +111,7 @@ export async function runDevelopReviewLoop({
       return { outcome: 'approved', round: status.round, prBodyPath: ticket.prBodyPath };
     }
     if (status.status === 'escalated') {
-      log.warn(`ESCALATED na ronde ${status.round} — menselijke interventie nodig.`);
+      log.warn(`ESCALATED na ronde ${status.round} - menselijke interventie nodig.`);
       return {
         outcome: 'escalated',
         round: status.round,
@@ -121,7 +121,7 @@ export async function runDevelopReviewLoop({
     if (status.status === 'changes_requested') {
       // Deadlock-detectie: als deze ronde 0 commits op de feature-branch
       // opleverde, is de author geblokkeerd op ontbrekende input (bv.
-      // geen `## Keuze` in ticket.md). Nog een ronde lost dat niet op —
+      // geen `## Keuze` in ticket.md). Nog een ronde lost dat niet op -
       // escaleer meteen i.p.v. turns verspillen.
       const commitsAhead = await countCommitsAhead({
         worktreePath: ticketWorktreePath(stateDir, refinement.sprint, key, label),
@@ -132,7 +132,7 @@ export async function runDevelopReviewLoop({
         log.warn(
           `Ronde ${status.round}: 0 commits op de branch. De author is ` +
             `waarschijnlijk geblokkeerd op ontbrekende input (bv. '## Keuze' in ` +
-            `ticket.md). Escalatie — verdere rondes zijn zinloos.`,
+            `ticket.md). Escalatie - verdere rondes zijn zinloos.`,
         );
         return {
           outcome: 'escalated',
@@ -150,7 +150,7 @@ export async function runDevelopReviewLoop({
           reviewPath: ticket.reviewPath(status.round),
         };
       }
-      log.ok(`CHANGES_REQUESTED na ronde ${status.round} — door naar ronde ${round + 1}`);
+      log.ok(`CHANGES_REQUESTED na ronde ${status.round} - door naar ronde ${round + 1}`);
       continue;
     }
 

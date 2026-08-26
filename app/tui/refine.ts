@@ -6,7 +6,7 @@ import { runOrLaunch, SCRIPT_PATHS } from './launch.js';
 /**
  * Vraagt na een geslaagde ticket-analyse of het ticket ook naar Jira
  * gepubliceerd moet worden. Bij ja: publiceert enkel de comment van dat ene
- * ticket (`--tickets <KEY> --skip-overview`, geen umbrella). Default is nee —
+ * ticket (`--tickets <KEY> --skip-overview`, geen umbrella). Default is nee -
  * publiceren is outward-facing. Alleen in CLI-modus (in de app draait refine in
  * een eigen tab en kan dit niet op voltooiing wachten).
  */
@@ -58,8 +58,8 @@ export async function refineAction(): Promise<void> {
       args: [sprintName, folder],
       title: `refine ${folder}`,
       confirm: `sprint '${sprintName}' analyseren (map '${folder}', refine)?`,
-      step: `Analyseren — sprint '${sprintName}' (map '${folder}')…`,
-      onSuccess: () => p.log.success(`Analyse klaar — sprint '${folder}'.`),
+      step: `Analyseren - sprint '${sprintName}' (map '${folder}')…`,
+      onSuccess: () => p.log.success(`Analyse klaar - sprint '${folder}'.`),
     });
     return;
   }
@@ -77,9 +77,9 @@ export async function refineAction(): Promise<void> {
       `Gestart in een eigen tab: refine ${key} (map '${folder}'). ` +
       `Publiceren kan daarna via 'publicatie'.`,
     confirm: `ticket ${key} (map '${folder}') analyseren (refine)?`,
-    step: `Analyseren — ticket ${key} (map '${folder}')…`,
+    step: `Analyseren - ticket ${key} (map '${folder}')…`,
     onSuccess: async () => {
-      p.log.success(`Analyse klaar — ticket ${key} (map '${folder}').`);
+      p.log.success(`Analyse klaar - ticket ${key} (map '${folder}').`);
       await maybePublishTicket(key, folder);
     },
   });

@@ -1,6 +1,6 @@
 /**
  * Renderer-bootstrap. Hangt links een pty met de @clack-TUI en bedraadt rechts
- * de console-tabs. Draait in de browser-context — alle proces-toegang loopt via
+ * de console-tabs. Draait in de browser-context - alle proces-toegang loopt via
  * de `fluxDesktop`-bridge uit de preload.
  */
 import './styles.css';
@@ -57,7 +57,7 @@ async function main(): Promise<void> {
   usage.start();
 
   // Rechts: de console-tabs. Die worden uitsluitend door TUI-acties geopend
-  // (alleen-lezen output van een agent-run) — er is bewust geen "nieuwe
+  // (alleen-lezen output van een agent-run) - er is bewust geen "nieuwe
   // shell"-knop: typen gebeurt enkel in de TUI links.
   const tabs = new TabManager(el('tab-strip'), el('console-body'));
 

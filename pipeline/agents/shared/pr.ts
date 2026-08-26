@@ -5,7 +5,7 @@
  * combinatie aanroept.
  *
  * Deterministisch (geen LLM): de PR-titel is de squash-commit-subject en de
- * body komt uit `_pr-body.md`. Idempotent — bestaat er al een PR voor de
+ * body komt uit `_pr-body.md`. Idempotent - bestaat er al een PR voor de
  * branch, dan wordt enkel de URL in `_status.json` bewaard.
  */
 
@@ -47,7 +47,7 @@ function gh(cwd: string, args: string[]): Promise<string> {
 
 /**
  * Return the URL of an existing PR for `branch`, or null if there is none.
- * `gh pr view <branch>` exits non-zero when no PR exists — we treat that
+ * `gh pr view <branch>` exits non-zero when no PR exists - we treat that
  * as "geen PR" in plaats van een fout.
  */
 async function existingPrUrl(cwd: string, branch: string): Promise<string | null> {
@@ -161,7 +161,7 @@ export async function runPr({ key, profile }: PrArgs): Promise<string | null> {
     await ticket.writeStatus({ ...status, prUrl: url });
     return url;
   }
-  log.warn(`PR aangemaakt maar geen URL in de gh-output — check GitHub.`);
+  log.warn(`PR aangemaakt maar geen URL in de gh-output - check GitHub.`);
   log.debug(`gh-output:\n${out.trim()}`);
   return null;
 }

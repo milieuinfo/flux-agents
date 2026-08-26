@@ -38,7 +38,7 @@ tools: ${tools}
 model: ${model}
 ---
 
-<!-- MIRROR — gesynced van pipeline/agents/prompts/${canonical}.md.
+<!-- MIRROR - gesynced van pipeline/agents/prompts/${canonical}.md.
      Wijzig de canonical prompt (niet dit bestand) en herhaal de sync. -->
 
 EOF
@@ -49,7 +49,7 @@ EOF
 sync_one \
   develop \
   ticket-author \
-  "Implementeert of past een ticket aan voor de flux-web-components library. Gebruikt het refinement-rapport als specificatie. Werkt uitsluitend lokaal (branch, commit) — geen push, geen PR." \
+  "Implementeert of past een ticket aan voor de flux-web-components library. Gebruikt het refinement-rapport als specificatie. Werkt uitsluitend lokaal (branch, commit) - geen push, geen PR." \
   "Read, Write, Edit, Glob, Grep, Bash" \
   sonnet
 

@@ -9,7 +9,7 @@
  *     │ ⚠ Bash faalde (exit 1): …      (enkel bij een tool-fout)
  *     │ … nog bezig (5m14s · 23 tool-calls · bezig: Bash npx cypress …)
  *                                      (heartbeat na ≥ 60s stilte)
- *   Tool-resultaten, tool-inputs en shell-output komen niet op `info` — die
+ *   Tool-resultaten, tool-inputs en shell-output komen niet op `info` - die
  *   staan op `LOG_LEVEL=debug`. Yieldt alle messages onveranderd door.
  * - `bashTimeoutHook` (PreToolUse) clampt de Bash-`timeout` zodat geen
  *   enkel commando langer dan `AGENT_BASH_TIMEOUT_MS` (default 600s,
@@ -54,9 +54,9 @@ const TOOL_ARG_MAX = 80;
 const ERROR_LINE_MAX = 160;
 
 export interface ObserveOptions {
-  /** Worktree van de agent — paden in tool-regels worden hiertegen relatief. */
+  /** Worktree van de agent - paden in tool-regels worden hiertegen relatief. */
   cwd?: string;
-  /** State-dir — tweede basis voor relatieve paden (`state:…`). */
+  /** State-dir - tweede basis voor relatieve paden (`state:…`). */
   stateDir?: string;
   /**
    * Geen narratie/tool-regels (enkel debug + heartbeat). Voor tool-loze
@@ -123,7 +123,7 @@ class StreamObserver {
     if (msSinceLastLine() < HEARTBEAT_MS) return;
     const running = this.currentTool();
     const busy = running
-      ? `bezig: ${running.name} ${truncate(running.arg, 40)} — al ${formatDuration(Date.now() - running.startedAt)}`
+      ? `bezig: ${running.name} ${truncate(running.arg, 40)} - al ${formatDuration(Date.now() - running.startedAt)}`
       : 'wacht op het model';
     log.activity(
       `… nog bezig (${formatDuration(Date.now() - this.startedAt)} · ` +
@@ -238,7 +238,7 @@ class StreamObserver {
         const detail = errObj ? truncate(String(errObj.message ?? safeJson(errObj)), 120) : '';
         log.activityWarn(
           `API-fout, opnieuw proberen (poging ${attempt}/${max}${status})` +
-            (detail ? ` — ${detail}` : ''),
+            (detail ? ` - ${detail}` : ''),
         );
         return;
       }
@@ -311,7 +311,7 @@ export async function* observeStream(
       try {
         observer.handle(msg);
       } catch (err) {
-        log.warn(`observeStream: log-fout — ${(err as Error).message}`);
+        log.warn(`observeStream: log-fout - ${(err as Error).message}`);
       }
       yield msg;
     }
@@ -426,7 +426,7 @@ function safeJson(value: unknown): string {
  * urenlang doet blokkeren.
  *
  * - Geen `timeout` in de input → injecteer `maxMs` (stil; gebeurt bij bijna
- *   elke call en is dus geen nieuws — enkel op debug).
+ *   elke call en is dus geen nieuws - enkel op debug).
  * - `timeout` > `maxMs` (of > SDK-cap 600s) → verlaag naar `maxMs` en meld dat.
  * - Kleinere model-keuzes blijven respected.
  */
@@ -461,7 +461,7 @@ export function bashTimeoutHook(
 }
 
 /**
- * Detecteert een trailing `&` die het commando in de achtergrond zet —
+ * Detecteert een trailing `&` die het commando in de achtergrond zet -
  * maar niet `&&` (logische AND). Match: een enkele `&` op het eind van het
  * commando, optioneel gevolgd door whitespace.
  */
@@ -477,10 +477,10 @@ function endsWithBackgroundAmpersand(cmd: string): boolean {
  *
  * Reden: een achtergrondtaak (typisch een trage Cypress-run) overleeft het
  * einde van de agent-turn. De SDK-subprocess sluit dan niet af zolang die
- * child leeft, waardoor het hele develop/review-script eeuwig blijft hangen —
+ * child leeft, waardoor het hele develop/review-script eeuwig blijft hangen -
  * mét een verweesde Cypress-run én niets gecommit. De prompt verbiedt dit al
  * (`develop.md`), maar het model negeert die instructie soms; deze hook dwingt
- * het deterministisch af — en meldt het, zodat je op de terminal ziet waarom
+ * het deterministisch af - en meldt het, zodat je op de terminal ziet waarom
  * de agent een tool-fout terugkreeg.
  */
 export function noBackgroundBashHook(): HookCallback {
