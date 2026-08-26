@@ -7,6 +7,7 @@ import './styles.css';
 import { TerminalView } from './terminal-view';
 import { TabManager } from './tabs';
 import { InfoPanel } from './info-panel';
+import { HelpPanel } from './help-panel';
 import { UsageBar } from './usage-bar';
 import { setupSplitter } from './splitter';
 
@@ -68,6 +69,9 @@ async function main(): Promise<void> {
   // paneel automatisch op de Status-tab.
   const info = new InfoPanel();
   document.body.appendChild(info.element);
+  // Een paneel neemt de focus over (Escape moet het kunnen sluiten, ook als de
+  // TUI-terminal focus had); na het sluiten gaat de focus terug naar de TUI.
+  info.onHide = refocusTui;
   const menuBtn = el('menu-btn');
   menuBtn.addEventListener('click', () => info.show('settings'));
   // "About Flux Agents" in de macOS-menubalk opent hetzelfde paneel op "Over".
@@ -81,6 +85,13 @@ async function main(): Promise<void> {
   void info.refreshStatus().then((worst) => {
     if (worst === 'error') info.show('status');
   });
+
+  // Hulppaneel (ⓘ, links van ⚙): uitleg over de acties en de instellingen,
+  // plus per LLM-actie de canonieke prompt (alleen-lezen).
+  const help = new HelpPanel();
+  document.body.appendChild(help.element);
+  help.onHide = refocusTui;
+  el('help-btn').addEventListener('click', () => help.show('gebruik'));
 
   // UI staat: sein main dat de splash mag sluiten en het hoofdvenster mag tonen.
   window.fluxDesktop.notifyReady();

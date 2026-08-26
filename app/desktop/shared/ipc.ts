@@ -20,6 +20,7 @@ export const IPC = {
   authStatus: 'auth:status', // renderer → main (invoke)
   usageGet: 'usage:get', // renderer → main (invoke): Claude-abonnement usage-limieten
   preflightRun: 'preflight:run', // renderer → main (invoke)
+  helpPrompts: 'help:prompts', // renderer → main (invoke): canonieke agent-prompts, alleen-lezen
   openExternal: 'shell:open-external', // renderer → main (send)
   appReady: 'app:ready', // renderer → main (send): UI klaar, splash mag sluiten
   menuOpenAbout: 'menu:open-about', // main → renderer (send): toon de "Over"-tab
@@ -31,6 +32,35 @@ export interface PreflightCheck {
   status: 'ok' | 'warn' | 'error';
   detail: string;
   fixUrl?: string;
+}
+
+/**
+ * Prompts die het hulppaneel (ⓘ) mag opvragen. Allowlist: main leest
+ * uitsluitend deze namen uit `pipeline/agents/prompts/` — nooit een vrij pad
+ * uit de renderer. Zelfde namen als `loadPrompt(name)` in
+ * `pipeline/agents/shared/prompts.ts`.
+ */
+export const HELP_PROMPT_NAMES = [
+  'refine',
+  'refine-summary',
+  'plan',
+  'develop',
+  'review',
+  'review-external',
+  'converge',
+] as const;
+export type HelpPromptName = (typeof HELP_PROMPT_NAMES)[number];
+
+/**
+ * Eén prompt zoals van schijf gelezen. Bij een leesfout is `error` gevuld en
+ * ontbreekt `text`; de andere prompts blijven gewoon beschikbaar.
+ */
+export interface HelpPrompt {
+  name: HelpPromptName;
+  /** Repo-relatief pad voor weergave, bv. `pipeline/agents/prompts/refine.md`. */
+  path: string;
+  text?: string;
+  error?: string;
 }
 
 export interface ConfigForRenderer {
@@ -184,6 +214,10 @@ export interface FluxDesktopApi {
     listModels(): Promise<ModelsStatus>;
   };
   preflight(): Promise<PreflightCheck[]>;
+  help: {
+    /** Lees de canonieke agent-prompts (allowlist) van schijf, voor het hulppaneel. */
+    prompts(): Promise<HelpPrompt[]>;
+  };
   /** Haal de actuele usage-limieten van het Claude-abonnement op. */
   usage(): Promise<UsageStatus>;
   openExternal(url: string): void;

@@ -49,6 +49,9 @@ const api: FluxDesktopApi = {
     listModels: () => ipcRenderer.invoke(IPC.configListModels),
   },
   preflight: () => ipcRenderer.invoke(IPC.preflightRun),
+  help: {
+    prompts: () => ipcRenderer.invoke(IPC.helpPrompts),
+  },
   usage: () => ipcRenderer.invoke(IPC.usageGet),
   openExternal: (url) => ipcRenderer.send(IPC.openExternal, url),
   notifyReady: () => ipcRenderer.send(IPC.appReady),

@@ -30,6 +30,7 @@ import {
   testJira,
 } from './config-store';
 import { runPreflight } from './preflight';
+import { readHelpPrompts } from './help-prompts';
 
 const SMOKE = process.env.FLUX_SMOKE === '1';
 
@@ -196,6 +197,12 @@ function createWindow(): void {
 
   void win.loadFile(join(__dirname, 'index.html'));
 
+  // De renderer laadt één lokaal bestand en mag nooit wegnavigeren of een
+  // nieuw venster openen — vangnet voor links in gerenderde markdown (het
+  // hulppaneel opent http(s)-links zelf via shell.openExternal).
+  win.webContents.on('will-navigate', (e) => e.preventDefault());
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+
   // Toon het venster zodra het eerste frame klaar is — de splash ligt eroverheen.
   win.once('ready-to-show', showMainWindow);
 
@@ -332,6 +339,7 @@ function registerIpc(): void {
   );
   ipcMain.handle(IPC.usageGet, () => fetchClaudeUsage(repoRoot));
   ipcMain.handle(IPC.preflightRun, () => runPreflight(repoRoot));
+  ipcMain.handle(IPC.helpPrompts, () => readHelpPrompts(repoRoot));
   ipcMain.on(IPC.openExternal, (_e, url: string) => {
     if (/^https?:\/\//.test(url)) void shell.openExternal(url);
   });

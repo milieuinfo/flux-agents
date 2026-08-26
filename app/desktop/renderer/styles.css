@@ -404,6 +404,11 @@ body.resizing .terminal-host {
   display: none;
 }
 
+/* Het paneel krijgt programmatisch focus bij openen (tabindex=-1); geen ring. */
+.settings-panel:focus {
+  outline: none;
+}
+
 .settings-panel {
   /* Vaste grootte zodat het paneel niet krimpt/groeit bij het wisselen van
      tabs (settings is lang, status/over korter). */
@@ -415,6 +420,46 @@ body.resizing .terminal-host {
   border: 1px solid #3a3a3a;
   border-radius: 8px;
   overflow: hidden;
+}
+
+/* Hulppaneel (ⓘ): breder dan het instellingenpaneel (prompts zijn lange
+   documenten) en met acht tabs mag de tab-balk wrappen. */
+.settings-panel.help-panel {
+  width: min(960px, 92vw);
+  height: min(760px, 88vh);
+}
+
+.help-panel .settings-header {
+  align-items: flex-start;
+}
+
+.help-panel .info-tabs {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+
+/* Scheiding tussen de doc-tabs en de prompt-tabs. */
+.info-tab-sep {
+  width: 1px;
+  height: 18px;
+  margin: 0 6px;
+  align-self: center;
+  background: #3a3a3a;
+}
+
+/* ⓘ vult zijn hele em-box, terwijl ⚙ op 21px maar ~13px ink heeft; op 13px
+   zijn beide iconen visueel even groot. Symmetrische padding zodat het glyph
+   in het midden van zijn knop staat. De translateY's zetten de ink van beide
+   iconen precies op het midden van de balk (gemeten op macOS: ⓘ zat 0.5px te
+   hoog in zijn line box, ⚙ 0.6px te laag). */
+.help-btn {
+  font-size: 13px;
+  padding: 0 6px;
+  transform: translateY(0.5px);
+}
+
+.menu-btn {
+  transform: translateY(-0.5px);
 }
 
 .settings-header {
@@ -610,4 +655,171 @@ select.settings-input {
 
 .btn-primary:hover {
   background: #3f6ea3;
+}
+
+/* Prompt-blokken in het hulppaneel: kop + bestandspad + badge, dan de
+   gerenderde markdown. Meerdere prompts op één tab worden gescheiden. */
+.help-prompt + .help-prompt {
+  margin-top: 24px;
+  padding-top: 14px;
+  border-top: 1px solid #303030;
+}
+
+.help-prompt-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 10px 0 6px;
+}
+
+.help-prompt-head h2 {
+  font-size: 15px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.help-prompt-path {
+  font-family: Menlo, Monaco, monospace;
+  font-size: 11px;
+  color: #8a9bb0;
+}
+
+.help-badge {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #d7ba7d;
+  border: 1px solid #5a4d2a;
+  border-radius: 3px;
+  padding: 1px 6px;
+}
+
+.settings-body > .settings-help {
+  margin-top: 10px;
+}
+
+/* Gerenderde markdown (help-docs + prompts), in het bestaande palet. */
+.md {
+  font-size: 13px;
+  line-height: 1.55;
+  color: #cccccc;
+}
+
+.md h1 {
+  font-size: 17px;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 16px 0 8px;
+}
+
+.md h2 {
+  font-size: 15px;
+  font-weight: 600;
+  color: #eaeaea;
+  margin: 20px 0 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #303030;
+}
+
+.md h3 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #8a9bb0;
+  margin: 16px 0 6px;
+}
+
+.md h4,
+.md h5,
+.md h6 {
+  font-size: 13px;
+  font-weight: 600;
+  color: #dddddd;
+  margin: 12px 0 4px;
+}
+
+.md p {
+  margin: 6px 0;
+}
+
+.md ul,
+.md ol {
+  margin: 6px 0 6px 22px;
+}
+
+.md li {
+  margin: 3px 0;
+}
+
+.md li > p {
+  margin: 4px 0;
+}
+
+.md code {
+  background: #2a2a2a;
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-family: Menlo, Monaco, monospace;
+  font-size: 11.5px;
+  color: #d7ba7d;
+}
+
+.md pre {
+  background: #1a1a1a;
+  border: 1px solid #303030;
+  border-radius: 4px;
+  padding: 10px 12px;
+  margin: 8px 0;
+  overflow-x: auto;
+}
+
+.md pre code {
+  background: none;
+  padding: 0;
+  color: #dddddd;
+  white-space: pre;
+}
+
+.md table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 8px 0;
+  font-size: 12px;
+}
+
+.md th,
+.md td {
+  border: 1px solid #303030;
+  padding: 5px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.md th {
+  background: #1a1a1a;
+  color: #8a9bb0;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.md strong {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.md a {
+  color: #5a7da0;
+  text-decoration: none;
+}
+
+.md a:hover {
+  text-decoration: underline;
+}
+
+.md hr {
+  border: 0;
+  border-top: 1px solid #303030;
+  margin: 14px 0;
 }

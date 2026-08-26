@@ -70,6 +70,9 @@ const targets = [
     platform: 'browser',
     target: 'es2022',
     format: 'iife',
+    // De help-docs (renderer/help/*.md) worden als tekst meegebundeld; de
+    // renderer zet ze zelf om naar HTML.
+    loader: { '.md': 'text' },
   },
 ];
 

@@ -10,11 +10,20 @@ secrets in de macOS-keychain).
 
 `npm run app:tui` (of `npm start`) opent een menu met de acties: analyse (refine),
 planning (plan), publicatie (publish), en twee submenu's. Onder **"ontwikkeling"**:
-ontwikkel, review, externe review, itereer, convergeer. Onder **"opkuis"**: sprint
-afsluiten en externe reviews (de `state:close-*`-scripts, zie
+itereer, convergeer, ontwikkel, review, externe review. Onder **"onderhoud"**:
+profielen verversen, sprint afsluiten en opkuis externe reviews (de
+`state:close-*`-scripts, zie
 [workflows.md](workflows.md#state-onderhoud-worktrees-opruimen)). Elke keuze vraagt
 de nodige input (ticket, profiel, sprint) en draait dan het bijbehorende
 `pipeline/...`-script.
+
+Rechtsboven staat naast ⚙ een **ⓘ**-knop met het hulppaneel: een tab **Gebruik**
+(de acties, wat ze doen en in welke volgorde), een tab **Instellingen** (waarvoor
+elke instelling dient, gegenereerd uit hetzelfde schema als het formulier) en per
+LLM-actie een tab met de canonieke prompt — alleen-lezen, live van schijf uit
+`pipeline/agents/prompts/` (dezelfde bestanden als de agents laden). De docs
+staan in `app/desktop/renderer/help/*.md`; `npm run dev:help-preview` rendert
+alles zonder Electron en controleert de HTML.
 
 ## Eén invocatiemodel: tab óf subprocess
 
@@ -55,7 +64,8 @@ als de CLI, met de effectieve config als env meegegeven.
 - **git** — voor alle worktree-operaties.
 - **gh CLI** — enkel voor push / pr / converge (`gh auth login`).
 
-De app checkt deze bij het starten (statusknop **●** rechtsboven) en toont
+De app checkt deze bij het starten: de ⚙-knop rechtsboven kleurt geel/rood bij een
+probleem en het paneel opent dan automatisch op de tab **Status**, met
 installatielinks bij wat ontbreekt. **Docker is niet nodig** — Jira loopt via REST.
 
 ## Claude-auth (persoonlijk Pro/Max-abonnement)
