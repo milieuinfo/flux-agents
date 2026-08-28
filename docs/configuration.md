@@ -1,7 +1,12 @@
 # Configuratie & setup
 
 Voor **CLI / development**. Als desktop-app-gebruiker volstaat het ⚙ settings-scherm -
-zie [desktop-app.md](desktop-app.md).
+zie [desktop-app.md](desktop-app.md); de uitleg per instelling staat daar in het
+ⓘ-hulppaneel (tab Instellingen).
+
+Het schema van alle instellingen is `ENV_SCHEMA` in
+`pipeline/agents/shared/config.ts` (één bron voor `.env`, het settings-scherm en
+het hulppaneel); `.env.example` toont een werkende voorbeeldconfiguratie.
 
 ## Setup
 
@@ -21,7 +26,7 @@ naast `flux-agents`:
 cd ..
 gh repo create flux-agents-state --private --clone
 cd flux-agents-state
-printf 'logs/\nworktrees/\nclone/\n' > .gitignore
+printf 'worktrees/\nclone/\n' > .gitignore
 git add .gitignore && git commit -m "chore: initial gitignore"
 ```
 
@@ -40,8 +45,12 @@ Bij de eerste run klont de pipeline flux-web-components automatisch onder
 
 ### 4. Claude-authenticatie
 
-- **Aanbevolen:** Claude Code MAX-sessie - log in met `claude` in je terminal, de SDK gebruikt die sessie.
-- **Alternatief:** `ANTHROPIC_API_KEY` in `.env` (pay-per-use, niet je MAX-plan).
+De agents draaien via de Claude Agent SDK. Drie manieren, in volgorde van
+voorkeur:
+
+- **Claude Code-sessie** (MAX-abonnement): log in met `claude` in je terminal; de SDK gebruikt die sessie.
+- **OAuth-token** in `.env`: `CLAUDE_CODE_OAUTH_TOKEN=<token uit claude setup-token>` - hetzelfde als wat de desktop-app gebruikt; handig zonder ingelogde sessie.
+- **`ANTHROPIC_API_KEY`** in `.env`: pay-per-use, niet je abonnement.
 
 ### 5. `gh` CLI
 
@@ -49,7 +58,8 @@ Bij de eerste run klont de pipeline flux-web-components automatisch onder
 
 ### 6. (optioneel) Claude Code commands linken
 
-Alleen nodig om develop/review interactief via de Claude Code CLI te draaien:
+Alleen nodig om develop/review interactief via de Claude Code CLI te draaien
+(zie [pipeline/agents/claude-code/.claude/README.md](../pipeline/agents/claude-code/.claude/README.md)):
 
 ```bash
 npm run dev:link -- /path/to/flux-web-components
@@ -61,47 +71,59 @@ npm run dev:link -- /path/to/flux-web-components
 
 | Variabele | Betekenis |
 |-----------|-----------|
-| `JIRA_URL` | Jira Data Center base-URL |
-| `JIRA_PERSONAL_TOKEN` | Personal Access Token (profile → PAT in Jira) |
-| `JIRA_SSL_VERIFY` | `false` bij self-signed cert |
+| `JIRA_URL` | Jira Data Center base-URL (incl. context-pad) |
+| `JIRA_PERSONAL_TOKEN` | Personal Access Token (profiel → Personal Access Tokens in Jira) |
+| `JIRA_SSL_VERIFY` | default `true`; `false` bij een self-signed certificaat |
 | `JIRA_PROJECT_KEY` | Projectsleutel (default `FLUX`) |
 | `FLUX_REPO_URL` | git-URL van flux-web-components |
 | `FLUX_BASE_BRANCH` | Branch waarvan worktrees aftakken (default `develop-v2`) |
-| `STATE_DIR` | Pad naar de state-repo (default `../flux-agents-state`) |
+| `STATE_DIR` | Pad naar de state-repo (default `../flux-agents-state`; in de desktop-app een `state`-map in de gebruikersmap) |
 | `FLUX_REPO_DIR` | (optioneel) override van de managed clone-locatie |
+| `CLAUDE_CODE_OAUTH_TOKEN` | (optioneel) OAuth-token van je Pro/Max-abonnement, zie stap 4 |
 
-### Modellen (per agent-rol)
+### Modellen en effort (per agent-rol)
 
-Eén variabele per rol; defaults in code:
+Eén model-variabele per rol, met een bijhorend reasoning-effort
+(`AGENT_<ROL>_EFFORT`: `low` | `medium` | `high` | `xhigh` | `max`, default
+`high`; leeg of ongeldig valt terug op `high`). Defaults in
+`pipeline/agents/shared/model.ts`:
 
 | Variabele | Default | Rol |
 |-----------|---------|-----|
-| `AGENT_REFINE_MODEL` | `claude-opus-4-8` | refine (analyse) |
-| `AGENT_REFINE_SUMMARY_MODEL` | `claude-sonnet-4-6` | beknopte `.jira.md` |
-| `AGENT_PLAN_MODEL` | `claude-opus-4-8` | plan |
-| `AGENT_DEVELOP_MODEL` | `claude-sonnet-4-6` | develop (+ model-code in profiel-paden) |
-| `AGENT_REVIEW_MODEL` | `claude-opus-4-8` | review |
+| `AGENT_REFINE_MODEL` | `claude-opus-5` | refine (analyse) |
+| `AGENT_REFINE_SUMMARY_MODEL` | `claude-sonnet-5` | beknopte `.jira.md` |
+| `AGENT_PLAN_MODEL` | `claude-opus-5` | plan |
+| `AGENT_DEVELOP_MODEL` | `claude-sonnet-5` | develop (+ model-code in profiel-paden, zie [profiles.md](profiles.md#het-run-label)) |
+| `AGENT_REVIEW_MODEL` | `claude-opus-5` | review |
 | `AGENT_CONVERGE_MODEL` | = review-model | converge |
-| `AGENT_REVIEW_EXTERNAL_MODEL` | = review-model | externe review |
+| `AGENT_REVIEW_EXTERNAL_MODEL` | = review-model | externe review (+ model-code in het externe worktree-pad) |
 
-Modeltiers: `claude-fable-5` (krachtigst, 1M context), `claude-opus-4-8`
-(analyse-zwaar, lagere kost), `claude-sonnet-4-6` (snel/goedkoop). Vuistregel: Opus/Fable
-waar het oordeel zit (refine, plan, review, converge), Sonnet voor develop (grootste
-tokenverbruiker). Het `.env.example` toont een werkende voorbeeldconfiguratie.
+Modeltiers: `claude-fable-5` (krachtigst), `claude-opus-5` (analyse-zwaar,
+lagere kost), `claude-sonnet-5` (snel/goedkoop), `claude-haiku-4-5` (simpel
+werk). Een `[1m]`-suffix (bv. `claude-opus-5[1m]`) is dezelfde tier met het
+1M-contextvenster. Vuistregel: Opus/Fable waar het oordeel zit (refine, plan,
+review, converge), Sonnet voor develop (grootste tokenverbruiker); gaan tickets
+structureel naar ronde 3 of ESCALATED, zet dan eerst develop een tier hoger.
+`xhigh`/`max` effort ondersteunen enkel bepaalde Opus-modellen. De desktop-app
+vult de model-dropdowns met wat de SDK op dat moment ondersteunt
+(`pipeline/agents/list-models.ts`).
 
 ### Tuning (optioneel)
 
 | Variabele | Default | Betekenis |
 |-----------|---------|-----------|
 | `AGENT_REFINE_MAX_TURNS` | 30 | max SDK-beurten refine |
-| `AGENT_DEVELOP_MAX_TURNS` | 100 | max beurten develop |
-| `AGENT_REVIEW_MAX_TURNS` | 100 | max beurten review |
+| `AGENT_DEVELOP_MAX_TURNS` | 100 | max beurten develop (per ronde) |
+| `AGENT_REVIEW_MAX_TURNS` | 100 | max beurten review (per ronde) |
 | `AGENT_REVIEW_EXTERNAL_MAX_TURNS` | 100 | max beurten externe review |
 | `AGENT_CONVERGE_MAX_TURNS` | 150 | max beurten converge |
-| `AGENT_BASH_TIMEOUT_MS` | 600000 | harde timeout per Bash-call (clamp via hook) |
+| `AGENT_BASH_TIMEOUT_MS` | 600000 | harde timeout per Bash-call (= het SDK-maximum; een ontbrekende of hogere timeout wordt via een PreToolUse-hook naar deze waarde geklemd) |
 | `JIRA_REFINE_IMAGE_MAX_COUNT` | 5 | max image-attachments die refine als vision meeneemt |
 | `JIRA_REFINE_IMAGE_MAX_BYTES` | 5000000 | totaal byte-budget voor images |
 | `LOG_LEVEL` | `info` | `debug` \| `info` \| `warn` \| `error`. `info` = compacte voortgang (stappen ▸/✓, narratie van de agent, één regel per tool-call, heartbeat bij stilte); `debug` = daarbovenop de volledige SDK-stroom (tool-inputs en -resultaten, shell-output, stacktraces). Bekijk de opmaak zonder LLM met `npm run dev:log-preview`. |
+
+Een run die stopt met `error_max_turns` is het signaal om de max-turns van die
+rol te verhogen.
 
 ### Git-commit-identiteit
 
@@ -111,7 +133,9 @@ De commits van develop/review/converge krijgen hun auteur+committer uit, in volg
 2. de globale git-identiteit (`git config --global user.name` / `user.email`).
 
 Ontbreken beide → de push stopt met een duidelijke fout (bewust **geen** ingebakken
-persoon, zodat een andere installateur nooit onder een vreemde naam commit).
+persoon). `git:push` herschrijft vooraf elke nog-ongepushte commit naar die
+identiteit (idempotent, nooit een force-push) - waarom dat nodig is staat in
+[CLAUDE.md §11](../CLAUDE.md#11-push-en-pr-als-aparte-deterministische-scripts).
 
 ### Publicatie (alleen voor `jira:publish`)
 

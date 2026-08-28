@@ -49,8 +49,10 @@ pull request en onderhoud zijn scripts zonder AI.
    lees je op de tab [Instellingen](#tab:instellingen).
 2. **analyse** van een sprint (of één ticket). Lees de rapporten na in de
    state-map en annoteer waar nodig - stelt een rapport meerdere aanpakken
-   voor, voeg dan een `## Keuze`-sectie toe aan `ticket.md`; ontwikkel volgt
-   die keuze.
+   voor, voeg dan onderaan het rapport (`FLUX-123.md`) een `## Keuze`-sectie
+   toe vóór je ontwikkelt. Ontwikkel kopieert het rapport naar `ticket.md`
+   (en laat dat daarna met rust, dus later annoteren kan ook daar) en volgt
+   die keuze; zonder keuze én zonder eenduidige aanbeveling stopt hij.
 3. **planning**: bepaalt de volgorde waarin de tickets het best opgenomen
    worden en welke elkaar blokkeren.
 4. **publicatie** (optioneel): zet de analyse in Jira - eerst als dry-run
@@ -71,8 +73,10 @@ pull request en onderhoud zijn scripts zonder AI.
 ### analyse
 
 De refine-agent analyseert een volledige sprint of één individueel ticket. Bij
-een sprint kies je uit de Jira-sprints; bij een ticket vraagt de TUI in welke
-sprint-map het rapport moet komen, zodat planning en ontwikkel het later
+een sprint kies je uit de open Jira-sprints van het project met "AI" in de
+naam (is Jira even niet bereikbaar, dan uit de lokale sprint-mappen); de
+mapnaam wordt uit de sprintnaam afgeleid. Bij een ticket vraagt de TUI in
+welke sprint-map het rapport moet komen, zodat planning en ontwikkel het later
 terugvinden.
 
 Per ticket haalt hij de velden via Jira REST op - omschrijving, status,
@@ -127,8 +131,10 @@ Uitkomsten:
   `_pr-body.md` staat klaar; daarna **push** en **pull request**.
 - **CHANGES_REQUESTED** - de volgende ronde start automatisch met de
   review-feedback als input.
-- **ESCALATED** - na 3 rondes nog geen goedkeuring; jij kijkt zelf naar de
-  branch en de reviews (`review-r1.md`, `review-r2.md`, …).
+- **ESCALATED** - na 3 rondes nog geen goedkeuring, of een ronde leverde
+  geen enkele commit op (de agent zat vast op ontbrekende input, bv. een
+  `## Keuze`); jij kijkt zelf naar de branch en de reviews (`review-r1.md`,
+  `review-r2.md`, …).
 
 ### convergeer
 

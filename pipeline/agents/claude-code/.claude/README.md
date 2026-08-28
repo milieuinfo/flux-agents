@@ -7,20 +7,21 @@ gewone Claude Code-sessie.
 
 ```
 pipeline/agents/claude-code/.claude/
-├── pipeline/agents/      ← subagent-definities (ticket-author.md, ticket-reviewer.md)
+├── agents/      ← subagent-definities (ticket-author.md, ticket-reviewer.md)
 └── commands/    ← slash commands (/develop, /review, /address)
 ```
 
 ## Waarom staan de prompts hier een tweede keer?
 
 De system prompts leven canoniek onder **`pipeline/agents/prompts/`** (één bron van
-waarheid). De SDK-agents (`pipeline/agents/develop.ts`, `pipeline/agents/review.ts`, …) laden
-die bestanden rechtstreeks in als system prompt, met de frontmatter gestript.
+waarheid, kale markdown zonder frontmatter). De SDK-agents
+(`pipeline/agents/develop.ts`, `pipeline/agents/review.ts`, …) laden die bestanden
+rechtstreeks in als system prompt (`loadPrompt` in `pipeline/agents/shared/prompts.ts`).
 
-De twee bestanden onder `pipeline/agents/` hier zijn **gegenereerde mirrors** van twee
+De twee bestanden onder `agents/` hier zijn **gegenereerde mirrors** van twee
 van die canonical prompts:
 
-| mirror (`pipeline/agents/`)    | canonical (`pipeline/agents/prompts/`) |
+| mirror (`agents/`)    | canonical (`pipeline/agents/prompts/`) |
 |-----------------------|-------------------------------|
 | `ticket-author.md`    | `develop.md`                  |
 | `ticket-reviewer.md`  | `review.md`                   |
@@ -65,7 +66,7 @@ de glue rond een subagent:
 - **`/address`** - vervolgiteratie: bump `round`, zet status, delegeer
   opnieuw naar `ticket-author` met de review-feedback van de vorige ronde.
 
-Het verschil met de `pipeline/agents/`-map: `pipeline/agents/` definieert **wie de subagent is**
+Het verschil met de `agents/`-map: `agents/` definieert **wie de subagent is**
 (de system prompt); `commands/` beschrijft **wat er rond die subagent gebeurt**
 (state aanmaken, branch, ronde bumpen, samenvatten).
 
@@ -91,9 +92,10 @@ amend - staan dus zowel in de TS-code als in deze markdown. Dat is
 CC-tak gebruik je om de pipeline-stappen handmatig te doorlopen bij het
 debuggen; de echte flow loopt via `npm run pipeline:develop` / `npm run pipeline:review`.
 
-Net als bij `pipeline/agents/` staan deze bestanden onder `commands/` omdat Claude Code
+Net als bij `agents/` staan deze bestanden onder `commands/` omdat Claude Code
 **eist** dat slash commands daar leven om herkend te worden - ze kunnen nergens
-anders staan.
+anders staan. Koppel deze map aan je checkout van flux-web-components met
+`npm run dev:link -- /path/to/flux-web-components` (symlink `.claude`).
 
 ## Een prompt wijzigen
 

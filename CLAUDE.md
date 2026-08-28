@@ -13,8 +13,33 @@ De pipeline is bewust **expliciet en lokaal**: geen daemons, geen
 scheduled jobs, geen automatische push/merge. Elke agent start de gebruiker
 zelf wanneer die nodig is.
 
-Dit is **geen** productie-systeem voor het team. Het is een persoonlijk
-tool om sprints efficiënter op te nemen.
+Dit is **geen** productie-systeem: een tool van de maintainer om sprints
+efficiënter op te nemen, die intussen als desktop-app ook door teamleden
+gebruikt wordt (elk met een eigen installatie en eigen state).
+
+## Waar welke informatie staat
+
+De code is de enige echte waarheid. Daarnaast zijn er vier plaatsen met
+uitleg, elk met een eigen rol - hou ze zo, en verwijs liever dan te herhalen:
+
+- **`docs/`** - het *wat en hoe* voor wie met de checkout werkt:
+  [architecture.md](docs/architecture.md) (onderdelen, pipeline-schema,
+  iteratie-logica, mappen- en state-layout), [workflows.md](docs/workflows.md)
+  (alle commando's), [configuration.md](docs/configuration.md) (setup en
+  env-variabelen), [profiles.md](docs/profiles.md) (`--profile` en labels),
+  [desktop-app.md](docs/desktop-app.md) (app en TUI) en `beslissingen/`
+  (ADR's).
+- **`CLAUDE.md`** (dit bestand) - de conventies voor sessies in deze repo, de
+  ontwerpkeuzes mét hun *waarom*, de harde regels en de herhaal-checks. Wat
+  hier staat, staat niet nog eens in `docs/`; de §-nummers hieronder worden
+  vanuit docs en ADR's aangehaald, dus hernummer ze niet.
+- **`README.md`** - instap en index, verder enkel verwijzingen.
+- **`app/desktop/renderer/help/*.md`** - het ⓘ-hulppaneel van de app. Dit is
+  **alle** uitleg die een app-gebruiker zonder checkout heeft; die teksten
+  moeten zelfstandig leesbaar zijn en mogen dus **niet** naar docs, CLAUDE.md
+  of code verwijzen. Overlap met `docs/` is daar bewust.
+- De interactieve Claude Code-variant heeft een eigen
+  [README](pipeline/agents/claude-code/.claude/README.md).
 
 ## Commit-boodschappen
 
@@ -48,115 +73,30 @@ pipeline bedient) of "de maintainer" (wie de tool onderhoudt). Gebruik als
 voorbeeld-profiel `no` of `<profiel>`, geen persoonsnaam. De enige
 uitzondering is de copyright-regel in `electron-builder.yml`.
 
-## De vier agents en hun rollen
+## De agents en hun rollen
 
 De agents heten naar hun rol; die naam is ook de naam van het prompt-bestand
 (`pipeline/agents/prompts/<naam>.md`), van het script en van de
-model-instelling (`AGENT_<NAAM>_MODEL`). Nummer ze niet ("agent 1"), noem ze.
-
-| Agent | TUI-actie | Runtime | Model | Rol |
-|-------|-----------|---------|-------|-----|
-| refine | analyse | Claude Agent SDK (Node) | Opus + Sonnet (`refine-summary`) | Analyseert Jira-tickets, schrijft uitgebreide refinement-markdown per ticket + (Sonnet) een beknopte Jira-comment-versie |
-| plan | planning | Claude Agent SDK (Node) | Opus | Leest alle markdowns van een sprint, produceert volgorde + dependency graph |
-| develop | ontwikkel, itereer | Claude Agent SDK (Node) | Sonnet | Per-ticket git worktree, implementeert op feature-branch, lokale commits |
-| review | review, itereer | Claude Agent SDK (Node) | Opus | Reviewt op dezelfde worktree, bij approval: lokale squash + schrijft PR-body-artifact (`_pr-body.md`). Pusht niet en maakt geen PR. |
-| converge | convergeer | Claude Agent SDK (Node) | Opus | Combineert twee profielruns tot één branch (§12) |
-| review-external | externe review | Claude Agent SDK (Node) | Opus | Reviewt andermans branch, zonder pipeline-state (zijtak) |
-
-Daarnaast zijn er **deterministische scripts** (geen LLM-oordeel nodig):
-- `pipeline/jira/publish.ts` - sprint-output van refine + plan naar Jira (zie §9)
-- `pipeline/jira/publish-review.ts` - losse externe-review-md naar Jira (zie zijtak hierboven)
-- `pipeline/git/push.ts` (`npm run git:push`) - pusht de feature-branch van een
-  goedgekeurd ticket naar origin (zie §11)
-- `pipeline/git/pr.ts` (`npm run git:pr`) - maakt de draft-PR aan op basis van de
-  squash-commit-subject (titel) + `_pr-body.md` (body) (zie §11)
-- `pipeline/state/close-sprint.ts` (`npm run state:close-sprint`) - ruimt de worktrees
-  van een afgesloten sprint op (zie §13)
-- `pipeline/state/close-external.ts` (`npm run state:close-external`) - ruimt de
-  worktrees van externe code-reviews op (zie §13)
-
-En er zijn **orchestrators** die de agents en scripts na elkaar draaien:
-- `pipeline/agents/ship.ts` / `pipeline/agents/iterate.ts` - develop→review-lus voor één ticket
-  (ship pusht bij APPROVED, iterate blijft lokaal)
-- `pipeline/agents/converge.ts` (`npm run pipeline:converge`) - combineert twee `approved`
-  profielruns van hetzelfde ticket tot één profielloze branch + push + draft-PR
-  (eigen Opus LLM-stap voor het combineren, zie §12)
-
-Develop en review hebben ook een **Claude Code subagent variant** in
-`pipeline/agents/claude-code/.claude/agents/` (ticket-author.md, ticket-reviewer.md)
-voor interactieve debugging. De SDK-scripts laden diezelfde markdowns
-(frontmatter gestript) als system prompt - één bron van waarheid.
+model-instelling (`AGENT_<NAAM>_MODEL`). Nummer ze niet ("agent 1"), noem ze:
+refine (met de tweede call `refine-summary`), plan, develop, review, converge en
+review-external. De rollentabel, de deterministische scripts (publish,
+publish-review, push, pr, close-*) en de orchestrators (ship, iterate,
+converge) staan in [docs/architecture.md](docs/architecture.md#de-onderdelen);
+het pipeline-schema in
+[docs/architecture.md](docs/architecture.md#de-pipeline-in-één-oogopslag).
 
 **Waarom deze modelverdeling:** Opus waar de analyse en oordeel zit
-(refine, plan, review), Sonnet waar executie of inkorten belangrijker is
-dan diepte (author, refine-summary). Dit is ook kostenoptimaal voor
+(refine, plan, review, converge), Sonnet waar executie of inkorten belangrijker
+is dan diepte (develop, refine-summary). Dit is ook kostenoptimaal voor
 gebruik op een MAX-abonnement.
-
-## De pipeline in één oogopslag
-
-```
-Jira sprint
-    │
-    ▼  npm run pipeline:refine -- <sprint>
-┌─────────────┐
-│ refine      │ → state/sprints/<sprint>/FLUX-*.md         (uitgebreid, Opus)
-│             │ → state/sprints/<sprint>/FLUX-*.jira.md    (beknopt, Sonnet)
-└─────────────┘
-    │
-    ▼  npm run pipeline:plan -- <sprint>
-┌─────────────┐
-│ plan        │ → state/sprints/<sprint>/_order.md
-└─────────────┘
-    │
-    ▼  npm run jira:publish -- <sprint>   (optioneel, indien zichtbaar in Jira gewenst)
-┌─────────────┐
-│ publish.ts  │ → comment per ticket + umbrella-ticket [Sprint-analyse]
-└─────────────┘
-    │
-    ▼  (de gebruiker kiest ticket)
-    │
-    ▼  npm run pipeline:develop -- FLUX-123 [sprint]
-┌─────────────┐
-│ develop     │◀──┐ per-ticket worktree + feature-v2/... branch
-└─────────────┘   │ lokale commits, géén push, géén PR
-    │             │
-    ▼  npm run pipeline:review -- FLUX-123
-┌─────────────┐   │
-│ review      │───┘ CHANGES_REQUESTED → opnieuw npm run pipeline:develop --
-│             │       (automatisch in address-modus via _status.json)
-│             │     APPROVED → lokale squash + _pr-body.md (géén push, géén PR)
-│             │     ESCALATED → ronde 3 bereikt, de gebruiker stapt in
-└─────────────┘
-    │
-    ▼  npm run git:push -- FLUX-123      (git push -u origin <branch>)
-    │
-    ▼  npm run git:pr -- FLUX-123        (gh pr create --draft)
-    │
-    ▼  draft-PR op GitHub
-    │
-    ▼  de gebruiker zet PR ready + merget zelf
-```
 
 ## Zijtak: externe code review
 
-Naast de pipeline hierboven is er een losse modus om een feature-branch
-van een andere developer te reviewen. Dat ticket zit niet in een sprint
-die door refine + plan verwerkt is, en er is geen `_status.json` of
-`code-changes.md`.
-
-```
-npm run pipeline:review-external -- FLUX-XYZ feature-v2/iemand-anders-zn-branch
-    │  per-ticket worktree onder state/worktrees/_external/FLUX-XYZ/
-    │  detached HEAD op origin/<branch>, leest optioneel ticket.md
-    ▼
-state/external-reviews/FLUX-XYZ/review-<timestamp>.md
-    │
-    ▼
-npm run jira:publish-review -- FLUX-XYZ          (eventueel met --file <pad>)
-    │  comment op het Jira-ticket met header "## Code review - AI"
-    ▼
-Jira-comment
-```
+Naast de pipeline is er een losse modus om een feature-branch van een andere
+developer te reviewen (`review-external` + `publish-review`; commando's in
+[docs/workflows.md](docs/workflows.md#zijtak-externe-code-review)). Dat ticket
+zit niet in een sprint die door refine + plan verwerkt is, en er is geen
+`_status.json` of `code-changes.md`.
 
 Eigenschappen die haaks staan op de gewone review-flow:
 
@@ -193,10 +133,12 @@ legitieme feedback-cycli zonder eindeloos te worden.
 
 ### 3. Nieuwe commits per ronde, lokale squash bij APPROVED
 
-Tijdens iteraties committeert develop elke ronde als aparte commit
-(`fix: FLUX-123 - address review ronde 2`). Pas wanneer review
-APPROVED geeft, doet die een `git reset --soft <base>` + één nette
-commit (subject `<type>: <scope> - <omschrijving>`). Die squash blijft
+Tijdens iteraties committeert develop elke ronde als aparte commit, met
+dezelfde first-line-conventie die de reviewer later voor de squash hergebruikt
+(`<type>: <KEY> - <vl-component> - <omschrijving>`) en vanaf ronde 2 een
+ronde-vermelding in de body. Pas wanneer review APPROVED geeft, doet die een
+`git reset --soft origin/<base>` + één nette commit met die first-line als
+subject. Die squash blijft
 **lokaal** - review pusht niet
 en maakt geen PR. Het pushen en de PR-creatie zijn losgetrokken naar de
 deterministische scripts `npm run git:push` en `npm run git:pr` (zie §11).
@@ -317,7 +259,7 @@ hier worktrees uit (alle worktrees zitten onder `state/worktrees/`):
   gegroepeerd (`state/worktrees/<sprint>/<KEY>/`), afgesplitst van
   `origin/<FLUX_BASE_BRANCH>`. Bij een `--profile` (zie §10) zit het
   label `<profiel>-<modelcode>` in de mapnaam -
-  `state/worktrees/<sprint>/<KEY>-<profiel>-<code>/` (bv. `…/FLUX-463-no-O48/`) -
+  `state/worktrees/<sprint>/<KEY>-<profiel>-<code>/` (bv. `…/FLUX-463-no-O5/`) -
   zodat profile- én model-runs niet botsen.
 
 **Waarom deze managed-clone-aanpak:** (a) Server-ready - fresh install
@@ -328,10 +270,12 @@ branch + working tree). (d) Base-branch als env var → schakelen naar
 `develop-v3` is een config-wijziging.
 
 De Claude Code subagent-variant in `pipeline/agents/claude-code/.claude/agents/`
-blijft bestaan als **mirror**: YAML frontmatter + een kopie van de
-canonical prompt uit `pipeline/agents/prompts/`. De SDK-scripts laden direct uit
-`pipeline/agents/prompts/<role>.md`. Bij een prompt-wijziging: canonical bewerken,
-dan `npm run dev:sync-cc` om de CC-mirror bij te werken.
+blijft bestaan als **mirror**: YAML frontmatter + een kopie van de canonical
+prompt uit `pipeline/agents/prompts/` (die zelf kale markdown zonder frontmatter
+is). De SDK-scripts laden direct uit `pipeline/agents/prompts/<role>.md`. Bij een
+prompt-wijziging: canonical bewerken, dan `npm run dev:sync-cc` om de CC-mirror
+bij te werken - details in de
+[CC-README](pipeline/agents/claude-code/.claude/README.md).
 
 ### 8. Jira lezen via directe REST (geen Docker/MCP)
 
@@ -352,9 +296,10 @@ dependency-vrij. Publicatie naar Jira gebruikt al langer directe REST (zie §9).
 
 ### 9. Publicatie naar Jira via `pipeline/jira/publish.ts`
 
-Publish leest `state/sprints/<sprint>/FLUX-*.md` (en bij voorkeur
-`FLUX-*.jira.md`) en `_order.md` (output van refine + plan) en schrijft
-die naar Jira via directe REST-calls:
+Publish leest `FLUX-*.md` (en bij voorkeur `FLUX-*.jira.md`) en `_order.md`
+(output van refine + plan) uit de gekozen analyse-dir van de sprint
+(`sprints/<sprint>/analyses/<label>/`, §10b) en schrijft die naar Jira via
+directe REST-calls:
 - Per ticket → comment met vaste header `## Sprint-analyse - AI`.
   Publish prefereert `FLUX-XXX.jira.md` als die bestaat (de beknopte
   Sonnet-versie uit §5b); valt terug op de uitgebreide `FLUX-XXX.md`
@@ -417,10 +362,13 @@ optionele `--profile <naam>` vlag. Default = geen profile → gedrag
 identiek aan vóór de feature (backwards compatible).
 
 Het pad-segment is bij een profile-run niet het kale profiel maar een
-**label `<profiel>-<modelcode>`** (bv. `no-O48`). De model-code komt uit
-het agent-model in `.env`: `claude-opus-4-8` → `O48`, `claude-sonnet-4-6`
-→ `S46`, `claude-haiku-4-5` → `H45` (zie `pipeline/agents/shared/model.ts`,
-`modelCode`/`runPathLabel`). Voor `develop`/`review`/`ship`/`iterate` is dat
+**label `<profiel>-<modelcode>`** (bv. `no-O5`). De model-code komt uit
+het agent-model in `.env`: tier-initiaal + versiecijfers, `M` erachter voor de
+1M-contextvariant - `claude-opus-5` → `O5`, `claude-opus-5[1m]` → `O5M`,
+`claude-sonnet-5` → `S5`, `claude-fable-5` → `F5`, `claude-haiku-4-5-20251001`
+→ `H45` (zie `pipeline/agents/shared/model.ts`, `modelCode`/`runPathLabel`;
+tabel in [docs/profiles.md](docs/profiles.md#het-run-label)). Voor
+`develop`/`review`/`ship`/`iterate` is dat
 het **develop-model `AGENT_DEVELOP_MODEL`** (review, ship en iterate aligneren
 op develops worktree, dus zij berekenen de code óók uit `AGENT_DEVELOP_MODEL`,
 niet uit hun eigen model); voor `review-external` is het
@@ -445,14 +393,14 @@ Bij een profile-run gebeurt het volgende (`<label>` = `<profiel>-<code>`):
 - **Worktree-pad** krijgt het label als suffix (binnen de sprint-map):
   `state/worktrees/<sprint>/<KEY>-<label>/`
   (extern: `state/worktrees/_external/<KEY>-<label>/`).
-  Bv. `state/worktrees/<sprint>/FLUX-463-no-O48/`.
+  Bv. `state/worktrees/<sprint>/FLUX-463-no-O5/`.
 - **Branch-naam** krijgt het label als path-segment:
   `feature-v2/<label>/<KEY>-<slug>` (bv.
-  `feature-v2/no-O48/FLUX-463-popover-max-height-scroll`). Het bestaande
+  `feature-v2/no-O5/FLUX-463-popover-max-height-scroll`). Het bestaande
   `feature-v2/FLUX-*` pattern voor profile-loze runs verandert niet.
 - **Ticket-state** gaat in een subfolder per label:
   `state/sprints/<sprint>/tickets/<KEY>/<label>/{ticket.md, code-changes.md,
-  review-r*.md, _status.json}` (bv. `.../tickets/FLUX-463/no-O48/`). `ticket.md`
+  review-r*.md, _status.json}` (bv. `.../tickets/FLUX-463/no-O5/`). `ticket.md`
   wordt per label gedupliceerd - bewust, zodat runs mogen divergeren (eigen
   `## Keuze` per profiel/model).
 - **`_status.json`** krijgt een veld `profile: "<naam>"` met het **kale**
@@ -492,7 +440,7 @@ profile-specifieke config; plan heeft geen worktree.
 in een **label-folder** `sprints/<SPRINT>/analyses/<label>/`, analoog aan de
 per-profiel dev-runs (§10). Voor analyse varieert niet het profiel maar het
 **model**: het profiel staat vast op `no`, dus het label is `no-<modelcode>`
-(bv. `no-O48`, `no-F5`), berekend met `runPathLabel('no', refineModel())`. Zo
+(bv. `no-O5`, `no-F5`), berekend met `runPathLabel('no', refineModel())`. Zo
 kan dezelfde sprint (of hetzelfde ticket, in `--tickets`-modus) met twee
 modellen naast elkaar geanalyseerd worden zonder dat de tweede run de eerste
 overschrijft. Per label een eigen `_meta.json` (idempotency-hashes),
@@ -626,8 +574,9 @@ Flow:
 2. **Canonieke, profielloze slot.** De gecombineerde branch is
    `feature-v2/<KEY>-<slug>` - **géén** profiel-segment en **géén** model-code
    (er is geen profiel gebruikt voor het resultaat). De slug komt uit het
-   profielloze refinement-rapport (`sprints/<sprint>/<KEY>.md`), niet uit een
-   per-profiel `ticket.md`. Worktree (`worktrees/<sprint>/<KEY>`) en
+   refinement-rapport van de gekozen analyse (`locateRefinement`, label-aware
+   volgens §10b), niet uit een per-profiel `ticket.md`. Worktree
+   (`worktrees/<sprint>/<KEY>`) en
    ticket-state (`sprints/<sprint>/tickets/<KEY>/`, zonder label-subfolder) zijn
    dus de profielloze paden - exact wat `npm run git:push`/`npm run git:pr` zonder
    `--profile` verwachten. De gecombineerde run ís de canonieke ontwikkeling
@@ -681,9 +630,9 @@ gevolgd door `git worktree prune`. De committed sprint-state (refinement +
 ticketwerk onder `sprints/<SPRINT>/`) blijft bewaard. In de TUI: submenu
 'onderhoud' → 'sprint afsluiten' (toont enkel sprints die nog worktrees hebben).
 
-**`npm run state:close-external [-- <LEAF>]`** - ruimt de wegwerp-worktrees van
-externe code-reviews op (`worktrees/_external/*`). Zonder argument alle, met een
-argument enkel `worktrees/_external/<LEAF>` (bv. `FLUX-743-no-O48`). De committed
+**`npm run state:close-external [-- <LEAF>...]`** - ruimt de wegwerp-worktrees van
+externe code-reviews op (`worktrees/_external/*`). Zonder argument alle, met
+argumenten enkel `worktrees/_external/<LEAF>` (bv. `FLUX-743-no-O5`). De committed
 review-output onder `external-reviews/<KEY>/` blijft bewaard. In de TUI: submenu
 'onderhoud' → 'opkuis externe reviews' (multiselect, standaard niets geselecteerd).
 
@@ -732,8 +681,8 @@ houden betekent dat een fout in dit pad de agent-output nooit raakt.
 
 ## Projectspecifieke conventies (flux-web-components)
 
-Deze staan uitgebreider in `pipeline/agents/claude-code/.claude/agents/ticket-author.md`
-en `ticket-reviewer.md`. Samengevat:
+Deze staan uitgebreider in de canonieke prompts `pipeline/agents/prompts/develop.md`
+en `review.md`. Samengevat:
 
 - **Lit framework**, TypeScript strict mode
 - **Component prefix:** `vl-app-` voor applicatie-level components,
@@ -760,122 +709,42 @@ eerste echte runs verfijnd worden met team-specifieke regels.
 **Twee repos:** `flux-agents` (tooling, zelden commits) en
 `flux-agents-state` (refinement-output + per-ticket state, frequent
 commits). `STATE_DIR` uit `.env` wijst naar de tweede; default
-`../flux-agents-state`.
-
-```
-flux-agents/                      ← deze repo (tooling, code, prompts)
-├── pipeline/                     ← de agent-pipeline (LLM + deterministische staart)
-│   ├── agents/                   ← agent-entrypoints (SDK) + shared/ prompts/ claude-code/
-│   │   ├── refine.ts / plan.ts / develop.ts / review.ts / ship.ts / iterate.ts   ← agent-entrypoints
-│   │   ├── converge.ts           ← combineert 2 profielruns → 1 branch + push + PR (§12)
-│   │   ├── review-external.ts    ← zijtak voor externe code-reviews
-│   │   ├── prompts/              ← canonical system prompts per agent-rol
-│   │   │   └── refine.md / refine-summary.md / plan.md / develop.md / review.md / converge.md / review-external.md
-│   │   ├── shared/               ← gedeelde helpers (query, repo, state, ticket, jira, prompts, logger, cli, model, loop, push, pr, config, observability)
-│   │   └── claude-code/          ← interactieve CC-variant (optioneel)
-│   │       └── .claude/
-│   │           ├── agents/       ← mirrors van pipeline/agents/prompts/ met YAML frontmatter
-│   │           └── commands/     ← /develop, /review, /address slash commands
-│   ├── jira/                     ← deterministische Jira-publicatie (npm run jira:*)
-│   │   ├── publish.ts            ← sprint-publicatie (directe Jira REST)
-│   │   └── publish-review.ts     ← review-publicatie (1 ticket, 1 comment per run)
-│   ├── git/                      ← deterministische git/GitHub-stappen (npm run git:*)
-│   │   ├── push.ts               ← push feature-branch van approved ticket (§11)
-│   │   └── pr.ts                 ← draft-PR aanmaken voor approved ticket (§11)
-│   └── state/                    ← deterministisch state-onderhoud (npm run state:*)
-│       ├── close-sprint.ts       ← worktrees van een afgesloten sprint opruimen (§13)
-│       ├── close-external.ts     ← worktrees van externe code-reviews opruimen (§13)
-│       └── worktree-cleanup.ts   ← gedeelde verwijder-helper voor beide
-├── app/                          ← de shell om de pipeline te draaien
-│   ├── desktop/                  ← Electron-app (main/preload/renderer + build.mjs)
-│   ├── tui/                      ← @clack/prompts terminal-UI
-│   └── build/                    ← app-iconen
-├── tools/                        ← onderhoudsscripts (npm run dev:*)
-│   ├── sync-cc-agents.sh         ← sync canonical → CC mirrors
-│   └── link-commands.sh          ← symlink flux-web-components/.claude
-└── docs/                         ← ontwerp-/analysenotities
-
-flux-agents-state/                ← aparte repo (STATE_DIR)
-├── logs/                         ← gitignored
-├── clone/                        ← gitignored (managed clone, bij eerste run aangemaakt)
-│   └── flux-web-components/      ← volledig los van de eigen werkclone
-├── worktrees/                    ← gitignored (álle worktrees in één tree)
-│   ├── <SPRINT>/<KEY>[-<label>]/              ← develop/review, per sprint gegroepeerd (§7)
-│   ├── _base/<baseBranch>/                    ← refine leest hieruit (read-only)
-│   └── _external/<KEY>[-<label>]/             ← externe-review worktrees (zijtak)
-├── sprints/<SPRINT>/             ← gecommit (sprint = refinement + ticketwerk)
-│   ├── _chosen.json              ← pointer naar de gekozen analyse (§10b)
-│   ├── analyses/<label>/         ← refine output per model-label (`no-<code>`, §10b)
-│   │   ├── _meta.json            ← refine hashes (per analyse)
-│   │   ├── _order.md             ← plan output (per analyse)
-│   │   ├── _published.json       ← publish.ts state (per analyse)
-│   │   ├── FLUX-*.md             ← refine output per ticket (uitgebreid, Opus)
-│   │   └── FLUX-*.jira.md        ← refine beknopte versie (Sonnet, voor Jira-comment)
-│   └── tickets/<KEY>/            ← gecommit (per-ticket werk onder de sprint)
-│       ├── ticket.md             ← kopie van refinement (zonder profile)
-│       ├── code-changes.md       ← develop per ronde (zonder profile)
-│       ├── review-r<N>.md        ← review per ronde (zonder profile)
-│       ├── _pr-body.md           ← review bij APPROVED; body voor `npm run git:pr` (§11)
-│       ├── _converge.md          ← converge: verslag van bronnen + keuzes (§12)
-│       ├── _status.json          ← round, status, baseBranch, branch, prUrl, profile?
-│       └── <profiel>-<code>/     ← mét --profile: eigen kopie per profiel+model (§10)
-│           ├── ticket.md
-│           ├── code-changes.md
-│           ├── review-r<N>.md
-│           ├── _pr-body.md
-│           └── _status.json
-└── external-reviews/<KEY>/       ← gecommit (externe code-reviews)
-    ├── review-<timestamp>.md     ← review-external output (1 per run)
-    └── _published.json           ← publish-review state (hash per bestand)
-```
-
-**Sprint-centrisch:** alles wat aan een sprint hangt zit op één plek -
-refinement én ticketwerk onder `sprints/<SPRINT>/`, en de (gitignored)
-worktrees onder `worktrees/<SPRINT>/`. Een afgesloten sprint kuis je op met
-`npm run state:close-sprint -- <SPRINT>` (zie §13): dat doet `git worktree
-remove` op alle `worktrees/<SPRINT>/*` en laat de committed state staan. De
-base-branch- en externe-review-worktrees hangen niet aan een sprint en zitten
-daarom onder de gereserveerde `worktrees/_base/` en `worktrees/_external/`.
-
-**Analyse-labels (§10b):** de refinement-output zit sinds kort onder
-`sprints/<SPRINT>/analyses/<label>/` (bv. `no-O48`) i.p.v. plat in de
-sprint-root, zodat dezelfde sprint met meerdere modellen geanalyseerd kan
-worden; `_chosen.json` legt vast welke gebruikt wordt door plan/publish/develop.
-Legacy platte sprints (`sprints/<SPRINT>/FLUX-*.md` zonder `analyses/`) blijven
-werken.
+`../flux-agents-state`. De mappenstructuur van beide repos staat in
+[docs/architecture.md](docs/architecture.md#mappenstructuur) en
+[docs/architecture.md](docs/architecture.md#state-layout); de layout-keuzes
+zelf zijn §7 (worktrees), §10 (dev-labels), §10b (analyse-labels) en §13
+(opkuis).
 
 **Waarom gesplitst:** tooling en work-product hebben verschillende
 commit-cadans (zeldzaam vs dagelijks), verschillende retention (tool:
 permanent; state: mag gesnoeid worden), en potentieel verschillende
 visibility (tool mag publiek, state bevat interne ticket-details).
 
+**Waarom sprint-centrisch:** alles wat aan een sprint hangt zit op één plek -
+refinement én ticketwerk onder `sprints/<SPRINT>/`, en de (gitignored)
+worktrees onder `worktrees/<SPRINT>/` - zodat een afgesloten sprint met één
+actie op te kuisen is (§13). De base-branch- en externe-review-worktrees hangen
+niet aan een sprint en zitten daarom onder de gereserveerde `worktrees/_base/`
+en `worktrees/_external/`.
+
 ## Technische stack
 
-### SDK side (refine en plan)
-- **Node 20+**, ESM modules, TypeScript strict
-- **`@anthropic-ai/claude-agent-sdk`** - de officiële Claude Agent SDK
-- **`tsx`** voor directe uitvoering zonder build step
-- **`dotenv`** voor env configuratie
-- Geen framework of DI - bewust minimaal
-
-### Publish-script (`pipeline/jira/publish.ts`)
-- Zelfde Node + tsx + dotenv basis als de agents
-- Native `fetch` (Node 20+) tegen Jira Data Center REST API v2
-- Eigen kleine markdown→wiki markup converter (geen externe dep)
-
-### Claude Code side (develop en review)
-- Markdown files met YAML frontmatter in `.claude/commands/` en `.claude/agents/`
-- Frontmatter velden gebruikt: `description`, `argument-hint`,
-  `allowed-tools`, `tools`, `model`
-- `$1`, `$2` voor positionele args in commands
-- Subagents expliciet aangeroepen door commands (niet automatisch
-  via proactive triggers)
-
-### External tools
-- **Jira Data Center REST API v2** - direct vanuit refine (`pipeline/agents/shared/jira.ts`)
-  én `pipeline/jira/publish.ts`/`publish-review.ts` met `fetch`. Geen Docker/MCP meer.
-- **`gh` CLI** voor de ene GitHub-actie (PR aanmaken)
-- **`git`** - vereist minstens 2.23+ voor `switch`
+- **Node 20+**, ESM modules, TypeScript strict; **`tsx`** voor directe
+  uitvoering zonder build step; **`dotenv`** voor env-configuratie. Geen
+  framework of DI - bewust minimaal.
+- **Alle agent-rollen** (refine, plan, develop, review, converge,
+  review-external) draaien via **`@anthropic-ai/claude-agent-sdk`**, elk als één
+  `query()` met de canonieke prompt als system prompt. De Claude Code-variant
+  onder `pipeline/agents/claude-code/` is enkel een interactieve mirror voor
+  develop/review (zie §7 en de CC-README).
+- **Deterministische scripts** (`pipeline/jira/`, `pipeline/git/`,
+  `pipeline/state/`): zelfde Node + tsx + dotenv basis, native `fetch` tegen de
+  Jira Data Center REST API v2, eigen kleine markdown→wiki-markup converter
+  (geen externe dep).
+- **External tools:** Jira REST (refine, publish, publish-review), `gh` CLI
+  (de ene GitHub-actie: PR aanmaken), `git` 2.23+ (`switch`).
+- **Desktop-app:** Electron + `node-pty` + xterm rond de @clack-TUI; zie
+  [docs/desktop-app.md](docs/desktop-app.md).
 
 ### Terminal-output (wat een mens tijdens een run ziet)
 
@@ -936,8 +805,10 @@ de maintainer er zelf om vraagt:
 - Jira workflow-transities (To Do → In Progress → Done) terugschrijven -
   comments en het umbrella-ticket via `publish.ts` zijn wél in scope
 - Slack-notificaties
-- Dashboard / UI
-- Multi-user support (dit is een persoonlijk tool)
+- Een dashboard (status-overzicht over tickets en sprints heen) - de
+  desktop-app is een schil rond de TUI, geen dashboard
+- Multi-user support: geen gedeelde state of server; elk teamlid draait een
+  eigen installatie met eigen state-map
 
 ## Context over de maintainer
 

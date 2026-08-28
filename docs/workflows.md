@@ -1,34 +1,46 @@
 # Workflows
 
 De concrete commando's per workflow. Alle `npm run`-scripts zijn per domein
-geprefixt (`pipeline:`, `jira:`, `git:`). Argumenten na `--` gaan naar het script.
+geprefixt (`pipeline:`, `jira:`, `git:`, `state:`). Argumenten na `--` gaan naar
+het script. Waar de output belandt staat in
+[architecture.md](architecture.md#state-layout); `<label>` hieronder is het
+analyse-label (`no-<modelcode>`).
 
 ## Sprint-analyse: refine → plan → (publish)
 
 ### 1. Refine een sprint
 
 ```bash
-npm run pipeline:refine -- SPRINT-42
+npm run pipeline:refine -- "release sprint - v2.17.0 - AI" v2.17.0-AI   # Jira-sprintnaam + mapnaam
+npm run pipeline:refine -- SPRINT-42                                      # mapnaam = sprintnaam
 # met JQL
-npm run pipeline:refine -- --jql "sprint = openSprints() AND project = FLUX"
-# expliciete ticket-lijst (1e positional = foldernaam onder state/sprints/)
+npm run pipeline:refine -- --jql "sprint = openSprints() AND project = FLUX" SPRINT-42
+# expliciete ticket-lijst (1e positional = mapnaam onder sprints/)
 npm run pipeline:refine -- hotfixes-april --tickets FLUX-123,FLUX-124
 # droogtest (verifieert Jira REST-auth, schrijft niets blijvends)
 npm run pipeline:refine:dry -- SPRINT-42
 ```
 
-Output per ticket: `FLUX-*.md` (uitgebreid) **en** `FLUX-*.jira.md` (beknopt, voor
-de Jira-comment). Herstart is idempotent: ongewijzigde tickets worden overgeslagen.
-Bij een wijziging blijft de vorige analyse staan en wordt een `## Update YYYY-MM-DD`
-sectie toegevoegd.
+De sprintnaam gaat letterlijk naar Jira (`sprint = "<naam>"`); quote hem als er
+spaties in zitten. Output per ticket in `sprints/<map>/analyses/<label>/`:
+`FLUX-*.md` (uitgebreid) **en** `FLUX-*.jira.md` (beknopt, voor de
+Jira-comment). Het label volgt uit `AGENT_REFINE_MODEL`, zodat een tweede model
+een tweede analyse naast de eerste zet. Herstart is idempotent: ongewijzigde
+tickets worden overgeslagen. Bij een wijziging (description, status, menselijke
+comment, screenshot) blijft de vorige analyse staan en wordt een
+`## Update YYYY-MM-DD`-sectie toegevoegd.
 
 ### 2. Plan de uitvoeringsvolgorde
 
 ```bash
 npm run pipeline:plan -- SPRINT-42
+npm run pipeline:plan -- SPRINT-42 --analysis no-O5    # bij meerdere analyses
 ```
 
-Output: `state/sprints/SPRINT-42/_order.md` (volgorde, dependency graph, aanbevelingen).
+Output: `sprints/SPRINT-42/analyses/<label>/_order.md` (volgorde, dependency
+graph, aanbevelingen). Heeft de sprint meerdere analyses en is er nog geen
+gekozen (`_chosen.json`), dan stopt plan met een "kies eerst één"-fout - geef
+`--analysis` mee of kies in de TUI.
 
 ### 3. (optioneel) Publiceer de analyse naar Jira
 
@@ -37,6 +49,8 @@ npm run jira:publish -- SPRINT-42
 npm run jira:publish-ticket -- SPRINT-42                          # geen umbrella-ticket
 npm run jira:publish:dry -- SPRINT-42                             # schrijft _preview_*.md lokaal
 npm run jira:publish -- SPRINT-42 --tickets FLUX-123 --skip-overview
+npm run jira:publish -- SPRINT-42 --skip-comments                 # enkel het umbrella-ticket
+npm run jira:publish -- SPRINT-42 --analysis no-O5                # bij meerdere analyses
 ```
 
 Per ticket een comment (`## Sprint-analyse - AI`, bij voorkeur de `.jira.md`-versie) +
@@ -49,12 +63,15 @@ Wijzigt **nooit** een Jira workflow-status.
 
 ```bash
 npm run pipeline:develop -- FLUX-123 SPRINT-42
-npm run pipeline:develop -- FLUX-123            # sprint wordt automatisch opgespoord
+npm run pipeline:develop -- FLUX-123                       # sprint wordt automatisch opgespoord
+npm run pipeline:develop -- FLUX-123 --analysis no-O5      # bij meerdere analyses
 ```
 
-Kopieert het refinement-rapport naar `ticket.md`, maakt een per-ticket worktree +
-feature-branch `feature-v2/FLUX-123-<slug>` vanaf `origin/<FLUX_BASE_BRANCH>`,
-implementeert en schrijft `code-changes.md`. Géén push, géén PR.
+Kopieert het refinement-rapport (uit de gekozen analyse) naar `ticket.md`, maakt
+een per-ticket worktree + feature-branch `feature-v2/FLUX-123-<slug>` vanaf
+`origin/<FLUX_BASE_BRANCH>`, implementeert en schrijft `code-changes.md`. Géén
+push, géén PR. Stelt het rapport meerdere aanpakken voor, voeg dan vooraf een
+`## Keuze`-sectie toe aan `ticket.md`.
 
 ### 5. Review
 
@@ -64,7 +81,7 @@ npm run pipeline:review -- FLUX-123
 
 Drie uitkomsten:
 
-- **APPROVED** - lokale squash tegen `origin/<baseBranch>` tot één conventional commit + `_pr-body.md`. Niet gepusht, geen PR.
+- **APPROVED** - lokale squash tegen `origin/<baseBranch>` tot één commit (subject `<type>: <KEY> - <vl-component> - <omschrijving>`) + `_pr-body.md`. Niet gepusht, geen PR.
 - **CHANGES_REQUESTED** - lees `review-r<N>.md`, draai opnieuw `pipeline:develop -- FLUX-123` (schakelt automatisch naar address-modus, ronde N+1).
 - **ESCALATED** - max 3 rondes bereikt; geen squash, jij beslist.
 
@@ -75,6 +92,8 @@ npm run git:push -- FLUX-123        # git push -u origin <branch> (idempotent)
 npm run git:pr   -- FLUX-123        # gh pr create --draft
 ```
 
+`push` dwingt vooraf de git-identiteit af als auteur én committer van de
+ongepushte commits (zie [configuration.md](configuration.md#git-commit-identiteit)).
 `pr` gebruikt de squash-commit-subject als titel en `_pr-body.md` als body, bewaart
 de PR-URL in `_status.json`, en maakt geen tweede PR als er al een bestaat. In de
 TUI/desktop-app: 'ontwikkeling' → **push** / **pull request** (zelfde scripts).
@@ -88,7 +107,7 @@ Jij zet de draft-PR ready, reviewt op GitHub en merget zelf. Geen automatisering
 ### ship - hele lus + push
 
 ```bash
-npm run pipeline:ship -- FLUX-123 backlog-20260422
+npm run pipeline:ship -- FLUX-123 SPRINT-42
 ```
 
 Draait `develop → review` (max 3 rondes). Bij APPROVED: squash + automatisch
@@ -97,7 +116,7 @@ Draait `develop → review` (max 3 rondes). Bij APPROVED: squash + automatisch
 ### iterate - zelfde lus, puur lokaal
 
 ```bash
-npm run pipeline:iterate -- FLUX-123 backlog-20260422
+npm run pipeline:iterate -- FLUX-123 SPRINT-42
 ```
 
 Als `ship`, maar **zonder push of PR**. Bij APPROVED stopt het met de lokale squash
@@ -112,9 +131,10 @@ npm run pipeline:converge -- FLUX-620 --profiles no,<profiel>
 ```
 
 Valideert dat beide profielruns `approved` zijn, maakt een **profielloze** branch
-`feature-v2/FLUX-620-<slug>`, laat een Opus-agent het beste van beide combineren tot
-één commit + `_pr-body.md`, en **pusht + maakt de draft-PR automatisch aan**. Dit is
-de enige orchestrator die de PR zelf aanmaakt. Zie [profiles.md](profiles.md).
+`feature-v2/FLUX-620-<slug>`, laat de converge-agent het beste van beide combineren tot
+één commit + `_pr-body.md` + een verslag `_converge.md`, en **pusht + maakt de
+draft-PR automatisch aan**. Dit is de enige orchestrator die de PR zelf aanmaakt.
+Zie [profiles.md](profiles.md).
 
 ## State-onderhoud: worktrees opruimen
 
@@ -128,14 +148,15 @@ npm run state:close-sprint -- SPRINT-42              # alle worktrees van een af
 npm run state:close-sprint -- SPRINT-42 --dry-run    # toont enkel wat verwijderd zou worden
 
 npm run state:close-external                         # alle externe-review worktrees
-npm run state:close-external -- FLUX-595-no-O48    # één specifieke (leaf onder _external/)
+npm run state:close-external -- FLUX-595-no-O5       # één of meer specifieke (leaf onder _external/)
 npm run state:close-external -- --dry-run
 ```
 
 Beide zijn idempotent (geen worktrees meer = no-op). In de TUI zit dit onder het
 submenu **'onderhoud'** → *sprint afsluiten* / *opkuis externe reviews*. Datzelfde
-submenu heeft ook *profielen verversen* (haalt de laatste develop-v2 op zodat
-nieuw toegevoegde AI-profielen in de profiel-prompts verschijnen).
+submenu heeft ook *profielen verversen* (fetch + reset van de base-branch-worktree
+`worktrees/_base/<baseBranch>`, zodat nieuw toegevoegde AI-profielen in de
+profiel-prompts verschijnen; de prompts zelf lezen enkel van disk).
 
 ## Zijtak: externe code review
 
@@ -146,12 +167,14 @@ npm run pipeline:review-external -- FLUX-595 feature-v2/iemands-branch
 npm run pipeline:review-external -- FLUX-595 feature-v2/branch --base develop-v3 --profile <profiel>
 ```
 
-Output: `state/external-reviews/FLUX-595/review-<timestamp>.md` (één per run, geen squash/push/PR).
-Publiceren naar Jira (comment `## Code review - AI`, idempotent):
+Output: `external-reviews/FLUX-595/review-<timestamp>.md` (één per run, geen
+squash/push/PR). Publiceren naar Jira (comment `## Code review - AI`, idempotent op
+de sha van het bestand):
 
 ```bash
 npm run jira:publish-review -- FLUX-595                 # laatste review-md
 npm run jira:publish-review -- FLUX-595 --file <pad>    # specifiek bestand
+npm run jira:publish-review -- FLUX-595 --force         # zelfde bestand opnieuw posten
 npm run jira:publish-review:dry -- FLUX-595             # droogtest
 ```
 

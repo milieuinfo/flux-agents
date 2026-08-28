@@ -6,8 +6,8 @@ worden nooit teruggetoond - enkel óf ze gezet zijn. Een `.env`-bestand is niet
 nodig.
 
 Wat de pipeline effectief gebruikt, in oplopende voorrang: de ingebouwde
-defaults → een `.env` in de flux-agents-map (enkel bij CLI-gebruik) → wat je
-hier opslaat → de geheimen uit de keychain. Een leeg veld betekent “niet
+defaults → een `.env` in de projectmap (alleen als je de app vanuit de
+broncode draait) → wat je hier opslaat → de geheimen uit de keychain. Een leeg veld betekent “niet
 ingesteld”: de pipeline valt dan terug op de ingebouwde default.
 
 **Opslaan** geldt voor acties die je daarna start (nieuwe tabs); lopende runs
