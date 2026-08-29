@@ -42,7 +42,6 @@ zit in een dunne laag daaronder:
 | Prompts | grotendeels neutraal markdown; `refine.md` noemt `Read`/`Glob`/`Grep` bij naam, `develop.md` spreekt van "Bash-commando" | `pipeline/agents/prompts/` |
 | Profielen | `set-ai-profile.sh` legt `CLAUDE.local.md`, `.claude/settings.local.json`, `.claude/skills` en (cross-tool) `AGENTS.md`/`SKILLS.md`; slechts één persoonlijk profiel heeft vandaag een `AGENTS.md`, de overige enkel `CLAUDE.md` | `flux-web-components/ai/profiles/` |
 | Packaging | de dmg bundelt de SDK in `node_modules` (asarUnpack); een teamlid installeert niets behalve `claude setup-token` | `electron-builder.yml` |
-| CC-mirror | de interactieve Claude Code-variant (`.claude/agents`, `.claude/commands`) is per definitie Claude-only | `pipeline/agents/claude-code/` |
 
 Wat níét gekoppeld is en dus ongewijzigd meegaat: de state-layout, de
 worktree- en branch-logica, `_status.json` met rondes en escalatie,
@@ -105,9 +104,8 @@ Wanneer het gebouwd wordt, dan zo:
 6. **Prompts** tool-naam-neutraal maken (`refine.md`) en de rolprompt bij
    niet-SDK-runners in het user-bericht meegeven.
 
-Wat er niet bijhoort: de CC-mirror en `dev:sync-cc` blijven Claude-only
-(interactieve debugvariant); een model wisselen via een proxy op de SDK
-(zie alternatieven) doen we niet.
+Wat er niet bijhoort: een model wisselen via een proxy op de SDK (zie
+alternatieven) doen we niet.
 
 ## Alternatieven overwogen
 

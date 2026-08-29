@@ -6,9 +6,9 @@ import { modelLabel } from './model.js';
 /**
  * Load a canonical agent prompt from `pipeline/agents/prompts/<name>.md`.
  *
- * One source of truth for all four agents. The Claude Code subagent files
- * under `pipeline/agents/claude-code/.claude/agents/` are mirrors: same body + YAML
- * frontmatter. Keep them in sync when the prompt changes.
+ * One source of truth for every agent role; the desktop help panel
+ * (`app/desktop/main/help-prompts.ts`) reads the same files. There is no
+ * second copy anywhere.
  */
 export async function loadPrompt(name: string): Promise<string> {
   const here = fileURLToPath(new URL('.', import.meta.url));

@@ -38,8 +38,6 @@ uitleg, elk met een eigen rol - hou ze zo, en verwijs liever dan te herhalen:
   **alle** uitleg die een app-gebruiker zonder checkout heeft; die teksten
   moeten zelfstandig leesbaar zijn en mogen dus **niet** naar docs, CLAUDE.md
   of code verwijzen. Overlap met `docs/` is daar bewust.
-- De interactieve Claude Code-variant heeft een eigen
-  [README](pipeline/agents/claude-code/.claude/README.md).
 
 ## Commit-boodschappen
 
@@ -269,13 +267,16 @@ worktree maakt parallel werk op meerdere tickets gratis (elk zijn eigen
 branch + working tree). (d) Base-branch als env var → schakelen naar
 `develop-v3` is een config-wijziging.
 
-De Claude Code subagent-variant in `pipeline/agents/claude-code/.claude/agents/`
-blijft bestaan als **mirror**: YAML frontmatter + een kopie van de canonical
-prompt uit `pipeline/agents/prompts/` (die zelf kale markdown zonder frontmatter
-is). De SDK-scripts laden direct uit `pipeline/agents/prompts/<role>.md`. Bij een
-prompt-wijziging: canonical bewerken, dan `npm run dev:sync-cc` om de CC-mirror
-bij te werken - details in de
-[CC-README](pipeline/agents/claude-code/.claude/README.md).
+De SDK-scripts laden hun system prompt rechtstreeks uit
+`pipeline/agents/prompts/<role>.md` (kale markdown zonder frontmatter); er is
+geen tweede kopie. De vroegere interactieve Claude Code-variant
+(subagent-mirrors + `/develop`, `/review`, `/address` onder
+`pipeline/agents/claude-code/`) is in aug 2026 verwijderd: ze was niet meer
+installeerbaar (flux-web-components heeft een eigen gecommitte `.claude/`, dus
+de symlink-koppeling weigerde) en liep achter op de pipeline (analyses-map,
+profiel-labels, worktrees, `_status.json`-schema). Interactief debuggen doe je
+door de samengestelde prompt uit het ⓘ-paneel ad hoc in een eigen checkout te
+gebruiken, niet via iets wat deze repo permanent draagt.
 
 ### 8. Jira lezen via directe REST (geen Docker/MCP)
 
@@ -734,9 +735,7 @@ en `worktrees/_external/`.
   framework of DI - bewust minimaal.
 - **Alle agent-rollen** (refine, plan, develop, review, converge,
   review-external) draaien via **`@anthropic-ai/claude-agent-sdk`**, elk als één
-  `query()` met de canonieke prompt als system prompt. De Claude Code-variant
-  onder `pipeline/agents/claude-code/` is enkel een interactieve mirror voor
-  develop/review (zie §7 en de CC-README).
+  `query()` met de canonieke prompt als system prompt.
 - **Deterministische scripts** (`pipeline/jira/`, `pipeline/git/`,
   `pipeline/state/`): zelfde Node + tsx + dotenv basis, native `fetch` tegen de
   Jira Data Center REST API v2, eigen kleine markdown→wiki-markup converter
@@ -852,5 +851,3 @@ Veel waarschijnlijke foutmodes:
   `git -C state/clone/flux-web-components worktree remove <path>` wanneer
   je echt opnieuw wil beginnen (of `npm run state:close-sprint -- <sprint>`
   voor alle worktrees van een sprint, §13)
-- **(CC-variant) Claude Code vindt `.claude/` niet** → alleen relevant
-  voor interactieve debugging; check `ls -la flux-web-components/.claude`

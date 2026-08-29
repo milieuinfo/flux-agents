@@ -56,15 +56,6 @@ voorkeur:
 
 `git:pr` en `converge` gebruiken `gh pr create`. Check `gh auth status`.
 
-### 6. (optioneel) Claude Code commands linken
-
-Alleen nodig om develop/review interactief via de Claude Code CLI te draaien
-(zie [pipeline/agents/claude-code/.claude/README.md](../pipeline/agents/claude-code/.claude/README.md)):
-
-```bash
-npm run dev:link -- /path/to/flux-web-components
-```
-
 ## Environment-variabelen
 
 ### Verplicht / kern

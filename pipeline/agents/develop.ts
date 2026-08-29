@@ -15,7 +15,7 @@
  * discovered automatically (errors if zero or multiple matches).
  *
  * The agent runs with permissionMode=bypassPermissions for autonomous
- * operation - its guardrails are in the subagent prompt (no push, no PR,
+ * operation - its guardrails are in the prompt (no push, no PR,
  * no external GitHub interaction).
  */
 

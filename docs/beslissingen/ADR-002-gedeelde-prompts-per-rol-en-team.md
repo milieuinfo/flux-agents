@@ -219,9 +219,6 @@ De effectieve system prompt van een agent is:
   van `code-changes.md` en `review-r<N>.md`. Backwards-compatibel, geen
   migratie. Een prompt-versie in het run-label (A/B op hetzelfde ticket,
   vgl. `no-O5`) is een aparte, latere beslissing.
-- **CC-mirror**: `tools/sync-cc-agents.sh` stelt de mirrors samen met de
-  rol en het team uit `.env`, zodat de interactieve variant dezelfde prompt
-  ziet als de SDK.
 - **Migratie van de huidige prompts** (eenmalig, in flux-agents én in de
   gedeelde repo): elke prompt wordt gesplitst in procedure (blijft in
   `pipeline/agents/prompts/`), bedrijfsbrede front-end-basis
@@ -380,7 +377,7 @@ van de gedeelde repo als `PROMPTS_BRANCH`, binnen de map van zijn team.
   preflight-rij + TUI-actie; clone en ref-worktree onder `prompts/` (branch +
   tag oplossen, nieuwste tag bepalen); ⓘ-paneel met laagmarkering, badges
   voor overschreven secties en de optionele schakelaar "toon lagen apart";
-  `prompts`-object in `_status.json`; `sync-cc-agents.sh`; docs
+  `prompts`-object in `_status.json`; docs
   (`configuration.md`, `architecture.md`, help `instellingen.md`/`gebruik.md`,
   CLAUDE.md §14).
 - Gedeelde repo: structuur, `README.md` met de spelregels (lagen, secties,

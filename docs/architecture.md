@@ -84,7 +84,7 @@ met `jira:publish-review`. Commando's in
 ```
 flux-agents/                  ← deze repo (tooling, code, prompts)
 ├── pipeline/                 ← de agent-pipeline
-│   ├── agents/               ← de agents + orchestrators + shared/ prompts/ claude-code/
+│   ├── agents/               ← de agents + orchestrators + shared/ prompts/
 │   ├── jira/                 ← deterministische Jira-publicatie (npm run jira:*)
 │   ├── git/                  ← deterministische git/GitHub-stappen (npm run git:*)
 │   └── state/                ← deterministisch state-onderhoud (npm run state:*)
@@ -155,17 +155,12 @@ externe-review worktrees met `npm run state:close-external` (beide verwijderen
 enkel de worktrees, de gecommitte state blijft) - zie
 [workflows.md](workflows.md#state-onderhoud-worktrees-opruimen).
 
-## Prompts & interactieve variant
+## Prompts
 
 De canonieke system-prompts staan in `pipeline/agents/prompts/<rol>.md` (kale
 markdown, zonder frontmatter) - één bron van waarheid die de SDK-agents direct
-laden en die de desktop-app alleen-lezen toont in het ⓘ-hulppaneel. Voor
-develop en review bestaat daarnaast een interactieve Claude Code-variant
-(gegenereerde mirrors met YAML-frontmatter + de slash-commands `/develop`,
-`/review`, `/address`), bedoeld om de pipeline-stappen handmatig te doorlopen
-bij het debuggen. Hoe die mirrors werken en gesynct worden
-(`npm run dev:sync-cc`) staat in
-[pipeline/agents/claude-code/.claude/README.md](../pipeline/agents/claude-code/.claude/README.md).
+laden en die de desktop-app alleen-lezen toont in het ⓘ-hulppaneel. Er is geen
+tweede kopie of mirror; wie een prompt wil bijsturen, wijzigt dat ene bestand.
 
 ## Jira via directe REST
 

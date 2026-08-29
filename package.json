@@ -36,8 +36,6 @@
     "dev:log-preview": "tsx tools/log-preview.ts",
     "dev:help-preview": "tsx tools/help-preview.ts",
     "dev:check-dashes": "./tools/check-dashes.sh",
-    "dev:sync-cc": "./tools/sync-cc-agents.sh",
-    "dev:link": "./tools/link-commands.sh",
     "postinstall": "patch-package --patch-dir tools/patches && electron-rebuild -f -w node-pty"
   },
   "dependencies": {

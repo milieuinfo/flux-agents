@@ -52,4 +52,4 @@ Per domein geprefixt, zodat de map af te leiden is uit het commando:
 | `git:*` | `pipeline/git/` | `push`, `pr` |
 | `state:*` | `pipeline/state/` | `close-sprint`, `close-external` |
 | `app:*` | `app/` | `tui` (= `npm start`), `dev`, `build`, `dist`, `pack`, `rebuild` |
-| `dev:*` | `tools/` | `typecheck`, `check-dashes`, `log-preview`, `help-preview`, `sync-cc`, `link` |
+| `dev:*` | `tools/` | `typecheck`, `check-dashes`, `log-preview`, `help-preview` |
