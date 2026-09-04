@@ -138,15 +138,53 @@ npm run app:rebuild  # node-pty herbouwen tegen Electron's ABI (draait ook in po
 ```
 
 Zonder Apple-credentials is de dmg **ad-hoc-gesigneerd**: werkt op je eigen Mac, maar
-geeft elders een Gatekeeper-waarschuwing (rechtsklik → Openen, of
-`xattr -dr com.apple.quarantine "/Applications/Flux Agents.app"`). Voor wrijvingsloze
-distributie: code-sign + notarize via een Apple Developer-account - zet `CSC_LINK` +
-`CSC_KEY_PASSWORD` en `APPLE_ID` + `APPLE_APP_SPECIFIC_PASSWORD` + `APPLE_TEAM_ID` vóór
-`npm run app:dist`. Zie de commentaren in `electron-builder.yml`.
+wordt op de Mac van een teamlid door Gatekeeper geblokkeerd (zie
+["Flux Agents is beschadigd" bij een teamlid](#flux-agents-is-beschadigd-bij-een-teamlid)).
+Voor wrijvingsloze distributie: code-sign + notarize via een Apple Developer-account - zet
+`CSC_LINK` + `CSC_KEY_PASSWORD` en `APPLE_ID` + `APPLE_APP_SPECIFIC_PASSWORD` +
+`APPLE_TEAM_ID` vóór `npm run app:dist`. Zie de commentaren in `electron-builder.yml`.
 
 ## Installeren + configureren (teamlid)
 
-1. Open de dmg, sleep **Flux Agents** naar Applications, start de app.
+1. Open de dmg, sleep **Flux Agents** naar Applications, start de app. Meldt macOS
+   dat de app beschadigd is, zie de sectie hieronder.
 2. Klik **⚙**, vul in: Jira-URL + PAT, repo-URL, Claude OAuth-token. Test Jira + Claude-auth.
 3. Opslaan → geldt voor nieuwe tabs.
 4. Kies links een actie → ze draait rechts in een eigen (alleen-lezen) tab.
+
+## "Flux Agents is beschadigd" bij een teamlid
+
+Meldt macOS bij het openen *"Flux Agents is beschadigd en kan niet worden geopend.
+Verplaats deze naar de prullenmand."*, dan is het bestand vrijwel nooit echt
+beschadigd. Het is Gatekeeper: de dmg is ad-hoc gesigneerd (geen Developer ID, geen
+notarisatie), de browser heeft er `com.apple.quarantine` op gezet, en op Apple Silicon
+vertaalt macOS die combinatie naar precies die misleidende tekst.
+
+Dat de dmg op de build-machine wél opent zegt niets: daar staat de cdhash van dat
+bundle al in de lokale Gatekeeper-database, en een download via `curl` of `scp` zet de
+quarantaine-vlag sowieso niet (browsers en AirDrop wel).
+
+Oplossing, na het slepen naar Programma's:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/Flux Agents.app"
+open "/Applications/Flux Agents.app"
+```
+
+Rechtsklik → Openen helpt bij *deze* melding meestal niet - dat pad is bedoeld voor
+"onbekende ontwikkelaar" - en is op macOS Sequoia vervangen door Systeeminstellingen →
+Privacy en beveiliging → "Toch openen". Het `xattr`-commando is het betrouwbare pad.
+Daarna volgt nog eenmalig de sleutelhanger-vraag (zie
+[Sleutelhanger-melding na een update](#sleutelhanger-melding-na-een-update)): kies
+"Altijd toestaan".
+
+Blijft het misgaan, sluit dan twee andere oorzaken uit:
+
+- **Intel-Mac.** De build is arm64-only (bewust, zie `electron-builder.yml`). `uname -m`
+  moet `arm64` geven; bij `x86_64` draait de app sowieso niet.
+- **Echt kapotte download.** Vergelijk `shasum -a 256` van de dmg aan beide kanten.
+  Delen via Teams, SharePoint of Drive kan een bestand wel degelijk mangelen.
+
+Structureel verdwijnt dit met code-signing + notarisatie (zie
+[Draaien & bouwen](#draaien--bouwen)). Dat lost meteen ook de sleutelhanger-vraag bij
+elke nieuwe build op, want de code-identiteit blijft dan stabiel.
