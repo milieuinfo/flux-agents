@@ -15,6 +15,8 @@ import { spawn } from 'node:child_process';
 import { log } from './logger.js';
 import {
   commitSubject,
+  healWorktrees,
+  managedRepoPath,
   remoteBranchExists,
   ticketWorktreePath,
 } from './repo.js';
@@ -94,6 +96,10 @@ export async function runPr({ key, profile }: PrArgs): Promise<string | null> {
   }
 
   const worktree = ticketWorktreePath(stateDir, ticketSprint, key, label);
+  await healWorktrees({
+    stateDir,
+    mainRepoDir: resolve(process.env.FLUX_REPO_DIR ?? managedRepoPath(stateDir)),
+  });
   try {
     await access(worktree);
   } catch {

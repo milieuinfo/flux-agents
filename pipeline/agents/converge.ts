@@ -35,6 +35,7 @@ import {
   applyGitIdentityFromEnv,
   countCommitsAhead,
   ensureRepoClone,
+  healWorktrees,
   ensureTicketWorktree,
   managedRepoPath,
   slugifyTitle,
@@ -166,6 +167,7 @@ async function main({ key, profiles, sprint }: ConvergeArgs) {
   log.section(`converge · ${key} · profielen ${profiles.join(' + ')}`);
 
   await ensureRepoClone({ repoUrl, cloneDir: mainRepoDir });
+  await healWorktrees({ stateDir, mainRepoDir });
 
   // Bronnen valideren (allemaal 'approved') vóór we iets aanmaken.
   const sources: Source[] = [];

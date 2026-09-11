@@ -10,8 +10,10 @@ defaults → een `.env` in de projectmap (alleen als je de app vanuit de
 broncode draait) → wat je hier opslaat → de geheimen uit de keychain. Een leeg veld betekent “niet
 ingesteld”: de pipeline valt dan terug op de ingebouwde default.
 
-**Opslaan** geldt voor acties die je daarna start (nieuwe tabs); lopende runs
-behouden hun configuratie. Velden met `*` zijn verplicht. Drie knoppen helpen
+**Opslaan** herstart het menu links met de nieuwe instellingen (zodat de
+sprint- en ticketlijsten meteen de juiste state-map en modellen zien) en geldt
+voor elke actie die je daarna start; lopende tabs behouden hun configuratie.
+Velden met `*` zijn verplicht. Drie knoppen helpen
 bij het instellen - **Test Jira-verbinding**, **Controleer Claude-auth** en
 **Modellen vernieuwen** - en de tab **Status** vat samen wat nog ontbreekt.
 De Claude-controle doet een minimale API-call met het token (één token
@@ -27,7 +29,9 @@ run kloont ze de repo zelf onder de state-map, en per ticket maakt ze daar een
 aparte git-worktree (`worktrees/<sprint>/<ticket>/`), afgesplitst van de
 base-branch. Alle output - analyses, ticket-state, reviews - komt ook in de
 state-map. Die map is het geheugen van de pipeline: zet ze op een vaste,
-absolute plek (ideaal een eigen git-repo).
+absolute plek (ideaal een eigen git-repo). Verplaats je ze later, pas dan enkel
+de instelling aan: de eerstvolgende actie herstelt de git-koppelingen tussen
+clone en worktrees zelf.
 
 {{velden:Repo}}
 

@@ -260,6 +260,22 @@ hier worktrees uit (alle worktrees zitten onder `state/worktrees/`):
   `state/worktrees/<sprint>/<KEY>-<profiel>-<code>/` (bv. `…/FLUX-463-no-O5/`) -
   zodat profile- én model-runs niet botsen.
 
+**Zelfherstel na een verplaatste state-map.** Git slaat de koppeling tussen
+clone en worktree als absolute paden op, in beide richtingen. Verplaatst (of
+kopieert) een gebruiker de state-map, dan faalt git in elke worktree ("not a
+git repository: <oud pad>") of werkt hij stilzwijgend verder op de oude kopie.
+Daarom draait elke run die een worktree aanraakt (refine, develop, review,
+converge, review-external, push, pr, close-*, 'profielen verversen') eerst
+`healWorktrees` (`shared/repo.ts`): `git worktree repair` met alle
+`worktrees/*/*`-mappen als argument, idempotent en stil als alles klopt. Is er
+intussen een `git worktree prune` gedaan (dan valt er niets meer te repareren),
+dan maakt `prepareWorktree` een wees-geworden base-worktree opnieuw aan
+(wegwerp) en weigert `ensureTicketWorktree` een wees-geworden ticket-worktree
+met uitleg (kan ongecommit werk bevatten). Ontbreekt de ticket-worktree-map
+maar bestaat de branch nog in de clone, dan checkt `ensureTicketWorktree` die
+branch opnieuw uit i.p.v. te falen op `-b`; de commits van eerdere rondes
+blijven zo bewaard.
+
 **Waarom deze managed-clone-aanpak:** (a) Server-ready - fresh install
 heeft alleen `.env` nodig, de clone komt automatisch. (b) Volledige
 scheiding van de eigen werkclone van de gebruiker. (c) Per-ticket
@@ -638,7 +654,9 @@ review-output onder `external-reviews/<KEY>/` blijft bewaard. In de TUI: submenu
 'onderhoud' → 'opkuis externe reviews' (multiselect, standaard niets geselecteerd).
 
 Beide nemen `--dry-run` (toont enkel wat ze zouden verwijderen) en zijn
-idempotent - geen worktrees meer = no-op.
+idempotent - geen worktrees meer = no-op. Na een verplaatste state-map
+herstellen ze eerst de worktree-koppelingen (`healWorktrees`, §7), anders
+weigert `git worktree remove`.
 
 Naast de opkuis-acties heeft het 'onderhoud'-submenu ook **'profielen
 verversen'**: dat doet een fetch+reset van de base-branch worktree
@@ -893,6 +911,11 @@ Veel waarschijnlijke foutmodes:
   `git -C state/clone/flux-web-components worktree remove <path>` wanneer
   je echt opnieuw wil beginnen (of `npm run state:close-sprint -- <sprint>`
   voor alle worktrees van een sprint, §13)
+- **State-map verplaatst en nu `not a git repository: <oud pad>`** → normaal
+  herstelt de eerstvolgende run dit zelf (`healWorktrees`, §7). Blijft het
+  fout, dan is de clone al geprunet: verwijder de wees-geworden worktree-map
+  (ongecommit werk eerst bewaren) en draai opnieuw; de branch staat nog in de
+  clone en wordt opnieuw uitgecheckt.
 - **`API Error: 400 Claude Code x.y.z does not support this model; version
   a.b.c or newer is required`** → het gekozen model vereist een nieuwere Claude
   Code dan waar de agents op draaien. Installeer of update de lokale `claude`

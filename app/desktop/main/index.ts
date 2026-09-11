@@ -71,7 +71,7 @@ let effectiveConfig: Record<string, string> = {};
 // De TUI-pty wordt apart behandeld: zijn stdout loopt door de ControlParser
 // zodat "open tab"-signalen eruit geknipt worden vóór ze xterm bereiken.
 let tuiPtyId: number | null = null;
-const tuiParser = new ControlParser();
+let tuiParser = new ControlParser();
 
 // Alleen-lezen pty's (actie-tabs met een agent-run): invoer uit de renderer
 // wordt hier genegeerd, ook al blokkeert xterm die al - een tweede slot zodat
@@ -308,7 +308,12 @@ function registerIpc(): void {
 
   ipcMain.handle(IPC.ptyCreate, (_e, req: PtyCreateRequest) => {
     const id = ptys.create(buildSpec(req));
-    if (req.kind === 'tui') tuiPtyId = id;
+    if (req.kind === 'tui') {
+      // Ook bij een herstart van de TUI (na gewijzigde instellingen): verse
+      // parser zodat een half ontvangen control-sequentie niet overloopt.
+      tuiPtyId = id;
+      tuiParser = new ControlParser();
+    }
     if (isReadOnlyPty(req.kind)) readOnlyPtys.add(id);
     return id;
   });

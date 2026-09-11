@@ -13,6 +13,8 @@ import { log } from './logger.js';
 import {
   applyGitIdentityFromEnv,
   enforceCommitIdentity,
+  healWorktrees,
+  managedRepoPath,
   pushBranch,
   ticketWorktreePath,
 } from './repo.js';
@@ -60,6 +62,10 @@ export async function runPush({ key, profile }: PushArgs): Promise<void> {
   }
 
   const worktree = ticketWorktreePath(stateDir, ticketSprint, key, label);
+  await healWorktrees({
+    stateDir,
+    mainRepoDir: resolve(process.env.FLUX_REPO_DIR ?? managedRepoPath(stateDir)),
+  });
   try {
     await access(worktree);
   } catch {

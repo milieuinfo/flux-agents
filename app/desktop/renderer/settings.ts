@@ -45,6 +45,13 @@ export class SettingsPanel {
   private lastValues: Record<string, string> = {};
   private readonly api = window.fluxDesktop;
 
+  /**
+   * Na een geslaagde save waarbij er effectief iets gewijzigd is. De renderer-
+   * bootstrap herstart hiermee de TUI, die zijn omgeving enkel bij het
+   * opstarten leest.
+   */
+  onSaved?: () => void | Promise<void>;
+
   constructor() {
     // Sectie binnen het gecombineerde InfoPanel (tab "Instellingen"); het
     // InfoPanel levert de overlay, de tab-header en de sluitknop.
@@ -427,7 +434,35 @@ export class SettingsPanel {
       return;
     }
     await this.api.config.save(values);
-    this.setStatus('Opgeslagen. Geldt voor nieuwe tabs.', 'ok');
+
+    // Is er iets gewijzigd t.o.v. wat geladen was? Een secret telt als
+    // gewijzigd zodra er iets ingevuld is (leeg = bestaande behouden).
+    const changed = ENV_SCHEMA.some((f) =>
+      f.secret
+        ? Boolean(values[f.key]?.trim())
+        : (values[f.key] ?? '').trim() !== (this.lastValues[f.key] ?? '').trim(),
+    );
+    for (const f of ENV_SCHEMA) {
+      const input = this.inputs.get(f.key);
+      if (f.secret) {
+        // Ingevuld secret is nu bewaard: veld leegmaken zodat een volgende save
+        // het niet opnieuw als wijziging telt.
+        if (input instanceof HTMLInputElement && input.value) {
+          input.value = '';
+          input.placeholder = '•••••••• (ingesteld - leeg laten om te behouden)';
+        }
+      } else {
+        this.lastValues[f.key] = (values[f.key] ?? '').trim();
+      }
+    }
+
+    this.setStatus(
+      changed
+        ? 'Opgeslagen. Het menu links is herstart met de nieuwe instellingen; lopende tabs behouden de oude.'
+        : 'Opgeslagen - niets gewijzigd.',
+      'ok',
+    );
+    if (changed) await this.onSaved?.();
   }
 
   private async testJira(): Promise<void> {

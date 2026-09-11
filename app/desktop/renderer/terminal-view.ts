@@ -39,6 +39,8 @@ export class TerminalView {
   private resizeObserver: ResizeObserver | null = null;
 
   private ptyId: number | null = null;
+  private kind: PtyKind | null = null;
+  private command?: string;
 
   /** Wordt aangeroepen wanneer het onderliggende proces stopt. */
   onExit?: (exitCode: number) => void;
@@ -55,6 +57,8 @@ export class TerminalView {
    * `command` is enkel relevant voor kind 'command'.
    */
   async start(kind: PtyKind, command?: string): Promise<void> {
+    this.kind = kind;
+    this.command = command;
     const readOnly = isReadOnlyPty(kind);
     if (readOnly) {
       // Geen toetsen naar het proces; geen (knipperende) cursor die tot
@@ -98,6 +102,27 @@ export class TerminalView {
 
     this.resizeObserver = new ResizeObserver(() => this.fitNow());
     this.resizeObserver.observe(this.element);
+  }
+
+  /**
+   * Start het proces opnieuw in dezelfde terminal (zelfde soort en commando).
+   * Gebruikt voor de TUI na gewijzigde instellingen: die leest zijn omgeving
+   * (state-map, modellen, base-branch) enkel bij het opstarten. De oude pty
+   * wordt gekilld; zijn exit-event wordt genegeerd omdat de id niet meer
+   * overeenkomt, dus `onExit` (de "TUI gestopt"-melding) vuurt niet.
+   */
+  async restart(): Promise<void> {
+    if (this.kind == null) return;
+    const old = this.ptyId;
+    this.ptyId = null;
+    if (old != null) this.api.pty.kill(old);
+    this.term.reset();
+    this.ptyId = await this.api.pty.create({
+      kind: this.kind,
+      command: this.command,
+      cols: this.term.cols,
+      rows: this.term.rows,
+    });
   }
 
   /** Herbereken de grootte en stuur die naar de pty. Veilig bij verborgen tab. */

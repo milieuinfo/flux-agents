@@ -27,6 +27,11 @@ export class InfoPanel {
     this.overlay.onHide = cb;
   }
 
+  /** Na een geslaagde save met gewijzigde instellingen (bv. om de TUI te herstarten). */
+  set onConfigSaved(cb: (() => void | Promise<void>) | undefined) {
+    this.settings.onSaved = cb;
+  }
+
   constructor() {
     this.preflight.onStatus = (w) => this.onStatus?.(w);
     this.overlay = new TabbedOverlay<Tab>([

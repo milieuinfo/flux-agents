@@ -1,6 +1,6 @@
 import { rmdir } from 'node:fs/promises';
 import { log } from '../agents/shared/logger.js';
-import { git, managedRepoPath } from '../agents/shared/repo.js';
+import { git, healWorktrees, managedRepoPath } from '../agents/shared/repo.js';
 
 /**
  * Verwijder de gegeven worktree-mappen uit de managed clone via
@@ -17,6 +17,9 @@ export async function removeWorktrees(
   dryRun: boolean,
 ): Promise<number> {
   const clone = managedRepoPath(stateDir);
+  // Na een verplaatste state-map kent de clone de worktrees onder hun oude pad;
+  // eerst herstellen, anders weigert 'worktree remove' ze.
+  if (!dryRun) await healWorktrees({ stateDir, mainRepoDir: clone });
   let removed = 0;
   for (const wt of paths) {
     if (dryRun) {

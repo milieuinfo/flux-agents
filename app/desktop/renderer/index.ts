@@ -72,6 +72,10 @@ async function main(): Promise<void> {
   // Een paneel neemt de focus over (Escape moet het kunnen sluiten, ook als de
   // TUI-terminal focus had); na het sluiten gaat de focus terug naar de TUI.
   info.onHide = refocusTui;
+  // Gewijzigde instellingen: de TUI leest zijn omgeving (state-map, modellen,
+  // base-branch) enkel bij het opstarten. Herstart hem zodat sprint- en
+  // ticketlijsten meteen kloppen; lopende actie-tabs behouden hun configuratie.
+  info.onConfigSaved = () => tui.restart();
   const menuBtn = el('menu-btn');
   menuBtn.addEventListener('click', () => info.show('settings'));
   // "About Flux Agents" in de macOS-menubalk opent hetzelfde paneel op "Over".

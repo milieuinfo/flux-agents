@@ -30,6 +30,7 @@ import {
   applyAiProfile,
   applyGitIdentityFromEnv,
   ensureRepoClone,
+  healWorktrees,
   ensureTicketWorktree,
   managedRepoPath,
   slugifyTitle,
@@ -86,6 +87,7 @@ export async function runDevelop({ key, sprint, profile, analysis }: DevelopArgs
   const mainRepoDir = resolve(process.env.FLUX_REPO_DIR ?? managedRepoPath(stateDir));
 
   await ensureRepoClone({ repoUrl, cloneDir: mainRepoDir });
+  await healWorktrees({ stateDir, mainRepoDir });
 
   const refinement = await locateRefinement(stateDir, key, sprint, analysis);
   log.ok(`Refinement gevonden: ${relative(stateDir, refinement.path)}`);

@@ -23,6 +23,7 @@ import {
   applyAiProfile,
   baseBranchWorktreePath,
   ensureRepoClone,
+  healWorktrees,
   externalReviewWorktreePath,
   managedRepoPath,
   prepareWorktree,
@@ -64,6 +65,7 @@ async function runReviewExternal(args: ReviewExternalArgs): Promise<void> {
     process.env.FLUX_REPO_DIR ?? managedRepoPath(stateDir),
   );
   await ensureRepoClone({ repoUrl, cloneDir });
+  await healWorktrees({ stateDir, mainRepoDir: cloneDir });
 
   // Label = profiel + reviewer-model-code (AGENT_REVIEW_EXTERNAL_MODEL,
   // default = review-model): externe review is een zelfstandige run met de

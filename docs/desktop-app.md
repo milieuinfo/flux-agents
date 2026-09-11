@@ -165,7 +165,8 @@ Voor wrijvingsloze distributie: code-sign + notarize via een Apple Developer-acc
 1. Open de dmg, sleep **Flux Agents** naar Applications, start de app. Meldt macOS
    dat de app beschadigd is, zie de sectie hieronder.
 2. Klik **⚙**, vul in: Jira-URL + PAT, repo-URL, Claude OAuth-token. Test Jira + Claude-auth.
-3. Opslaan → geldt voor nieuwe tabs.
+3. Opslaan → het menu links herstart met de nieuwe instellingen; ze gelden voor elke
+   actie die je daarna start (lopende tabs behouden de oude).
 4. Kies links een actie → ze draait rechts in een eigen (alleen-lezen) tab.
 
 ## "Flux Agents is beschadigd" bij een teamlid

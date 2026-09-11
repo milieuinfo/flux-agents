@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import * as p from '@clack/prompts';
 import {
   baseBranchWorktreePath,
+  healWorktrees,
   managedRepoPath,
   prepareWorktree,
 } from '../../pipeline/agents/shared/repo.js';
@@ -22,6 +23,7 @@ async function refreshBaseWorktree(): Promise<string[]> {
     process.env.FLUX_REPO_DIR ?? managedRepoPath(stateDir),
   );
 
+  await healWorktrees({ stateDir, mainRepoDir });
   await prepareWorktree({ mainRepoDir, worktreePath, ref: baseBranch, quiet: true });
 
   const profilesDir = resolve(worktreePath, 'ai', 'profiles');

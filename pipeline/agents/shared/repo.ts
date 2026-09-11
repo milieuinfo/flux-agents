@@ -1,4 +1,4 @@
-import { access, mkdir } from 'node:fs/promises';
+import { access, mkdir, readdir, readFile, rm, stat } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { spawn, execFileSync } from 'node:child_process';
 import { log } from './logger.js';
@@ -129,7 +129,18 @@ export async function prepareWorktree(opts: WorktreeOptions): Promise<void> {
     log.debug(`git fetch origin ${ref} in ${mainRepoDir}`);
     await git(mainRepoDir, ['fetch', 'origin', ref]);
 
-    const worktreeExists = await pathExists(worktreePath);
+    let worktreeExists = await pathExists(worktreePath);
+    if (worktreeExists && (await isOrphanedWorktree(worktreePath))) {
+      // De map wijst naar een clone-registratie die niet meer bestaat (state-
+      // map verplaatst en daarna geprunet). Deze worktree is wegwerp (detached,
+      // elke run een reset --hard), dus weg ermee en opnieuw aanmaken.
+      log.warn(
+        `Worktree ${worktreePath} is niet meer aan de clone gekoppeld - wordt opnieuw aangemaakt.`,
+      );
+      await rm(worktreePath, { recursive: true, force: true });
+      await git(mainRepoDir, ['worktree', 'prune']);
+      worktreeExists = false;
+    }
     if (!worktreeExists) {
       log.debug(`git worktree add --detach ${worktreePath} origin/${ref}`);
       await git(mainRepoDir, [
@@ -194,6 +205,125 @@ export function git(cwd: string, args: string[]): Promise<void> {
         );
     });
   });
+}
+
+/** Zoals `gitCapture`, maar zonder te gooien: exit-code + beide streams. */
+function gitResult(
+  cwd: string,
+  args: string[],
+): Promise<{ code: number; stdout: string; stderr: string }> {
+  return new Promise((resolvePromise, rejectPromise) => {
+    const child = spawn('git', args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
+    let stdout = '';
+    let stderr = '';
+    child.stdout?.on('data', (chunk) => (stdout += chunk.toString()));
+    child.stderr?.on('data', (chunk) => (stderr += chunk.toString()));
+    child.on('error', rejectPromise);
+    child.on('close', (code) => resolvePromise({ code: code ?? 1, stdout, stderr }));
+  });
+}
+
+/**
+ * Een worktree-map waarvan het `.git`-bestand naar een clone-registratie
+ * wijst die niet (meer) bestaat: typisch na een verplaatste state-map waarop
+ * daarna `git worktree prune` draaide (dan kan `repair` niets meer). Geen
+ * `.git`-bestand of geen leesbare gitdir-regel telt niet als wees.
+ */
+export async function isOrphanedWorktree(worktreePath: string): Promise<boolean> {
+  const dotGit = join(worktreePath, '.git');
+  try {
+    if (!(await stat(dotGit)).isFile()) return false;
+    const m = (await readFile(dotGit, 'utf8')).match(/^gitdir:\s*(.+)\s*$/m);
+    if (!m) return false;
+    return !(await pathExists(resolve(worktreePath, m[1].trim())));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Herstel de koppeling tussen de managed clone en zijn worktrees na een
+ * verplaatste (of gekopieerde) state-map. Git slaat absolute paden op in beide
+ * richtingen (`<worktree>/.git` → clone, `<clone>/.git/worktrees/<n>/gitdir` →
+ * worktree), dus na een verplaatsing wijst alles nog naar de oude plek: git in
+ * de worktree faalt ("not a git repository: <oud pad>") of werkt stilzwijgend
+ * verder op de oude kopie. `git worktree repair <paden…>` vanuit de clone
+ * herstelt beide kanten, óók als de clone zelf mee verplaatst is (zonder paden
+ * doet repair dan niets). Idempotent en goedkoop (stil als alles klopt), dus
+ * elke run die een worktree aanraakt doet dit vooraf via `healWorktrees`.
+ *
+ * Kandidaten: elke map `<worktreesDir>/<groep>/<leaf>` met een `.git`-bestand
+ * (base, per sprint, extern). Geeft de door git gemelde herstelregels terug.
+ * Na een `git worktree prune` zijn de registraties weg en meldt git per map
+ * een fout; dat is geen reden om te stoppen (`prepareWorktree` maakt een
+ * wees-geworden base-worktree opnieuw aan, `ensureTicketWorktree` weigert
+ * met uitleg).
+ */
+export async function repairWorktrees(opts: {
+  mainRepoDir: string;
+  worktreesDir: string;
+}): Promise<string[]> {
+  const { mainRepoDir, worktreesDir } = opts;
+  const candidates: string[] = [];
+  let groups: string[] = [];
+  try {
+    groups = (await readdir(worktreesDir, { withFileTypes: true }))
+      .filter((e) => e.isDirectory())
+      .map((e) => join(worktreesDir, e.name));
+  } catch {
+    return [];
+  }
+  for (const group of groups) {
+    let leaves: string[] = [];
+    try {
+      leaves = (await readdir(group, { withFileTypes: true }))
+        .filter((e) => e.isDirectory())
+        .map((e) => join(group, e.name));
+    } catch {
+      continue;
+    }
+    for (const leaf of leaves) {
+      try {
+        if ((await stat(join(leaf, '.git'))).isFile()) candidates.push(leaf);
+      } catch {
+        // geen worktree
+      }
+    }
+  }
+  if (candidates.length === 0) return [];
+
+  log.debug(`git worktree repair (${candidates.length} kandidaten) in ${mainRepoDir}`);
+  const res = await gitResult(mainRepoDir, ['worktree', 'repair', ...candidates]);
+  const lines = `${res.stdout}\n${res.stderr}`.split('\n').map((l) => l.trim()).filter(Boolean);
+  const repaired = lines.filter((l) => l.startsWith('repair:'));
+  for (const l of lines) log.debug(l);
+  if (repaired.length > 0) {
+    log.ok(
+      `Worktree-koppelingen hersteld na een verplaatste state-map (${repaired.length})`,
+    );
+  }
+  return repaired;
+}
+
+/**
+ * Zelfherstel vóór elke run die een worktree aanraakt: `repairWorktrees` op
+ * `<stateDir>/worktrees`, als de clone bestaat. No-op zonder clone of zonder
+ * worktrees; gooit nooit (een mislukt herstel komt daarna toch als duidelijke
+ * git-fout op de plek waar de worktree gebruikt wordt).
+ */
+export async function healWorktrees(opts: {
+  stateDir: string;
+  mainRepoDir: string;
+}): Promise<void> {
+  if (!(await pathExists(join(opts.mainRepoDir, '.git')))) return;
+  try {
+    await repairWorktrees({
+      mainRepoDir: opts.mainRepoDir,
+      worktreesDir: resolve(opts.stateDir, 'worktrees'),
+    });
+  } catch (err) {
+    log.debug(`worktree repair overgeslagen: ${err instanceof Error ? err.message : String(err)}`);
+  }
 }
 
 function gitCapture(cwd: string, args: string[]): Promise<string> {
@@ -391,13 +521,19 @@ export function externalReviewWorktreePath(
  * Ensure a per-ticket worktree exists on the given feature branch.
  *
  * Semantics:
- *  - If the worktree doesn't exist: create it, branch off `origin/<baseBranch>`.
- *    Uses `git worktree add -b <branch>` so the branch is created fresh
- *    (fails if it already exists elsewhere, which would be a bug).
- *  - If the worktree exists: leave it alone. Caller is responsible for
- *    any state (branch already checked out, commits made, etc.).
+ *  - Worktree bestaat: met rust laten (caller beheert de toestand). Is de map
+ *    een wees (zie `isOrphanedWorktree`), dan een duidelijke fout: hier kan
+ *    ongecommit werk in staan, dus nooit stil verwijderen.
+ *  - Worktree bestaat niet, branch wél in de clone (map verwijderd na een
+ *    verplaatste state-map + prune, of manueel opgeruimd): de bestaande branch
+ *    opnieuw uitchecken - de commits van eerdere rondes blijven zo bewaard.
+ *    Vooraf een `prune` zodat een stale registratie van dezelfde map het
+ *    uitchecken niet blokkeert.
+ *  - Geen worktree en geen branch: `git worktree add -b <branch>` vanaf
+ *    `origin/<baseBranch>`.
  *
- * Returns `true` if a new worktree was created, `false` if it existed.
+ * Returns `true` als er een worktree is aangemaakt (nieuw of opnieuw
+ * gekoppeld), `false` als hij al bestond.
  */
 export async function ensureTicketWorktree(opts: {
   mainRepoDir: string;
@@ -407,7 +543,45 @@ export async function ensureTicketWorktree(opts: {
 }): Promise<boolean> {
   const { mainRepoDir, worktreePath, branch, baseBranch } = opts;
 
-  if (await pathExists(worktreePath)) return false;
+  if (await pathExists(worktreePath)) {
+    if (await isOrphanedWorktree(worktreePath)) {
+      throw new Error(
+        `Worktree ${worktreePath} is niet meer aan de clone gekoppeld (state-map ` +
+          'verplaatst en daarna opgekuist?). Hij wordt niet automatisch verwijderd omdat er ' +
+          `ongecommit werk in kan staan: bewaar wat je nodig hebt, verwijder de map en draai ` +
+          `opnieuw - branch ${branch} staat nog in de clone en wordt dan opnieuw uitgecheckt.`,
+      );
+    }
+    return false;
+  }
+
+  const branchExists =
+    (await gitResult(mainRepoDir, ['rev-parse', '--verify', '--quiet', `refs/heads/${branch}`]))
+      .code === 0;
+  if (branchExists) {
+    await log.task(
+      `Worktree opnieuw koppelen aan bestaande branch ${branch}`,
+      async () => {
+        await git(mainRepoDir, ['worktree', 'prune']);
+        log.debug(`git worktree add ${worktreePath} ${branch}`);
+        try {
+          await git(mainRepoDir, ['worktree', 'add', worktreePath, branch]);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          if (/already checked out|already used by worktree/i.test(msg)) {
+            throw new Error(
+              `Branch ${branch} is al uitgecheckt in een andere worktree (een oude kopie van ` +
+                `de state-map?). Verwijder die worktree eerst ('git -C ${mainRepoDir} worktree ` +
+                `list' toont waar) en draai opnieuw.\n${msg}`,
+            );
+          }
+          throw err;
+        }
+      },
+      { done: `Worktree hersteld op bestaande branch ${branch}: ${worktreePath}` },
+    );
+    return true;
+  }
 
   await log.task(
     `Worktree aanmaken op ${branch} (van origin/${baseBranch})`,

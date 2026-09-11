@@ -33,6 +33,8 @@ import {
   applyAiProfile,
   applyGitIdentityFromEnv,
   countCommitsAhead,
+  healWorktrees,
+  managedRepoPath,
   ticketWorktreePath,
 } from './shared/repo.js';
 import { loadPrompt, commitConventions } from './shared/prompts.js';
@@ -119,6 +121,10 @@ export async function runReview({ key, profile }: ReviewArgs): Promise<ReviewRes
   }
 
   const worktree = ticketWorktreePath(stateDir, ticketSprint, key, label);
+  await healWorktrees({
+    stateDir,
+    mainRepoDir: resolve(process.env.FLUX_REPO_DIR ?? managedRepoPath(stateDir)),
+  });
   try {
     await access(worktree);
   } catch {

@@ -44,6 +44,7 @@ import { SprintState, hashTicketContent, type SprintMeta } from './shared/state.
 import {
   baseBranchWorktreePath,
   ensureRepoClone,
+  healWorktrees,
   managedRepoPath,
   prepareWorktree,
 } from './shared/repo.js';
@@ -674,6 +675,7 @@ async function main(args: CliArgs) {
 
   if (!args.dryRun) {
     await ensureRepoClone({ repoUrl, cloneDir: mainRepoDir });
+    await healWorktrees({ stateDir, mainRepoDir });
     await prepareWorktree({ mainRepoDir, worktreePath: worktreeDir, ref: baseBranch });
   } else {
     log.ok('Dry-run: geen clone/worktree, geen LLM-calls - enkel wat er zou gebeuren');
