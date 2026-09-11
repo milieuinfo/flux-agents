@@ -75,7 +75,8 @@ export interface TestJiraResult {
 }
 
 export interface AuthStatus {
-  state: 'ok' | 'invalid' | 'missing';
+  /** 'error' = niet te verifiëren (netwerk of onverwacht antwoord), geen oordeel over het token. */
+  state: 'ok' | 'invalid' | 'missing' | 'error';
   detail?: string;
 }
 

@@ -27,7 +27,7 @@ import {
   SECRET_KEYS,
   schemaDefaults,
 } from '../../../pipeline/agents/shared/config';
-import type { ModelsStatus, UsageStatus, UsageWindow } from '../shared/ipc';
+import type { AuthStatus, ModelsStatus, UsageStatus, UsageWindow } from '../shared/ipc';
 
 const execFileAsync = promisify(execFile);
 
@@ -179,16 +179,19 @@ function ensureUserData(): void {
 }
 
 /**
- * Controleer de Claude-auth. De app gebruikt uitsluitend een OAuth-token van
- * een persoonlijk Pro/Max-abonnement (`CLAUDE_CODE_OAUTH_TOKEN`, via
- * `claude setup-token`). We checken op aanwezigheid: een abonnement-OAuth-token
- * is niet betrouwbaar te valideren tegen de publieke REST-API, dus de echte
- * verificatie gebeurt bij de eerste agent-run.
+ * Controleer de Claude-auth écht: één minimale inference-call met het token
+ * (`probeClaudeToken`, dezelfde probe als de verbruiksbalk). De app gebruikt
+ * uitsluitend een OAuth-token van een persoonlijk Pro/Max-abonnement
+ * (`CLAUDE_CODE_OAUTH_TOKEN`, via `claude setup-token`), en de CLI valt bij een
+ * fout token niet terug op een andere login - een ongeldig token betekent dus
+ * dat élke agent-run faalt. Vandaar geen aanwezigheidscheck maar een call:
+ * 200 → geldig, 401/403 → ongeldig of verlopen, 429 → geldig maar limiet
+ * bereikt, andere status of netwerkfout → 'error' (niet te verifiëren).
  */
 export async function checkAnthropicAuth(
   repoRoot: string,
   input: { token?: string },
-): Promise<{ state: 'ok' | 'invalid' | 'missing'; detail?: string }> {
+): Promise<AuthStatus> {
   const eff = loadEffectiveConfig(repoRoot);
   const token = input.token || eff.CLAUDE_CODE_OAUTH_TOKEN || '';
   if (!token) {
@@ -198,9 +201,35 @@ export async function checkAnthropicAuth(
         'Geen OAuth-token. Genereer er één met `claude setup-token` (vereist Pro/Max) en vul het in.',
     };
   }
+  let probe: ClaudeProbe;
+  try {
+    probe = await probeClaudeToken(token);
+  } catch (err) {
+    return {
+      state: 'error',
+      detail: `Kon api.anthropic.com niet bereiken: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+  if (probe.status === 200) {
+    return { state: 'ok', detail: 'Token geldig - verbonden met je Pro/Max-abonnement.' };
+  }
+  if (probe.status === 401 || probe.status === 403) {
+    return {
+      state: 'invalid',
+      detail:
+        `Token ongeldig of verlopen (HTTP ${probe.status}${probe.message ? `: ${probe.message}` : ''}). ` +
+        'Genereer een nieuw token met `claude setup-token` en plak het hier.',
+    };
+  }
+  if (probe.status === 429) {
+    return {
+      state: 'ok',
+      detail: 'Token geldig, maar je verbruikslimiet is op dit moment bereikt (HTTP 429).',
+    };
+  }
   return {
-    state: 'ok',
-    detail: 'OAuth-token ingesteld - agents draaien op je Pro/Max-abonnement.',
+    state: 'error',
+    detail: `Onverwacht antwoord van de API (HTTP ${probe.status}${probe.message ? `: ${probe.message}` : ''}) - probeer later opnieuw.`,
   };
 }
 
@@ -285,6 +314,50 @@ const CLAUDE_CODE_SYSTEM = "You are Claude Code, Anthropic's official CLI for Cl
  */
 const USAGE_PROBE_MODEL = 'claude-haiku-4-5';
 
+interface ClaudeProbe {
+  status: number;
+  headers: Headers;
+  /** `error.message` uit een JSON-foutantwoord, als dat er is. */
+  message?: string;
+}
+
+/**
+ * Eén minimale inference-call met een OAuth-token, zoals Claude Code hem zou
+ * doen (identiteits-systeemblok, beta-headers, User-Agent). Gedeeld door de
+ * auth-check (status) en de verbruiksbalk (rate-limit-headers). Gooit enkel bij
+ * een netwerkfout; een HTTP-fout komt als status terug.
+ */
+async function probeClaudeToken(token: string): Promise<ClaudeProbe> {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'anthropic-version': '2023-06-01',
+      'anthropic-beta': 'claude-code-20250219,oauth-2025-04-20',
+      'User-Agent': CLAUDE_CODE_USER_AGENT,
+      'content-type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify({
+      model: USAGE_PROBE_MODEL,
+      max_tokens: 1,
+      system: [{ type: 'text', text: CLAUDE_CODE_SYSTEM }],
+      messages: [{ role: 'user', content: 'ping' }],
+    }),
+  });
+  let message: string | undefined;
+  if (!res.ok) {
+    const body = (await res.text().catch(() => '')).slice(0, 300);
+    try {
+      const parsed = JSON.parse(body) as { error?: { message?: string } };
+      message = parsed.error?.message;
+    } catch {
+      message = body || undefined;
+    }
+  }
+  return { status: res.status, headers: res.headers, message };
+}
+
 /**
  * Lees één unified rate-limit-venster (`5h` of `7d`) uit de responseheaders.
  * `utilization` is een decimaal 0-1 (we tonen het als percentage); `reset` is
@@ -330,26 +403,9 @@ export async function fetchClaudeUsage(repoRoot: string): Promise<UsageStatus> {
     return { state: 'missing', detail: 'Geen OAuth-token ingesteld.' };
   }
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'anthropic-version': '2023-06-01',
-        'anthropic-beta': 'claude-code-20250219,oauth-2025-04-20',
-        'User-Agent': CLAUDE_CODE_USER_AGENT,
-        'content-type': 'application/json',
-        Accept: 'application/json',
-      },
-      body: JSON.stringify({
-        model: USAGE_PROBE_MODEL,
-        max_tokens: 1,
-        system: [{ type: 'text', text: CLAUDE_CODE_SYSTEM }],
-        messages: [{ role: 'user', content: 'ping' }],
-      }),
-    });
-    if (!res.ok) {
-      const body = (await res.text().catch(() => '')).slice(0, 300);
-      console.error(`[usage] HTTP ${res.status} bij probe-call: ${body}`);
+    const res = await probeClaudeToken(token);
+    if (res.status !== 200) {
+      console.error(`[usage] HTTP ${res.status} bij probe-call: ${res.message ?? ''}`);
       return { state: 'error', detail: `HTTP ${res.status}` };
     }
     const fiveHour = readUnifiedWindow(res.headers, '5h');

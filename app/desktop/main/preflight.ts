@@ -12,7 +12,7 @@
 import { execFile } from 'node:child_process';
 import { homedir } from 'node:os';
 import { promisify } from 'node:util';
-import { loadEffectiveConfig } from './config-store';
+import { checkAnthropicAuth, loadEffectiveConfig } from './config-store';
 import { requiredKeys, ENV_SCHEMA } from '../../../pipeline/agents/shared/config';
 
 const exec = promisify(execFile);
@@ -219,22 +219,22 @@ export async function runPreflight(repoRoot: string): Promise<PreflightCheck[]> 
         },
   );
 
-  checks.push(
-    eff.CLAUDE_CODE_OAUTH_TOKEN
-      ? {
-          id: 'auth',
-          label: 'Claude-auth',
-          status: 'ok',
-          detail: 'OAuth-token ingesteld (Pro/Max-abonnement).',
-        }
-      : {
-          id: 'auth',
-          label: 'Claude-auth',
-          status: 'error',
-          detail:
-            'Geen OAuth-token - genereer met `claude setup-token` en vul in via ⚙ Instellingen.',
-        },
-  );
+  // Echte controle (één minimale API-call met het token), niet enkel de
+  // aanwezigheid: een fout token laat élke agent-run falen.
+  const auth = await checkAnthropicAuth(repoRoot, {});
+  const authStatus: PreflightCheck['status'] =
+    auth.state === 'ok' ? 'ok' : auth.state === 'error' ? 'warn' : 'error';
+  checks.push({
+    id: 'auth',
+    label: 'Claude-auth',
+    status: authStatus,
+    detail:
+      auth.state === 'missing'
+        ? 'Geen OAuth-token - genereer met `claude setup-token` en vul in via ⚙ Instellingen.'
+        : auth.state === 'error'
+          ? `Token niet te verifiëren: ${auth.detail ?? 'onbekende fout'}`
+          : (auth.detail ?? auth.state),
+  });
 
   return checks;
 }

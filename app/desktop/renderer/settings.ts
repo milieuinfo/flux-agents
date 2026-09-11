@@ -367,7 +367,7 @@ export class SettingsPanel {
       token: this.inputs.get('CLAUDE_CODE_OAUTH_TOKEN')?.value || undefined,
     });
     const kind = res.state === 'ok' ? 'ok' : 'err';
-    const prefix = res.state === 'ok' ? '✓ ' : '✗ ';
+    const prefix = res.state === 'ok' ? '✓ ' : res.state === 'error' ? '! ' : '✗ ';
     this.authStatus.textContent = prefix + (res.detail ?? res.state);
     this.authStatus.className = `settings-status ${kind}`;
   }

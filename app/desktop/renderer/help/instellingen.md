@@ -14,6 +14,9 @@ ingesteld”: de pipeline valt dan terug op de ingebouwde default.
 behouden hun configuratie. Velden met `*` zijn verplicht. Drie knoppen helpen
 bij het instellen - **Test Jira-verbinding**, **Controleer Claude-auth** en
 **Modellen vernieuwen** - en de tab **Status** vat samen wat nog ontbreekt.
+De Claude-controle doet een minimale API-call met het token (één token
+verbruik) en meldt of het geldig, verlopen of niet te verifiëren is; de tab
+Status doet dezelfde controle.
 
 Hieronder per groep: waarvoor de instellingen dienen en wat elk veld doet.
 
