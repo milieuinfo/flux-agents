@@ -15,6 +15,7 @@
 import { config } from 'dotenv';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import type { ModelInfo, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk';
+import { claudeCliOptions } from './shared/claude-cli.js';
 import { compareModels, type ModelChoice } from './shared/config.js';
 
 config({ quiet: true });
@@ -80,7 +81,7 @@ async function main(): Promise<void> {
     await gate;
   }
 
-  const q = query({ prompt: input(), options: {} });
+  const q = query({ prompt: input(), options: claudeCliOptions() });
   try {
     const models = await q.supportedModels();
     process.stdout.write(`\n${BEGIN}${JSON.stringify(toChoices(models))}${END}\n`);

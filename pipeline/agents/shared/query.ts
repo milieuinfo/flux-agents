@@ -1,6 +1,7 @@
 import type { SDKMessage, SDKResultMessage } from '@anthropic-ai/claude-agent-sdk';
 import { formatDuration, log } from './logger.js';
 import { observeStream, type ObserveOptions } from './observability.js';
+import { explainClaudeError } from './claude-cli.js';
 
 export interface RunAgentOptions extends ObserveOptions {
   /**
@@ -58,7 +59,11 @@ export async function runAgent(
     }
   } catch (err) {
     step?.fail();
-    throw err;
+    // Een API-fout als "does not support this model" krijgt een Nederlandse
+    // uitleg mee: de SDK stuurt de gebruiker anders naar `claude update`, terwijl
+    // de agents mogelijk op de meegeleverde binary draaien.
+    const explained = explainClaudeError(err);
+    throw explained ? new Error(explained, { cause: err }) : err;
   }
 
   if (!result) {
@@ -73,6 +78,14 @@ export async function runAgent(
         `(${turnsLabel(result.num_turns)}, ${formatDuration(result.duration_ms)})`,
     );
     throw new Error(describeResultError(result));
+  }
+  if (result.is_error) {
+    // Een API-fout komt als `success` met `is_error` terug; de SDK gooit daar
+    // doorgaans zelf op (en dan zit de uitleg al in de catch hierboven), maar
+    // niet gegarandeerd. Nooit een lege tekst als geslaagd resultaat teruggeven.
+    step?.fail(`Agent gestopt - API-fout (${turnsLabel(result.num_turns)})`);
+    const apiErr = new Error(`Claude Code returned an error result: ${result.result}`);
+    throw new Error(explainClaudeError(apiErr) ?? `De agent-run eindigde met een API-fout.\n${result.result}`);
   }
 
   // De SDK-duur is gezaghebbend; de stap meet dezelfde tijd, dus niet dubbel tonen.

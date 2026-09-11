@@ -652,6 +652,44 @@ zelf lezen `ai/profiles/` puur van disk.
 bestandsoperatie zonder oordeel; het hoort niet in een LLM-run, en het apart
 houden betekent dat een fout in dit pad de agent-output nooit raakt.
 
+### 14. Claude Code-binary: lokaal zodra nieuwer, anders meegeleverd
+
+De Agent SDK levert zijn eigen Claude Code mee (platform-pakket
+`@anthropic-ai/claude-agent-sdk-<os>-<arch>`, versie in `manifest.json` van het
+SDK-pakket), vastgepind door de package-lock en dus door elke uitgedeelde dmg.
+De API weigert een nieuw model voor een te oude Claude Code (`Claude Code 2.1.246
+does not support this model; version 2.1.251 or newer is required`) en stuurt de
+gebruiker naar `claude update`, wat die meegeleverde versie niet raakt. Tot sep
+2026 was een nieuwe dmg met een nieuwere SDK de enige uitweg.
+
+Daarom kiest `resolveClaudeCli` (`pipeline/agents/shared/claude-cli.ts`) per
+proces de binary: alle lokale kandidaten (`~/.local/bin/claude`, de launcher van
+de native installer, plus elke `claude` op het PATH, ontdubbeld op echt pad)
+worden op `--version` bevraagd en de **nieuwste wint zodra ze nieuwer is dan de
+meegeleverde**; even nieuw of ouder → de meegeleverde. `agentQuery` (dunne
+wrapper rond `query`) injecteert de keuze als `pathToClaudeCodeExecutable` in
+elke SDK-call en logt ze één keer per proces (`✓ Claude Code 2.1.268 (lokaal:
+~/.local/bin/claude)`); `list-models.ts` gebruikt dezelfde resolver zodat de
+model-dropdown de binary volgt die effectief draait, en `claude-cli-info.ts`
+geeft de keuze aan de Status-tab van de app door. Override via
+`FLUX_CLAUDE_EXECUTABLE` (instelling "Claude Code-binary"): `bundled` of een
+absoluut pad. De API-fout hierboven krijgt in `runAgent` een Nederlandse uitleg
+(`explainClaudeError`), want de hint "run claude update" is misleidend zolang de
+agents op de meegeleverde binary draaien.
+
+**Waarom de nieuwste van álle kandidaten, niet de eerste op het PATH:** bij
+meerdere installaties naast elkaar (npm-globaal, Homebrew, native) schaduwt een
+oude vaak de bijgewerkte; precies de situatie waarin een teamlid "claude update
+lukt, maar de oude versie blijft". Op versie kiezen maakt de PATH-volgorde
+irrelevant. **Waarom niet altijd lokaal:** de meegeleverde versie is de enige
+die bij deze SDK-versie getest is; een oudere lokale zou de zaak alleen
+verslechteren en een even nieuwe levert niets op. **Waarom een nieuwere CLI met
+een oudere SDK wel mag:** het stream-json-protocol tussen beide is achterwaarts
+compatibel; geverifieerd met SDK 0.3.246 + Claude Code 2.1.268 op Fable 5.1
+(faalt op de meegeleverde 2.1.246, slaagt lokaal). Blijkt een combinatie ooit
+toch stuk, dan is `FLUX_CLAUDE_EXECUTABLE=bundled` de noodrem en een SDK-bump in
+een nieuwe dmg de echte fix.
+
 ## Harde regels - agents mogen deze NOOIT overtreden
 
 - **Geen `git push` behalve** via `pipeline/git/push.ts` (`npm run git:push`) op een
@@ -735,7 +773,8 @@ en `worktrees/_external/`.
   framework of DI - bewust minimaal.
 - **Alle agent-rollen** (refine, plan, develop, review, converge,
   review-external) draaien via **`@anthropic-ai/claude-agent-sdk`**, elk als één
-  `query()` met de canonieke prompt als system prompt.
+  `query()` met de canonieke prompt als system prompt. Die call gaat via
+  `agentQuery` (`shared/claude-cli.ts`), dat de Claude Code-binary kiest (§14).
 - **Deterministische scripts** (`pipeline/jira/`, `pipeline/git/`,
   `pipeline/state/`): zelfde Node + tsx + dotenv basis, native `fetch` tegen de
   Jira Data Center REST API v2, eigen kleine markdown→wiki-markup converter
@@ -790,6 +829,9 @@ Als je (Claude in een toekomstige sessie) iets aanpast, valideer:
    ticket-state-pad bouwen, behoud dan de optionele `profile`-parameter
    en de regel "zonder profile = exact het oude pad". Anders breekt §10
    in twee richtingen tegelijk (backwards-compat én profile-isolatie).
+7. **Eén SDK-ingang** - elke nieuwe `query()`-aanroep gaat via `agentQuery`
+   (`shared/claude-cli.ts`), anders draait die call stil op de meegeleverde
+   Claude Code terwijl de rest op de lokale draait (§14).
 
 ## Wat NIET bij de scope hoort
 
@@ -851,3 +893,10 @@ Veel waarschijnlijke foutmodes:
   `git -C state/clone/flux-web-components worktree remove <path>` wanneer
   je echt opnieuw wil beginnen (of `npm run state:close-sprint -- <sprint>`
   voor alle worktrees van een sprint, §13)
+- **`API Error: 400 Claude Code x.y.z does not support this model; version
+  a.b.c or newer is required`** → het gekozen model vereist een nieuwere Claude
+  Code dan waar de agents op draaien. Installeer of update de lokale `claude`
+  (`claude update`); de pipeline gebruikt die automatisch zodra hij nieuwer is
+  dan de meegeleverde (§14). `npx tsx pipeline/agents/claude-cli-info.ts` toont
+  de huidige keuze. Een nieuwe dmg is enkel nodig als de SDK zelf te oud is voor
+  de lokale CLI.

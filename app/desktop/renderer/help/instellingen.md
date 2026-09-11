@@ -60,6 +60,16 @@ OAuth-token - geen API-key, geen betaling per gebruik. Eenmalig: installeer de
 abonnement, kopieer het token en plak het hier. Het token is persoonlijk: deel
 het niet. De balk onderaan de TUI toont je verbruik (5-uurs- en weeklimiet).
 
+De agents draaien op een **Claude Code-binary**. De app levert er zelf één mee
+(vastgepind per app-versie), maar de API laat een nieuw model soms pas toe
+vanaf een nieuwere Claude Code. Daarom gebruikt de app automatisch je lokaal
+geïnstalleerde `claude` (de native installatie in `~/.local/bin`, of een
+`claude` op je PATH) zodra die nieuwer is dan de meegeleverde. Een gewone
+`claude update` volstaat dus om een nieuw model te kunnen kiezen; een nieuwe
+versie van de app is daar niet voor nodig, en herstarten hoeft niet: de keuze
+gebeurt bij elke actie opnieuw. De tab **Status** toont welke versie de agents
+effectief gebruiken.
+
 {{velden:Auth}}
 
 ## Modellen

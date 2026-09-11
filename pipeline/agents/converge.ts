@@ -25,7 +25,7 @@
  */
 
 import { config } from 'dotenv';
-import { query } from '@anthropic-ai/claude-agent-sdk';
+import { agentQuery } from './shared/claude-cli.js';
 import { access, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { log } from './shared/logger.js';
@@ -226,7 +226,7 @@ async function main({ key, profiles, sprint }: ConvergeArgs) {
   log.ok(`Commits als ${identity.name} <${identity.email}>`);
 
   const maxTurns = Number(process.env.AGENT_CONVERGE_MAX_TURNS ?? 150);
-  const q = query({
+  const q = agentQuery({
     prompt: userPrompt,
     options: {
       model: convergeModel(),

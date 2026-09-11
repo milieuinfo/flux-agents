@@ -245,6 +245,16 @@ export const ENV_SCHEMA: EnvField[] = [
       'met `claude setup-token` in een terminal (vereist de claude CLI), kopieer ' +
       'het token (1 jaar geldig) en plak het hier.',
   },
+  {
+    key: 'FLUX_CLAUDE_EXECUTABLE',
+    label: 'Claude Code-binary',
+    group: 'Auth',
+    placeholder: '(automatisch: lokale claude zodra die nieuwer is)',
+    description:
+      'Leeg = automatisch: de lokaal geïnstalleerde claude zodra die nieuwer is ' +
+      'dan de meegeleverde, anders de meegeleverde. `bundled` = altijd de ' +
+      'meegeleverde. Of een absoluut pad naar een claude-binary.',
+  },
 
   // --- Modellen (leeg = ingebouwde default uit shared/model.ts) ---
   // Per rol op één rij: het model (tekst) + het reasoning-effort (dropdown,

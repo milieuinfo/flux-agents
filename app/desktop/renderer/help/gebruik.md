@@ -222,6 +222,16 @@ veilig. Kies **"Altijd toestaan"** en geef je Mac-wachtwoord; daarna blijft het
 stil tot de volgende update. Weiger je, dan kan de app je tokens niet lezen en
 meldt de tab Status dat het Claude-token ontbreekt.
 
+## Fout "does not support this model"
+
+Stopt een actie met `Claude Code x.y.z does not support this model; version
+a.b.c or newer is required`, dan is de Claude Code waarop de agents draaien te
+oud voor het gekozen model. De fout zegt zelf "Run claude update", en dat is
+ook de oplossing: installeer of update de lokale `claude` (de link staat op de
+tab **Status**), en de app gebruikt die automatisch zodra hij nieuwer is dan de
+meegeleverde versie. Herstarten hoeft niet. Wil je niet wachten, kies dan
+voorlopig een ander model in de instellingen.
+
 ## Wat de agents nooit doen
 
 - PR's mergen - alleen jij.

@@ -17,7 +17,7 @@
  */
 
 import { config } from 'dotenv';
-import { query } from '@anthropic-ai/claude-agent-sdk';
+import { agentQuery } from './shared/claude-cli.js';
 import { readFile, readdir, writeFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { log } from './shared/logger.js';
@@ -70,7 +70,7 @@ async function runQuery(prompt: string, systemPrompt: string): Promise<string> {
   const model = planModel();
   const maxTurns = 3;
 
-  const q = query({
+  const q = agentQuery({
     prompt,
     options: {
       model,

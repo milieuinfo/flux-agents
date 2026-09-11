@@ -25,7 +25,7 @@
  */
 
 import { config } from 'dotenv';
-import { query } from '@anthropic-ai/claude-agent-sdk';
+import { agentQuery } from './shared/claude-cli.js';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { log } from './shared/logger.js';
@@ -340,7 +340,7 @@ async function summarizeRefinement(
 
   const model = refineSummaryModel();
 
-  const q = query({
+  const q = agentQuery({
     prompt,
     options: {
       model,
@@ -497,7 +497,7 @@ async function runQuery(
       ? (singleUserMessageWithImages(prompt, opts.images) as never)
       : prompt;
 
-  const q = query({
+  const q = agentQuery({
     prompt: promptArg,
     options: {
       model,

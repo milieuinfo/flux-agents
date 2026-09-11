@@ -23,7 +23,7 @@
  */
 
 import { config } from 'dotenv';
-import { query } from '@anthropic-ai/claude-agent-sdk';
+import { agentQuery } from './shared/claude-cli.js';
 import { access, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -153,7 +153,7 @@ export async function runReview({ key, profile }: ReviewArgs): Promise<ReviewRes
   log.ok(`Squash als ${identity.name} <${identity.email}>`);
 
   const maxTurns = Number(process.env.AGENT_REVIEW_MAX_TURNS ?? 100);
-  const q = query({
+  const q = agentQuery({
     prompt: userPrompt,
     options: {
       model: reviewModel(),

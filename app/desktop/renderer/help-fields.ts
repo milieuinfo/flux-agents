@@ -63,6 +63,14 @@ export const FIELD_HELP: Record<string, string> = {
     'geen pay-per-use). Genereer eenmalig met `claude setup-token` in een ' +
     'terminal en plak het hier (1 jaar geldig). Een `ANTHROPIC_API_KEY` in je ' +
     'omgeving wordt genegeerd.',
+  FLUX_CLAUDE_EXECUTABLE:
+    'Welke Claude Code de agents draaien. De app levert er zelf één mee, ' +
+    'vastgepind per app-versie; een nieuw model vereist soms een nieuwere. ' +
+    'Leeg = automatisch: de nieuwste lokaal geïnstalleerde `claude` ' +
+    '(`~/.local/bin/claude` of op je PATH) zodra die nieuwer is dan de ' +
+    'meegeleverde, anders de meegeleverde. `bundled` = altijd de meegeleverde. ' +
+    'Of een absoluut pad naar een claude-binary. De tab Status toont welke ' +
+    'versie effectief gebruikt wordt.',
   AGENT_REFINE_MODEL:
     'Model voor de analyse: het uitgebreide refinement-rapport per ticket. ' +
     'Hier zit het oordeel, dus een sterk model loont.',

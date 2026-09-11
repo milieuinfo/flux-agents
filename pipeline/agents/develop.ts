@@ -20,7 +20,7 @@
  */
 
 import { config } from 'dotenv';
-import { query } from '@anthropic-ai/claude-agent-sdk';
+import { agentQuery } from './shared/claude-cli.js';
 import { relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { log } from './shared/logger.js';
@@ -175,7 +175,7 @@ export async function runDevelop({ key, sprint, profile, analysis }: DevelopArgs
   log.ok(`Commits als ${identity.name} <${identity.email}>`);
 
   const maxTurns = Number(process.env.AGENT_DEVELOP_MAX_TURNS ?? 100);
-  const q = query({
+  const q = agentQuery({
     prompt: userPrompt,
     options: {
       model: developModel(),

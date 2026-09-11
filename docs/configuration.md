@@ -52,6 +52,17 @@ voorkeur:
 - **OAuth-token** in `.env`: `CLAUDE_CODE_OAUTH_TOKEN=<token uit claude setup-token>` - hetzelfde als wat de desktop-app gebruikt; handig zonder ingelogde sessie.
 - **`ANTHROPIC_API_KEY`** in `.env`: pay-per-use, niet je abonnement.
 
+De agents draaien op een Claude Code-binary. De SDK levert er één mee
+(platform-pakket `@anthropic-ai/claude-agent-sdk-<os>-<arch>`, versie in
+`manifest.json` van het SDK-pakket), maar de pipeline gebruikt automatisch de
+nieuwste lokaal geïnstalleerde `claude` (`~/.local/bin/claude` of op het PATH)
+zodra die nieuwer is dan de meegeleverde. Zo werkt een nieuw model na een gewone
+`claude update`, zonder SDK-bump. Override met `FLUX_CLAUDE_EXECUTABLE`
+(`bundled` of een absoluut pad). Welke binary een run gebruikt staat als eerste
+`✓ Claude Code …`-regel in de output; `npx tsx pipeline/agents/claude-cli-info.ts`
+toont de keuze zonder run. Waarom:
+[CLAUDE.md §14](../CLAUDE.md#14-claude-code-binary-lokaal-zodra-nieuwer-anders-meegeleverd).
+
 ### 5. `gh` CLI
 
 `git:pr` en `converge` gebruiken `gh pr create`. Check `gh auth status`.
@@ -71,6 +82,7 @@ voorkeur:
 | `STATE_DIR` | Pad naar de state-repo (default `../flux-agents-state`; in de desktop-app een `state`-map in de gebruikersmap) |
 | `FLUX_REPO_DIR` | (optioneel) override van de managed clone-locatie |
 | `CLAUDE_CODE_OAUTH_TOKEN` | (optioneel) OAuth-token van je Pro/Max-abonnement, zie stap 4 |
+| `FLUX_CLAUDE_EXECUTABLE` | (optioneel) Claude Code-binary voor de agents: leeg = automatisch (nieuwste lokale `claude` zodra nieuwer dan de meegeleverde), `bundled` = altijd de meegeleverde, of een absoluut pad, zie stap 4 |
 
 ### Modellen en effort (per agent-rol)
 

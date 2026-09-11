@@ -75,7 +75,9 @@ schema-defaults < `.env` in de repo-map (enkel relevant in dev) < opgeslagen JSO
 - **Node.js 20+** - de app bundelt `tsx` maar gebruikt de systeem-`node`.
 - **git** - voor alle worktree-operaties.
 - **gh CLI** - enkel voor push / pr / converge (`gh auth login`).
-- **claude CLI** - eenmalig om een OAuth-token te genereren (`claude setup-token`).
+- **claude CLI** - eenmalig om een OAuth-token te genereren (`claude setup-token`), en de agents
+  draaien erop zodra hij nieuwer is dan de Claude Code die de app meelevert (zie
+  [Claude Code-binary](#claude-code-binary-meegeleverd-of-lokaal)).
 
 De app checkt deze bij het starten (tab **Status**, met installatielinks bij wat
 ontbreekt) - via een interactieve login-shell, zodat de PATH van nvm/Volta/Homebrew
@@ -94,6 +96,20 @@ Plak het token (1 jaar geldig) in ⚙ Instellingen → Auth → *Claude OAuth-to
 eventuele `ANTHROPIC_API_KEY`/`ANTHROPIC_AUTH_TOKEN` in de omgeving wordt door de
 app genegeerd (en niet aan de agents doorgegeven) zodat er altijd op het
 abonnement wordt afgerekend. Het token is persoonlijk - deel het niet.
+
+## Claude Code-binary (meegeleverd of lokaal)
+
+De agents draaien niet op de `claude` uit je terminal maar op de Claude Code die de
+Agent SDK meelevert, vastgepind in de dmg. Omdat de API een nieuw model soms pas
+toelaat vanaf een nieuwere Claude Code (`Claude Code 2.1.246 does not support this
+model; version 2.1.251 or newer is required`), kiest de pipeline per actie de nieuwste
+lokaal geïnstalleerde `claude` (`~/.local/bin/claude` of op het PATH) zodra die nieuwer
+is dan de meegeleverde; anders de meegeleverde. Een `claude update` op de Mac van het
+teamlid volstaat dus voor een nieuw model - geen nieuwe dmg, geen herstart. De tab
+**Status** toont welke versie de agents gebruiken; de instelling *Claude Code-binary*
+(Auth) kan de keuze overrulen (`bundled` of een pad). Een nieuwe dmg met een
+nieuwere SDK blijft enkel nodig als de SDK zelf te oud is voor de lokale CLI. Waarom:
+[CLAUDE.md §14](../CLAUDE.md#14-claude-code-binary-lokaal-zodra-nieuwer-anders-meegeleverd).
 
 ## Sleutelhanger-melding na een update
 
