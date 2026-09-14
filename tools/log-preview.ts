@@ -89,9 +89,23 @@ async function* fakeStream(opts: { fail?: boolean } = {}): AsyncGenerator<SDKMes
   yield sdk({ type: 'tool_progress', tool_use_id: 't5', tool_name: 'Bash', parent_tool_use_id: null, elapsed_time_seconds: 30 });
   // Stilte → heartbeat (LOG_HEARTBEAT_MS=400).
   await sleep(1000);
+  // Claude Code zet bij een falende Bash eerst `Exit code N`, dan stderr, dan
+  // stdout (hier: lege stderr, Cypress-samenvatting op stdout).
   yield toolResult(
     't5',
-    '  1 failing\n\n  1) vl-popover scrolls when content exceeds viewport\n     AssertionError: expected 640 to be below 600\n\nExit code: 1',
+    'Exit code 1\n\n  1 failing\n\n  1) vl-popover scrolls when content exceeds viewport\n     AssertionError: expected 640 to be below 600',
+    true,
+  );
+
+  // Achtergrond-Bash: de PreToolUse-hook weigert, het model krijgt de reden als
+  // tool-fout - op de terminal één tool-regel met [bg] + één ⚠-regel.
+  yield assistant([
+    toolUse('t5b', 'Bash', { command: 'npm ci --no-audit > /tmp/npm-ci.log 2>&1', run_in_background: true }),
+  ]);
+  await sleep(40);
+  yield toolResult(
+    't5b',
+    'Achtergrond-uitvoering is niet toegestaan. Draai dit commando synchroon op de voorgrond (geen run_in_background, geen trailing `&`) en wacht op de exit-code.',
     true,
   );
 

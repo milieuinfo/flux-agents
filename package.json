@@ -1,7 +1,7 @@
 {
   "name": "flux-agents",
   "productName": "Flux Agents",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Lokale agent pipeline voor Flux web components ticket workflow",
   "private": true,
   "type": "module",

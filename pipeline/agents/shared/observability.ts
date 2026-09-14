@@ -14,8 +14,11 @@
  * - `bashTimeoutHook` (PreToolUse) clampt de Bash-`timeout` zodat geen
  *   enkel commando langer dan `AGENT_BASH_TIMEOUT_MS` (default 600s,
  *   tevens SDK-cap) kan blokkeren.
- * - `noBackgroundBashHook` (PreToolUse) weigert achtergrond-Bash.
- *   Beide hooks melden op de terminal wat ze deden.
+ * - `noBackgroundBashHook` (PreToolUse) weigert achtergrond-Bash. De
+ *   weigering komt als tool-fout bij het model terug en verschijnt zo één
+ *   keer op de terminal (`⚠ Bash faalde: Achtergrond-uitvoering …`); de
+ *   hook zelf logt enkel op debug. De timeout-hook meldt wél wat hij deed:
+ *   een geklemde timeout is voor het model onzichtbaar.
  */
 import { isAbsolute, relative } from 'node:path';
 import type {
@@ -478,10 +481,14 @@ function endsWithBackgroundAmpersand(cmd: string): boolean {
  * Reden: een achtergrondtaak (typisch een trage Cypress-run) overleeft het
  * einde van de agent-turn. De SDK-subprocess sluit dan niet af zolang die
  * child leeft, waardoor het hele develop/review-script eeuwig blijft hangen -
- * mét een verweesde Cypress-run én niets gecommit. De prompt verbiedt dit al
- * (`develop.md`), maar het model negeert die instructie soms; deze hook dwingt
- * het deterministisch af - en meldt het, zodat je op de terminal ziet waarom
- * de agent een tool-fout terugkreeg.
+ * mét een verweesde Cypress-run én niets gecommit. De prompts verbieden dit al
+ * (`develop.md`, `review.md`, `review-external.md`), maar het model negeert
+ * die instructie soms; deze hook dwingt het deterministisch af.
+ *
+ * De hook logt zelf enkel op debug: de weigeringsreden komt als tool-fout bij
+ * het model terecht en `observeStream` toont die al als `⚠ Bash faalde:
+ * Achtergrond-uitvoering …`. Een eigen melding zou dezelfde gebeurtenis twee
+ * keer op de terminal zetten.
  */
 export function noBackgroundBashHook(): HookCallback {
   return async (input): Promise<HookJSONOutput> => {
@@ -494,7 +501,7 @@ export function noBackgroundBashHook(): HookCallback {
     const wantsBackground = ti.run_in_background === true || endsWithBackgroundAmpersand(cmd);
     if (!wantsBackground) return { continue: true };
 
-    log.activityWarn(`Achtergrond-Bash geweigerd: ${truncate(cmd, TOOL_ARG_MAX)}`);
+    log.debug(`Achtergrond-Bash geweigerd: ${truncate(cmd, 240)}`);
     return {
       continue: true,
       hookSpecificOutput: {

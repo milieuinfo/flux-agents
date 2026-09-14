@@ -103,6 +103,17 @@ Check elk van de volgende punten expliciet:
    done`: jest staat in de root-`node_modules`, niet per lib, dus zo'n lus
    wordt nooit waar en hangt eeuwig. Roep gewoon het juiste npm-script aan
    en wacht op de exit.
+
+   **Draai elk testcommando synchroon op de voorgrond - nooit in de
+   achtergrond.** Gebruik geen background-uitvoering (`run_in_background`,
+   trailing `&`) voor jest, cypress of lint, en baseer je oordeel over de
+   test-status nooit op een afrondingsnotificatie van een achtergrondtaak.
+   Reden: jouw agent-turn kan eindigen vóór die achtergrondtaak klaar is -
+   dan blijft er een verweesde Cypress-run hangen én is er geen review
+   geschreven. De Cypress-suite mag traag zijn; geef het Bash-commando
+   gerust een ruime timeout (tot ~10 min, het maximum) en wacht gewoon op
+   de exit-code. "Test status" vul je pas in nadat je die exit-codes zélf
+   hebt gezien.
 4. **Schrijf `state/sprints/<sprint>/tickets/<KEY>/review-r<N>.md`** volgens het format.
 5. **Update `_status.json`**:
    - Als APPROVED: `{round: N, status: "approved"}`

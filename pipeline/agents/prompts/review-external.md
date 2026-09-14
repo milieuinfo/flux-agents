@@ -77,15 +77,49 @@ refinement-pad meegeeft)**
    deze managed clone wordt nooit bijgewerkt en staat bevroren op het
    clone-moment - diffen ertegen levert honderden niet-gerelateerde files op.
    Alleen `origin/<base>` is vers gefetcht.
-3. **Run tests/lint lokaal** als dat haalbaar is:
-   - Eerst `npm ci` (of `npm install`) als `node_modules` ontbreekt
-   - Dan `npm run lint` (of equivalent)
-   - Dan `npm test` (of `npm run test`, afhankelijk van het script)
+3. **Run tests/lint lokaal - alléén voor de code die de branch aanraakte**
+   (leid de geraakte component(en)/lib af uit `git diff origin/<base>...HEAD`).
+   De volledige suite draait in CI/CD; lokaal blijf je beperkt tot de
+   wijziging zodat de run kort blijft.
+   - **Eerst `npm ci`** als `node_modules` ontbreekt - synchroon, met een
+     ruime timeout (zie hieronder).
+   - **Component-tests (Cypress, headless)** - scope op de spec(s) van de
+     geraakte component met `--spec`. De spec-paden zijn relatief t.o.v.
+     `resources/cypress-component` (daar cd't het script naartoe), dus begin
+     met `../../libs/`:
+     `npm run libs:component-tests:run -- --spec "../../libs/components/src/block/search-filter/**/*.cy.{ts,tsx}"`
+     Meerdere componenten? Geef meerdere globs komma-gescheiden aan één
+     `--spec`. Draai de **volle** suite (zonder `--spec`) alléén bij een
+     cross-cutting wijziging (gedeelde basis-component, global styles,
+     build-config).
+   - **Unit (Jest)** - scope op de gewijzigde lib + pad. De `npm run libs:jest`
+     wrapper draait àlle libs zonder filter; om te scopen draai je jest
+     rechtstreeks in de geraakte lib, bv.
+     `cd ./libs/components && npx jest src/block/search-filter`. Geen
+     unit-tests in de geraakte lib? Sla Jest over en noteer dat.
+   - **Lint:** `npm run libs:eslint`
 
-   Mocht `npm ci` of een test-stap meer dan ~5 minuten duren of falen
-   om infra-redenen (netwerkverbinding, ontbrekende env), markeer die
-   stap dan als **skipped** met reden in de review en ga verder. Falen
-   van tests die gerelateerd zijn aan de wijziging is wél een blocker.
+   **Nooit** `npm test`, `npm run libs:component-tests:watch` of een
+   `cypress open` - dat zijn watch/interactieve commando's die in een
+   non-TTY context blijven hangen. Schrijf ook **nooit** zelf een
+   poll-/wachtlus zoals `until [ -f node_modules/.bin/jest ]; do sleep 5;
+   done`: jest staat in de root-`node_modules`, niet per lib, dus zo'n lus
+   wordt nooit waar en hangt eeuwig. Roep gewoon het juiste npm-script aan
+   en wacht op de exit.
+
+   **Draai elk commando synchroon op de voorgrond - nooit in de
+   achtergrond.** Gebruik geen background-uitvoering (`run_in_background`,
+   trailing `&`) voor `npm ci`, jest, cypress of lint. Reden: jouw
+   agent-turn kan eindigen vóór die achtergrondtaak klaar is - dan blijft
+   er een verweesde run hangen en wordt de review nooit geschreven. Trage
+   commando's mogen traag zijn; geef het Bash-commando gerust een ruime
+   timeout (tot ~10 min, het maximum) en wacht gewoon op de exit-code.
+   "Test status" vul je pas in nadat je die exit-codes zélf hebt gezien.
+
+   Loopt `npm ci` of een test-stap tegen die timeout aan, of faalt hij om
+   infra-redenen (netwerkverbinding, ontbrekende env), markeer die stap dan
+   als **skipped** met reden in de review en ga verder. Falen van tests die
+   gerelateerd zijn aan de wijziging is wél een blocker.
 4. **Schrijf de review-markdown** naar het pad dat in de user-prompt
    staat. Schrijf één bestand, één keer - niet appenden tussen rondes.
 

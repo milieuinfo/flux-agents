@@ -873,10 +873,6 @@ de maintainer er zelf om vraagt:
 
 - Werkt bij de Vlaamse Overheid (Vlaamse Overheid / VO) aan het
   flux-web-components design system
-- Heeft ook een persoonlijk project Handelswolk (trading dashboard,
-  Kotlin backend + Angular/NgRx frontend) - **NIET relevant voor deze
-  repo**, maar als je toekomstige discussies ziet over agents voor dat
-  project: dat is een apart initiatief
 - Gebruikt IntelliJ als primaire IDE, draait Claude Code vanuit de
   terminal binnen IntelliJ
 - Heeft een MAX plan, wat betekent dat Claude Code sessie-auth de

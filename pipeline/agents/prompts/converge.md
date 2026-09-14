@@ -46,6 +46,18 @@ Lever één gecombineerde implementatie die:
    Loop de acceptatiecriteria expliciet af. Als je iets niet kan draaien, zeg
    dat in je samenvatting - verzin geen groen resultaat.
 
+   **Draai elk commando synchroon op de voorgrond - nooit in de
+   achtergrond.** Gebruik geen background-uitvoering (`run_in_background`,
+   trailing `&`) voor build, jest, cypress of lint, en wacht nooit op een
+   afrondingsnotificatie van een achtergrondtaak voor je commit. Reden: jouw
+   agent-turn kan eindigen vóór die achtergrondtaak klaar is - dan blijft er
+   een verweesde run hangen én is er niets gecommit. Geef een traag commando
+   gerust een ruime timeout (tot ~10 min, het maximum) en wacht op de
+   exit-code. Gebruik ook nooit `npm test`, `npm run libs:component-tests:watch`
+   of `cypress open`: dat zijn watch/interactieve commando's die in een
+   non-TTY context blijven hangen. Cypress headless scopen doe je met
+   `npm run libs:component-tests:run -- --spec "../../libs/<pad>/**/*.cy.{ts,tsx}"`.
+
 ## Commentaar in code - strikt
 
 - **Minimaliseer nieuwe commentaren.** Voeg alleen commentaar toe waar het
